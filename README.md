@@ -1,7 +1,7 @@
-EdgeDB Command-line Tools
-=========================
+Gel Command-line Tools
+======================
 
-This repository contains `edgedb` command-line tool rewritten in rust.
+This repository contains the implementation of `gel` command-line tool.
 
 
 Install
@@ -10,13 +10,13 @@ Install
 Install the latest stable build with:
 
 ```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.edgedb.com | sh
+curl --proto '=https' --tlsv1.2 -sSf https://geldata.com/sh | sh
 ```
 
 Nightly builds can be installed with:
 
 ```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.edgedb.com | sh -s -- --nightly
+$ curl --proto '=https' --tlsv1.2 -sSf https://geldata.com/sh | sh -s -- --nightly
 ```
 
 
@@ -43,17 +43,17 @@ There are a few categories of tests in this repo:
 - `tests/func/`
   - invokes the cli binary,
   - run with: `cargo test --test=func`,
-  - requires `edgedb-server` binary in PATH,
-  - will use [test-utils](https://github.com/edgedb/test-utils/) to start the server,
+  - requires `gel-server` binary in PATH,
+  - will use [test-utils](https://github.com/geldata/test-utils/) to start the server,
 
 - `tests/shared-client-tests/`
-  - generates tests from [shared-client-testcases](https://github.com/edgedb/shared-client-testcases/),
+  - generates tests from [shared-client-testcases](https://github.com/geldata/shared-client-testcases/),
   - invokes the cli binary,
   - run with: `cargo test --package=shared-client-tests`,
-  - will write into `/home/edgedb`,
+  - will write into `/home/gel`,
 
 - `tests/portable_*.rs/`
-  - tests installation of the portable EdgeDB server,
+  - tests installation of the portable Gel server,
   - will download large packages,
   - run with: `cargo test --features=portable_tests --test=portable_X`,
   - assumes you don't have any portables installed before running it,
