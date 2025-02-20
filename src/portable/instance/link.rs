@@ -1,6 +1,7 @@
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
+use gel_tokio::builder::CertCheck;
 use ring::digest;
 
 use rustls::client::danger::HandshakeSignatureValid;
@@ -11,7 +12,7 @@ use rustls::{DigitallySignedStruct, SignatureScheme};
 
 use gel_errors::{ClientNoCredentialsError, Error, PasswordRequired};
 use gel_tokio::credentials::TlsSecurity;
-use gel_tokio::{tls, Client};
+use gel_tokio::Client;
 use gel_tokio::{Builder, Config};
 use rustyline::error::ReadlineError;
 
@@ -44,22 +45,23 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     }
 
     let mut has_branch: bool = false;
-    let config: Config = conn_params(cmd, opts, &mut has_branch).await?;
+    let mut config: Config = conn_params(cmd, opts, &mut has_branch).await?;
     let mut creds = config.as_credentials()?;
-    let root_cert_store = config.root_cert_store()?;
-    let inner = WebPkiServerVerifier::builder(Arc::new(root_cert_store)).build()?;
-    let verifier = Arc::new(InteractiveCertVerifier {
-        inner,
-        cert_out: Mutex::new(None),
-        tls_security: creds.tls_security,
-        system_ca_only: creds.tls_ca.is_none(),
-        non_interactive: cmd.non_interactive,
-        quiet: cmd.quiet,
-        trust_tls_cert: cmd.trust_tls_cert,
-    });
-    let mut config = config.with_cert_verifier(verifier.clone());
+    // let root_cert_store = config.root_cert_store()?;
+    // let inner = WebPkiServerVerifier::builder(Arc::new(root_cert_store)).build()?;
+    // let verifier = Arc::new(InteractiveCertVerifier {
+    //     inner,
+    //     cert_out: Mutex::new(None),
+    //     tls_security: creds.tls_security,
+    //     system_ca_only: creds.tls_ca.is_none(),
+    //     non_interactive: cmd.non_interactive,
+    //     quiet: cmd.quiet,
+    //     trust_tls_cert: cmd.trust_tls_cert,
+    // });
+    // let mut config = config.with_cert_verifier(verifier.clone());
     let mut connect_result = connect(&config).await;
     if let Err(e) = connect_result {
+        eprintln!("Connection error: {e:?}");
         if e.is::<PasswordRequired>() {
             let password;
 
@@ -77,19 +79,16 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
             config = config.with_password(&password);
             creds.password = Some(password);
-            if let Some(cert) = &*verifier.cert_out.lock().unwrap() {
-                let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert.to_vec()));
-                config = config.with_pem_certificates(&pem)?;
-            }
+            // if let Some(cert) = &*verifier.cert_out.lock().unwrap() {
+            //     let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert.to_vec()));
+            //     config = config.with_pem_certificates(&pem)?;
+            // }
             connect_result = Ok(connect(&config).await?);
         } else {
-            return Err(e.into());
         }
     }
-
     let mut connection: Client = connect_result.unwrap();
     let ver = get_server_version(&mut connection).await?;
-
     if !has_branch && opts.conn_options.branch.is_none() && opts.conn_options.database.is_none() {
         config = config.with_database(&get_current_branch(&mut connection).await?)?;
 
@@ -112,9 +111,9 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
         }
     }
 
-    if let Some(cert) = &*verifier.cert_out.lock().unwrap() {
-        creds.tls_ca = Some(pem::encode(&pem::Pem::new("CERTIFICATE", cert.to_vec())));
-    }
+    // if let Some(cert) = &*verifier.cert_out.lock().unwrap() {
+    //     creds.tls_ca = Some(pem::encode(&pem::Pem::new("CERTIFICATE", cert.to_vec())));
+    // }
 
     let (cred_path, instance_name) = match &cmd.name {
         Some(InstanceName::Local(name)) => (credentials::path(name)?, name.clone()),
@@ -257,13 +256,13 @@ impl ServerCertVerifier for InteractiveCertVerifier {
 
                 let mut root_store = rustls::RootCertStore::empty();
                 root_store.add(end_entity.clone())?;
-                tls::NoHostnameVerifier::new(Arc::new(root_store)).verify_server_cert(
-                    end_entity,
-                    intermediates,
-                    server_name,
-                    ocsp_response,
-                    now,
-                )?;
+                // tls::NoHostnameVerifier::new(Arc::new(root_store)).verify_server_cert(
+                //     end_entity,
+                //     intermediates,
+                //     server_name,
+                //     ocsp_response,
+                //     now,
+                // )?;
 
                 // Acquire consensus to trust the root of presented_certs chain
                 let fingerprint = digest::digest(&digest::SHA1_FOR_LEGACY_USE_ONLY, end_entity);
@@ -350,6 +349,10 @@ async fn connect(cfg: &gel_tokio::Config) -> Result<Client, Error> {
 
 async fn conn_params(cmd: &Link, opts: &Options, has_branch: &mut bool) -> anyhow::Result<Config> {
     let mut builder = options::prepare_conn_params(opts)?;
+    // If the user doesn't specify a TLS CA, we need to accept all certs
+    if cmd.conn.tls_ca_file.is_none() {
+        builder.tls_security(TlsSecurity::Insecure);
+    }
     prompt_conn_params(&opts.conn_options, &mut builder, cmd, has_branch).await
 }
 
@@ -415,7 +418,7 @@ async fn prompt_conn_params(
         if options.host.is_none() {
             builder.host(
                 &question::String::new("Specify server host")
-                    .default(config.host().unwrap_or("localhost"))
+                    .default(config.host().as_deref().unwrap_or("localhost"))
                     .ask()?,
             )?;
         };
