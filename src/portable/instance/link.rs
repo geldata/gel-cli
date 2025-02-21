@@ -126,7 +126,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
             config = config.with_password(&password);
             creds.password = Some(password);
             if let Some(pem) = &new_cert {
-                config = config.with_pem_certificates(&pem)?;
+                config = config.with_pem_certificates(pem)?;
             }
             connect_result = Ok(connect(&config).await?);
         } else {
