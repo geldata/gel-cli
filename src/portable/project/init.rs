@@ -826,14 +826,14 @@ fn ask_name(
         return Ok((default_name, false));
     }
     loop {
-        let default_name_clone = default_name.clone();
-        let q = question::String::new(concatcp!(
+        let default_name = default_name.to_string();
+        let mut q = question::String::new(concatcp!(
             "Specify the name of the ",
             BRANDING,
             " instance to use with this project"
-        ));
-        let default_name_str = default_name_clone.to_string();
-        let target_name = q.default(&default_name_str).ask()?;
+        ))
+        .default(&default_name);
+        let target_name = q.ask()?;
         let inst_name = match InstanceName::from_str(&target_name) {
             Ok(name) => name,
             Err(e) => {

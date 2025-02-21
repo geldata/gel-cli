@@ -78,7 +78,6 @@ prettytable-rs = {version="0.10.0", default-features=false}
 tempfile = "3.1.0"
 codespan-reporting = "0.11"
 termcolor = "1.1.0"
-async-listen = "0.2.0"
 sha1 = "0.10.1"
 hex = {version="0.4.3", features=["serde"]}
 textwrap = "0.16.0"
@@ -115,7 +114,6 @@ minimad = "0.13.1"
 edgedb-cli-derive = { path="edgedb-cli-derive" }
 fs-err = "3.1.0"
 pem = "3.0.3"
-rustls = { version = "0.23", features = ["ring"], default-features = false }
 tokio-stream = "0.1.11"
 futures-util = "0.3.15" # used for signals
 concolor = { version = "0.1.1", features = ["auto"] }
@@ -155,9 +153,8 @@ predicates = "3.1.2"
 pretty_assertions = "1.2.0"
 shutdown_hooks = "0.1.0"
 test-case = "3.3.0"
-openssl = "0.10.30"
 tokio = {version="1.1.0", features=["rt-multi-thread"]}
-warp = {git="https://github.com/seanmonstar/warp.git", rev="7b07043cee0ca24e912155db4e8f6d9ab7c049ed", default-features=false, features=["tls"]}
+warp = {version="0.3.1", default-features=false, features=["tls"]}
 fs_extra = "1.3.0"
 test-utils = {git="https://github.com/edgedb/test-utils.git"}
 
