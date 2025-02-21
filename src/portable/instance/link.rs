@@ -4,7 +4,9 @@ use std::sync::{Arc, Mutex};
 use gel_tokio::builder::CertCheck;
 use ring::digest;
 
-use gel_errors::{ClientNoCredentialsError, Error, ErrorKind, PasswordRequired};
+use gel_errors::{
+    ClientConnectionFailedError, ClientNoCredentialsError, Error, ErrorKind, PasswordRequired,
+};
 use gel_tokio::credentials::TlsSecurity;
 use gel_tokio::Client;
 use gel_tokio::{Builder, Config};
@@ -30,6 +32,9 @@ async fn ask_trust_cert(
     cert: Vec<u8>,
 ) -> Result<(), Error> {
     let fingerprint = digest::digest(&digest::SHA1_FOR_LEGACY_USE_ONLY, &cert);
+    let (_, cert) = x509_parser::parse_x509_certificate(&cert).map_err(|e| {
+        ClientConnectionFailedError::with_source(e).context("Failed to parse server certificate")
+    })?;
     if trust_tls_cert {
         if !quiet {
             print::warn!("Trusting unknown server certificate: {fingerprint:?}");
@@ -40,7 +45,9 @@ async fn ask_trust_cert(
         ));
     } else {
         let mut q = question::Confirm::new(format!(
-            "Unknown server certificate: {fingerprint:?}. Trust?",
+            "Unknown server certificate:\nFingerprint: {fingerprint:?}\nSubject: {}\nIssuer: {}\n\nTrust?",
+            cert.subject(),
+            cert.issuer(),
         ));
         q.default(false);
         if !q.async_ask().await? {
@@ -80,6 +87,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     let mut creds = config.as_credentials()?;
     let cert_holder: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
 
+    // When linking to a new server, we may need to trust the TLS certificate
     let non_interactive = cmd.non_interactive;
     let trust_tls_cert = cmd.trust_tls_cert;
     let quiet = cmd.quiet;
