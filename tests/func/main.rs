@@ -10,6 +10,7 @@ use std::fs;
 use std::path::Path;
 use std::process;
 use std::str::FromStr;
+use std::time::Duration;
 
 use assert_cmd::Command;
 use once_cell::sync::Lazy;
@@ -42,7 +43,7 @@ pub const BRANDING_CLI_CMD: &str = if cfg!(feature = "gel") {
 
 fn edgedb_cli_cmd() -> assert_cmd::Command {
     let mut cmd = Command::cargo_bin("edgedb").expect("binary found");
-
+    cmd.timeout(Duration::from_secs(60));
     cmd.env("CLICOLOR", "0").arg("--no-cli-update-check");
     cmd
 }
@@ -161,7 +162,6 @@ impl ServerGuard {
 
     pub fn ensure_instance_linked(&self) -> &'static str {
         const INSTANCE_NAME: &str = "_test_inst";
-
         edgedb_cli_cmd()
             .arg("instance")
             .arg("link")

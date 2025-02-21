@@ -824,16 +824,15 @@ fn ask_name(
         }
         return Ok((default_name, false));
     }
-    let mut q = question::String::new(concatcp!(
+    let q = question::String::new(concatcp!(
         "Specify the name of the ",
         BRANDING,
         " instance to use with this project"
-    ));
-    let default_name_str = default_name.to_string();
-    q.default(&default_name_str);
+    ))
+    .default(&default_name.to_string());
     loop {
         let default_name_clone = default_name.clone();
-        let mut q = question::String::new(concatcp!(
+        let q = question::String::new(concatcp!(
             "Specify the name of the ",
             BRANDING,
             " instance to use with this project"
@@ -899,8 +898,7 @@ fn ask_database(project_dir: &Path, options: &Command) -> anyhow::Result<String>
         return Ok(name.clone());
     }
     let default = directory_to_name(project_dir, "edgedb");
-    let mut q = question::String::new("Specify database name:");
-    q.default(&default);
+    let mut q = question::String::new("Specify database name:").default(&default);
     loop {
         let name = q.ask()?;
         if name.trim().is_empty() {
@@ -912,8 +910,7 @@ fn ask_database(project_dir: &Path, options: &Command) -> anyhow::Result<String>
 }
 
 fn ask_branch() -> anyhow::Result<String> {
-    let mut q = question::String::new("Specify branch name:");
-    q.default("main");
+    let mut q = question::String::new("Specify branch name:").default("main");
     loop {
         let name = q.ask()?;
         if name.trim().is_empty() {
@@ -945,8 +942,8 @@ fn ask_local_version(options: &Command) -> anyhow::Result<(Query, PackageInfo)> 
         "Specify the version of the ",
         BRANDING,
         " instance to use with this project"
-    ));
-    q.default(&default_ver);
+    ))
+    .default(&default_ver);
     loop {
         let value = q.ask()?;
         let value = value.trim();
@@ -1084,8 +1081,8 @@ fn ask_cloud_version(
         "Specify the version of the ",
         BRANDING,
         " instance to use with this project"
-    ));
-    q.default(&default_ver);
+    ))
+    .default(&default_ver);
     loop {
         let value = q.ask()?;
         let value = value.trim();

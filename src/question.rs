@@ -14,8 +14,8 @@ pub struct Numeric<'a, T: Clone + 'a> {
 }
 
 pub struct String<'a> {
-    question: &'a str,
-    default: &'a str,
+    question: Cow<'a, str>,
+    default: Cow<'a, str>,
     initial: Option<std::string::String>,
 }
 
@@ -95,13 +95,14 @@ impl<T: Clone + Send> Numeric<'static, T> {
 impl<'a> String<'a> {
     pub fn new(question: &'a str) -> String {
         String {
-            question,
-            default: "",
+            question: question.into(),
+            default: Cow::default(),
             initial: None,
         }
     }
-    pub fn default(&mut self, default: &'a str) -> &mut Self {
-        self.default = default;
+    #[must_use]
+    pub fn default<'b: 'a>(mut self, default: &'b str) -> Self {
+        self.default = default.into();
         self
     }
     pub fn ask(&mut self) -> anyhow::Result<std::string::String> {
@@ -115,21 +116,23 @@ impl<'a> String<'a> {
             .initial
             .as_ref()
             .map(|s| &s[..])
-            .unwrap_or(self.default);
+            .unwrap_or(self.default.as_ref());
         let val = editor.readline_with_initial("> ", (initial, ""))?;
         let mut val = val.trim();
         if val.is_empty() {
-            val = self.default;
+            val = self.default.as_ref();
         }
         self.initial = Some(val.into());
         Ok(val.into())
     }
-}
 
-impl String<'static> {
-    #[allow(dead_code)]
-    pub async fn async_ask(mut self) -> anyhow::Result<std::string::String> {
-        spawn_blocking(move || self.ask()).await?
+    pub async fn async_ask(self) -> anyhow::Result<std::string::String> {
+        let mut question: String<'static> = String {
+            question: self.question.to_string().into(),
+            default: self.default.to_string().into(),
+            initial: self.initial.map(|s| s.to_string()),
+        };
+        spawn_blocking(move || question.ask()).await?
     }
 }
 
@@ -200,7 +203,6 @@ impl<'a> Confirm<'a> {
 }
 
 impl Confirm<'static> {
-    #[allow(dead_code)]
     pub async fn async_ask(self) -> anyhow::Result<bool> {
         spawn_blocking(move || self.ask()).await?
     }

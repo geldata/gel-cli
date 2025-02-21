@@ -29,6 +29,11 @@ use crate::question;
 use crate::tty_password;
 
 pub fn run(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
+    run_async(cmd, opts)
+}
+
+#[tokio::main(flavor = "current_thread")]
+pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     if matches!(cmd.name, Some(InstanceName::Cloud { .. })) {
         anyhow::bail!(
             "{BRANDING_CLOUD} instances cannot be linked\
@@ -39,7 +44,7 @@ pub fn run(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     }
 
     let mut has_branch: bool = false;
-    let config: Config = conn_params(cmd, opts, &mut has_branch)?;
+    let config: Config = conn_params(cmd, opts, &mut has_branch).await?;
     let mut creds = config.as_credentials()?;
     let root_cert_store = config.root_cert_store()?;
     let inner = WebPkiServerVerifier::builder(Arc::new(root_cert_store)).build()?;
@@ -53,18 +58,19 @@ pub fn run(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
         trust_tls_cert: cmd.trust_tls_cert,
     });
     let mut config = config.with_cert_verifier(verifier.clone());
-    let mut connect_result = connect(&config);
+    let mut connect_result = connect(&config).await;
     if let Err(e) = connect_result {
         if e.is::<PasswordRequired>() {
             let password;
 
             if opts.conn_options.password_from_stdin {
-                password = tty_password::read_stdin()?
+                password = tty_password::read_stdin_async().await?
             } else if !cmd.non_interactive {
-                password = tty_password::read(format!(
+                password = tty_password::read_async(format!(
                     "Password for '{}': ",
                     config.user().escape_default()
-                ))?;
+                ))
+                .await?;
             } else {
                 return Err(e.into());
             }
@@ -75,17 +81,17 @@ pub fn run(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                 let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert.to_vec()));
                 config = config.with_pem_certificates(&pem)?;
             }
-            connect_result = Ok(connect(&config)?);
+            connect_result = Ok(connect(&config).await?);
         } else {
             return Err(e.into());
         }
     }
 
     let mut connection: Client = connect_result.unwrap();
-    let ver = get_server_version(&mut connection)?;
+    let ver = get_server_version(&mut connection).await?;
 
     if !has_branch && opts.conn_options.branch.is_none() && opts.conn_options.database.is_none() {
-        config = config.with_database(&get_current_branch(&mut connection)?)?;
+        config = config.with_database(&get_current_branch(&mut connection).await?)?;
 
         eprintln!(
             "using the default {} '{}'",
@@ -125,7 +131,8 @@ pub fn run(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                     let name =
                         question::String::new("Specify a new instance name for the remote server")
                             .default(&default)
-                            .ask()?;
+                            .async_ask()
+                            .await?;
                     if !is_valid_local_instance_name(&name) {
                         print::error!(
                             "Instance name must be a valid identifier, \
@@ -151,13 +158,13 @@ pub fn run(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                 cred_path.display()
             ));
             q.default(false);
-            if !q.ask()? {
+            if !q.async_ask().await? {
                 anyhow::bail!("Canceled.")
             }
         }
     }
 
-    credentials::write(&cred_path, &creds)?;
+    credentials::write_async(&cred_path, &creds).await?;
     if !cmd.quiet {
         eprintln!(
             "{} To connect run:\
@@ -333,7 +340,6 @@ fn gen_default_instance_name(input: impl fmt::Display) -> String {
     name
 }
 
-#[tokio::main(flavor = "current_thread")]
 async fn connect(cfg: &gel_tokio::Config) -> Result<Client, Error> {
     //Connection::connect(cfg).await
     let client = gel_tokio::Client::new(cfg);
@@ -342,13 +348,11 @@ async fn connect(cfg: &gel_tokio::Config) -> Result<Client, Error> {
     Ok(client)
 }
 
-#[tokio::main(flavor = "current_thread")]
 async fn conn_params(cmd: &Link, opts: &Options, has_branch: &mut bool) -> anyhow::Result<Config> {
     let mut builder = options::prepare_conn_params(opts)?;
     prompt_conn_params(&opts.conn_options, &mut builder, cmd, has_branch).await
 }
 
-#[tokio::main(flavor = "current_thread")]
 async fn get_server_version(connection: &mut Client) -> anyhow::Result<Build> {
     let ver: String = connection
         .query_required_single("SELECT sys::get_version_as_str()", &())
@@ -356,7 +360,6 @@ async fn get_server_version(connection: &mut Client) -> anyhow::Result<Build> {
     ver.parse()
 }
 
-#[tokio::main(flavor = "current_thread")]
 async fn get_current_branch(connection: &mut Client) -> anyhow::Result<String> {
     let branch = connection
         .query_required_single::<String, _>("select sys::get_current_database()", &())
