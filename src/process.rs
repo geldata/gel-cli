@@ -633,14 +633,14 @@ impl Native {
                     "Received TERM signal. Propagating to {}...",
                     self.description
                 );
-                if self.try_stop_process().await.is_err() {
-                    if unsafe { libc::kill(pid as i32, SIGTERM) } != 0 {
-                        log::debug!(
-                            "Error stopping {}: {}",
-                            self.description,
-                            io::Error::last_os_error()
-                        );
-                    }
+                if self.try_stop_process().await.is_err()
+                    && unsafe { libc::kill(pid as i32, SIGTERM) } != 0
+                {
+                    log::debug!(
+                        "Error stopping {}: {}",
+                        self.description,
+                        io::Error::last_os_error()
+                    );
                 }
             }
         };

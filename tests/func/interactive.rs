@@ -114,10 +114,10 @@ fn force_database_error() {
     let mut cmd = SERVER.custom_interactive(|cmd| {
         cmd.arg("--database=error_test");
     });
-    cmd.exp_string(&format!("error_test>")).unwrap();
+    cmd.exp_string("error_test>").unwrap();
     cmd.send_line("configure current database reset force_database_error;")
         .unwrap();
-    cmd.exp_string(&format!("error_test>")).unwrap();
+    cmd.exp_string("error_test>").unwrap();
 }
 
 #[test]

@@ -24,13 +24,13 @@ pub fn show_credentials(options: &Options, c: &Command) -> anyhow::Result<()> {
         }
         match creds.tls_security {
             TlsSecurity::Strict => {
-                url.set_query(Some(&format!("tls_security=strict")));
+                url.set_query(Some("tls_security=strict"));
             }
             TlsSecurity::Insecure => {
-                url.set_query(Some(&format!("tls_security=insecure")));
+                url.set_query(Some("tls_security=insecure"));
             }
             TlsSecurity::NoHostVerification => {
-                url.set_query(Some(&format!("tls_security=no_host_verification")));
+                url.set_query(Some("tls_security=no_host_verification"));
             }
             _ => {}
         }

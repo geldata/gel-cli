@@ -233,7 +233,7 @@ impl CloudClient {
                 "error decoding response body".to_string()
             })
         } else {
-            let code = resp.status().clone();
+            let code = resp.status();
             let full = resp.text().await?;
             Err(anyhow::anyhow!(serde_json::from_str(&full)
                 .map(|mut e: ErrorResponse| {

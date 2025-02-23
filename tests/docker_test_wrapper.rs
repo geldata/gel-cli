@@ -90,8 +90,7 @@ extern "C" fn delete_docker_image() {
 }
 
 fn dockerfile() -> String {
-    format!(
-        r###"
+    r###"
         FROM ubuntu:jammy
         ENV DEBIAN_FRONTEND=noninteractive
         RUN apt-get update && apt-get install -y \
@@ -105,7 +104,7 @@ fn dockerfile() -> String {
         ADD ./tests /tests
         RUN chown -R user1 /tests/proj
     "###
-    )
+    .to_string()
 }
 
 #[test_case("portable_smoke")]

@@ -297,7 +297,7 @@ impl State {
             Some(gel_tokio::InstanceName::Local(name)) => {
                 format!("{name}:{current_database}",)
             }
-            _ => format!("{current_database}"),
+            _ => current_database.to_string(),
         };
 
         let lang = match self.input_language {
@@ -374,7 +374,7 @@ impl State {
                 let mut buf = BytesMut::with_capacity(self.edgeql_state.data.len());
                 codec.encode(&mut buf, &value)?;
                 self.edgeql_state = EdgeqlState {
-                    typedesc_id: desc.id().clone(),
+                    typedesc_id: *desc.id(),
                     data: buf.freeze(),
                 };
                 conn.set_state(self.edgeql_state.clone());
@@ -403,7 +403,7 @@ impl State {
             .decode(&self.edgeql_state.data[..])
             .map_err(ProtocolEncodingError::with_source)?;
 
-        Ok((desc.id().clone(), value))
+        Ok((*desc.id(), value))
     }
 }
 

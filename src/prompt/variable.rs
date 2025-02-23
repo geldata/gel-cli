@@ -647,7 +647,7 @@ fn format_parsing_error(e: nom::Err<ParsingError>) -> String {
                 ParsingError::Mistake {
                     kind: _kind,
                     description,
-                } => format!("{description}"),
+                } => description.to_string(),
                 ParsingError::External {
                     description,
                     error,

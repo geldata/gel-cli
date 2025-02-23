@@ -411,7 +411,7 @@ impl TryFrom<syn::Expr> for Case {
                     _ => {
                         return Err(syn::Error::new_spanned(
                             s,
-                            format!("undefined case conversion"),
+                            "undefined case conversion".to_string(),
                         ));
                     }
                 };

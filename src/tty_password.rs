@@ -25,5 +25,5 @@ pub async fn read_async(prompt: impl AsRef<str>) -> anyhow::Result<String> {
 }
 
 pub async fn read_stdin_async() -> anyhow::Result<String> {
-    tokio::task::spawn_blocking(|| read_stdin()).await?
+    tokio::task::spawn_blocking(read_stdin).await?
 }

@@ -19,11 +19,8 @@ pub async fn common(
     use Common::*;
 
     // match commands that don't need connection
-    match cmd {
-        Branch(cmd) => {
-            return branch::run(&cmd.subcommand, options, conn).await;
-        }
-        _ => {}
+    if let Branch(cmd) = cmd {
+        return branch::run(&cmd.subcommand, options, conn).await;
     }
 
     // connect

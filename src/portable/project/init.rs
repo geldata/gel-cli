@@ -427,6 +427,7 @@ fn do_init(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn do_cloud_init(
     name: String,
     org: String,
@@ -824,12 +825,6 @@ fn ask_name(
         }
         return Ok((default_name, false));
     }
-    let q = question::String::new(concatcp!(
-        "Specify the name of the ",
-        BRANDING,
-        " instance to use with this project"
-    ))
-    .default(&default_name.to_string());
     loop {
         let default_name_clone = default_name.clone();
         let q = question::String::new(concatcp!(

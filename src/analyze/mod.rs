@@ -141,7 +141,7 @@ pub async fn command(cli: &mut Connection, options: &Analyze) -> anyhow::Result<
     } else {
         let jd = &mut serde_json::Deserializer::from_str(&data);
         let output = serde_path_to_error::deserialize(jd)
-            .with_context(|| format!("parsing explain output"))?;
+            .with_context(|| "parsing explain output".to_string())?;
         let output = contexts::preprocess(output);
 
         render_explain(&output)?;

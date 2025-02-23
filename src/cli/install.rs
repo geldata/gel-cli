@@ -155,11 +155,11 @@ fn _run(cmd: &Command) -> anyhow::Result<()> {
 
     gen_completions::write_completions_home()?;
 
-    if settings.modify_path {
-        #[cfg(windows)]
-        {
-            use std::env::join_paths;
+    #[cfg(windows)]
+    {
+        use std::env::join_paths;
 
+        if settings.modify_path {
             windows_augment_path(|orig_path| {
                 if orig_path.iter().any(|p| p == &settings.installation_path) {
                     return None;
@@ -174,21 +174,22 @@ fn _run(cmd: &Command) -> anyhow::Result<()> {
                 )
             })?;
         }
-        if cfg!(unix) {
-            let line = format!(
-                "\nexport PATH=\"{}:$PATH\"",
-                settings.installation_path.display()
-            );
-            for path in &settings.rc_files {
-                ensure_line(path, &line)
-                    .with_context(|| format!("failed to update profile file {path:?}"))?;
-            }
-            if let Some(dir) = settings.env_file.parent() {
-                fs::create_dir_all(dir).with_context(|| format!("failed to create {dir:?}"))?;
-            }
-            fs::write(&settings.env_file, line + "\n")
-                .with_context(|| format!("failed to write env file {:?}", settings.env_file))?;
+    }
+
+    if settings.modify_path && cfg!(unix) {
+        let line = format!(
+            "\nexport PATH=\"{}:$PATH\"",
+            settings.installation_path.display()
+        );
+        for path in &settings.rc_files {
+            ensure_line(path, &line)
+                .with_context(|| format!("failed to update profile file {path:?}"))?;
         }
+        if let Some(dir) = settings.env_file.parent() {
+            fs::create_dir_all(dir).with_context(|| format!("failed to create {dir:?}"))?;
+        }
+        fs::write(&settings.env_file, line + "\n")
+            .with_context(|| format!("failed to write env file {:?}", settings.env_file))?;
     }
 
     let base = home_dir()?.join(".edgedb");

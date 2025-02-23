@@ -481,7 +481,7 @@ impl Connection {
             .decode(&self.state.data[..])
             .map_err(ProtocolEncodingError::with_source)?;
 
-        Ok((desc.id().clone(), value))
+        Ok((*desc.id(), value))
     }
     pub fn get_state(&self) -> &State {
         &self.state

@@ -995,7 +995,7 @@ fn substitute_placeholders<'x>(
                 .text
                 .strip_prefix(r"\(")
                 .and_then(|item| item.strip_suffix(')'))
-                .ok_or_else(|| bug::error(format!("bad substitution token")))?;
+                .ok_or_else(|| bug::error("bad substitution token".to_string()))?;
             let expr = placeholders
                 .get(name)
                 .ok_or_else(|| bug::error(format!("missing input for {name:?} placeholder")))?;
