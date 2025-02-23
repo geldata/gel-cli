@@ -648,19 +648,9 @@ pub fn check_executables() {
     log::debug!("new_executable: {new_executable:?}");
 
     if exe_path.file_name().unwrap() == BRANDING_CLI_CMD_ALT_FILE {
-        // TODO: When we are ready to release a stable renamed
-        // version, remove this message and turn on the one below.
-        log::warn!(
-            "EdgeDB is in the process of being renamed to {BRANDING}. \
-             This nightly version of the CLI reflects that. We apologize for \
-             any confusion or inconvenience. \
-             This warning may be silenced by running the new \
-             `{BRANDING_CLI_CMD_FILE}` executable."
-        );
-
         if new_executable.exists() {
-            // log::warn!("`{exe_path:?}` is the old name for the `{BRANDING_CLI_CMD_FILE}` executable. \
-            // Please update your scripts (and muscle memory) to use the new executable at `{new_executable:?}`.");
+            log::warn!("`{exe_path:?}` is the old name for the `{BRANDING_CLI_CMD_FILE}` executable. \
+            Please update your scripts (and muscle memory) to use the new executable at `{new_executable:?}`.");
         } else {
             log::warn!(
                 "`{exe_path:?}` is the old name for the `{BRANDING_CLI_CMD_FILE}` executable, but \
