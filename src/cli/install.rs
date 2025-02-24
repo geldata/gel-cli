@@ -59,6 +59,9 @@ pub struct Command {
     /// Installation is run from `self upgrade` command
     #[arg(long, hide = true)]
     pub upgrade: bool,
+
+    #[arg(long, hide=true, value_hint=clap::ValueHint::AnyPath)]
+    pub installation_path: Option<PathBuf>,
 }
 
 pub struct Settings {
@@ -114,7 +117,10 @@ fn _run(cmd: &Command) -> anyhow::Result<()> {
             _ => {}
         }
     }
-    let installation_path = binary_path()?.parent().unwrap().to_owned();
+    let installation_path = match &cmd.installation_path {
+        Some(path) => path.clone(),
+        None => binary_path()?.parent().unwrap().to_owned(),
+    };
     let mut settings = Settings {
         rc_files: get_rc_files()?,
         system: false,
