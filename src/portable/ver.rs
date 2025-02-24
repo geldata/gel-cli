@@ -302,10 +302,20 @@ impl Filter {
 impl Specific {
     pub fn is_compatible(&self, other: &Specific) -> bool {
         use MinorVersion::*;
+
+        if self.major != other.major {
+            return false;
+        }
+
+        // when major versions match
         match (&self.minor, &other.minor) {
-            (Minor(_), Minor(_)) if self.major == other.major => true,
-            // all dev/alpha/rc are incompatible as well as different major
-            // but fully matching versions are always compatible
+            // rc can be upgraded to any rc or minor
+            (Rc(_), Rc(_) | Minor(_)) => true,
+
+            // minor can be upgraded to any minor
+            (Minor(_), Minor(_)) => true,
+
+            // all other cases: upgrade only in exact match
             _ => self == other,
         }
     }
@@ -440,4 +450,31 @@ fn filter() {
             exact: false,
         }
     );
+}
+
+#[test]
+fn is_compatible() {
+    assert!(Specific::from_str("6.0-rc.3")
+        .unwrap()
+        .is_compatible(&Specific::from_str("6.0").unwrap()));
+
+    assert!(Specific::from_str("6.0-rc.3")
+        .unwrap()
+        .is_compatible(&Specific::from_str("6.0-rc.2").unwrap()));
+
+    assert!(Specific::from_str("6.0-rc.2")
+        .unwrap()
+        .is_compatible(&Specific::from_str("6.0-rc.3").unwrap()));
+
+    assert!(!Specific::from_str("5.0-rc.2")
+        .unwrap()
+        .is_compatible(&Specific::from_str("6.0-rc.3").unwrap()));
+
+    assert!(Specific::from_str("6.0")
+        .unwrap()
+        .is_compatible(&Specific::from_str("6.1").unwrap()));
+
+    assert!(Specific::from_str("6.2")
+        .unwrap()
+        .is_compatible(&Specific::from_str("6.1").unwrap()));
 }

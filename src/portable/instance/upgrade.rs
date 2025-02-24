@@ -222,7 +222,7 @@ fn upgrade_local_cmd(cmd: &Command, name: &str) -> anyhow::Result<()> {
     // we rely on presence of the version specifying options instead to
     // define how we want upgrade to be performed. This is mostly useful
     // for tests.
-    if pkg_ver.is_compatible(&inst_ver) && !(cmd.force && ver_option) && !cmd.force_dump_restore {
+    if inst_ver.is_compatible(&pkg_ver) && !(cmd.force && ver_option) && !cmd.force_dump_restore {
         upgrade_compatible(inst, pkg)
     } else {
         upgrade_incompatible(inst, pkg, cmd.non_interactive)
