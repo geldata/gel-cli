@@ -35,7 +35,7 @@ fn stdin_password() {
 
 #[test]
 fn strict_version_check() {
-    Command::cargo_bin("edgedb")
+    Command::cargo_bin("gel")
         .expect("binary found")
         .env("EDGEDB_RUN_VERSION_CHECK", "strict")
         .arg("info")
