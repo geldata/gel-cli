@@ -1413,9 +1413,9 @@ dependencies = [
 
 [[package]]
 name = "gel-auth"
-version = "0.1.0"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dd0d18b7a38096ec70d954de1182efe4beffadb204db20a26945a1692a23af5"
+checksum = "9064f45a2cc400f4cfb2965ba43c17e1d0e6adc13c0e064dd5f84c90045d2966"
 dependencies = [
  "base64 0.22.1",
  "constant_time_eq",
