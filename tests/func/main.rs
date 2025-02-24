@@ -96,7 +96,7 @@ fn version() {
 
 impl ServerGuard {
     pub fn default_branch(&self) -> &'static str {
-        if self.0.version_major >= 5 {
+        if self.0.version_major.is_at_least(5) {
             "main"
         } else {
             "edgedb"
