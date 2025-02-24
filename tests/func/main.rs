@@ -42,7 +42,7 @@ pub const BRANDING_CLI_CMD: &str = if cfg!(feature = "gel") {
 };
 
 fn edgedb_cli_cmd() -> assert_cmd::Command {
-    let mut cmd = Command::cargo_bin("edgedb").expect("binary found");
+    let mut cmd = Command::cargo_bin("gel").expect("binary found");
     cmd.timeout(Duration::from_secs(60));
     cmd.env("CLICOLOR", "0").arg("--no-cli-update-check");
     cmd
@@ -127,7 +127,7 @@ impl ServerGuard {
         use assert_cmd::cargo::CommandCargoExt;
         use rexpect::session::spawn_command;
 
-        let mut cmd = process::Command::cargo_bin("edgedb").expect("binary found");
+        let mut cmd = process::Command::cargo_bin("gel").expect("binary found");
         cmd.arg("--no-cli-update-check");
         cmd.arg("--admin");
         cmd.arg("--unix-path").arg(&self.0.info.socket_dir);
@@ -142,7 +142,7 @@ impl ServerGuard {
         use assert_cmd::cargo::CommandCargoExt;
         use rexpect::session::spawn_command;
 
-        let mut cmd = process::Command::cargo_bin("edgedb").expect("binary found");
+        let mut cmd = process::Command::cargo_bin("gel").expect("binary found");
         cmd.arg("--no-cli-update-check");
         cmd.arg("--admin");
         cmd.arg("--unix-path").arg(&self.0.info.socket_dir);
