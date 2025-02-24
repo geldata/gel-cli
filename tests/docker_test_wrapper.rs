@@ -100,7 +100,8 @@ fn dockerfile() -> String {
             --shell /bin/bash --ingroup users --gecos "Test User" \
             user1
         RUN mkdir /home/edgedb && chown user1 /home/edgedb
-        ADD ./edgedb /usr/bin/edgedb
+        ADD ./gel /usr/bin/edgedb
+        ADD ./gel /usr/bin/gel
         ADD ./tests /tests
         RUN chown -R user1 /tests/proj
     "###
