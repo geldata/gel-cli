@@ -303,28 +303,21 @@ impl Specific {
     pub fn is_compatible(&self, other: &Specific) -> bool {
         use MinorVersion::*;
 
-        if self.major == other.major {
-            match &self.minor {
-                // rc can be upgraded to
-                MinorVersion::Rc(self_rc) => match &other.minor {
-                    // a following rc
-                    Rc(other_rc) => return self_rc <= other_rc,
-                    // any minor
-                    Minor(_) => return true,
-                    _ => {}
-                },
-
-                // minor can be upgraded to
-                MinorVersion::Minor(self_minor) => match &other.minor {
-                    // following minor
-                    Minor(other_minor) => return self_minor <= other_minor,
-                    _ => {}
-                },
-                _ => (),
-            }
+        if self.major != other.major {
+            return false;
         }
 
-        self == other
+        // when major versions match
+        match (&self.minor, &other.minor) {
+            // rc can be upgraded to any rc or minor
+            (Rc(_), Rc(_) | Minor(_)) => true,
+
+            // minor can be upgraded to any minor
+            (Minor(_), Minor(_)) => true,
+
+            // all other cases: upgrade only in exact match
+            _ => self == other,
+        }
     }
 }
 
@@ -465,7 +458,7 @@ fn is_compatible() {
         .unwrap()
         .is_compatible(&Specific::from_str("6.0").unwrap()));
 
-    assert!(!Specific::from_str("6.0-rc.3")
+    assert!(Specific::from_str("6.0-rc.3")
         .unwrap()
         .is_compatible(&Specific::from_str("6.0-rc.2").unwrap()));
 
@@ -481,7 +474,7 @@ fn is_compatible() {
         .unwrap()
         .is_compatible(&Specific::from_str("6.1").unwrap()));
 
-    assert!(!Specific::from_str("6.2")
+    assert!(Specific::from_str("6.2")
         .unwrap()
         .is_compatible(&Specific::from_str("6.1").unwrap()));
 }
