@@ -327,7 +327,7 @@ fn upgrade_local(
             // since some selector like `--to-latest` was specified we assume
             // user want to treat this upgrade as incompatible and do the
             // upgrade. This is mostly for testing.
-            if pkg_ver.is_compatible(&inst_ver) && !cmd.force {
+            if inst_ver.is_compatible(&pkg_ver) && !cmd.force {
                 upgrade::upgrade_compatible(inst, pkg)?;
             } else {
                 migrations::upgrade_check::to_version(&pkg, project)?;
