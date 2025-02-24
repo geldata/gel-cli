@@ -7,7 +7,7 @@ use fn_error_context::context;
 use fs_err as fs;
 use indicatif::{ProgressBar, ProgressStyle};
 
-use crate::platform::{binary_path, current_exe, old_binary_path, tmp_file_path};
+use crate::platform::{binary_path, current_exe, home_dir, tmp_file_path};
 use crate::portable::platform;
 use crate::portable::repository::{self, download, Channel};
 use crate::portable::ver;
@@ -46,11 +46,7 @@ pub struct Command {
 }
 
 pub fn run(cmd: &Command) -> anyhow::Result<()> {
-    let path = binary_path()?;
-    if !_can_upgrade(&path)? {
-        anyhow::bail!("Only binary installed at {:?} can be upgraded", path);
-    }
-    upgrade(cmd, path)
+    upgrade(cmd, _get_upgrade_path()?)
 }
 
 fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
@@ -118,6 +114,8 @@ fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
         .arg("cli")
         .arg("install")
         .arg("--upgrade")
+        .arg("--installation-path")
+        .arg(down_dir)
         .no_proxy()
         .run()?;
     fs::remove_file(&tmp_path).ok();
@@ -131,26 +129,16 @@ fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
 }
 
 pub fn can_upgrade() -> bool {
-    binary_path()
-        .and_then(|p| _can_upgrade(&p))
-        .unwrap_or_else(|e| {
-            log::info!("Cannot compare current binary to default: {}", e);
-            false
-        })
+    _get_upgrade_path().is_ok()
 }
 
-fn _can_upgrade(path: &Path) -> anyhow::Result<bool> {
+fn _get_upgrade_path() -> anyhow::Result<PathBuf> {
     let exe_path = current_exe()?;
-    if exe_path == path {
-        return Ok(true);
+    let home = home_dir()?;
+    if !exe_path.starts_with(&home) {
+        anyhow::bail!("Only binary installed under {:?} can be upgraded", home);
     }
-    let Some(current_bin_path) = exe_path.parent() else {
-        return Ok(false);
-    };
-    let Ok(old_binary_path) = old_binary_path() else {
-        return Ok(false);
-    };
-    Ok(current_bin_path == old_binary_path)
+    Ok(exe_path)
 }
 
 #[context("error unpacking {:?} -> {:?}", src, tgt)]
