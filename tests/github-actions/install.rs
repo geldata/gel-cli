@@ -57,7 +57,7 @@ fn github_action_install() -> anyhow::Result<()> {
             .and(path(plat))
             .and(path("edgedb-cli"))
             .and(warp::filters::path::end())
-            .and(warp::fs::file(env!("CARGO_BIN_EXE_edgedb"))));
+            .and(warp::fs::file(env!("CARGO_BIN_EXE_gel"))));
 
     let certs_serv = certs.clone();
     let server = async {
@@ -78,8 +78,8 @@ fn github_action_install() -> anyhow::Result<()> {
     std::thread::sleep(std::time::Duration::new(10, 0));
 
     if cfg!(windows) {
-        fs::copy(env!("CARGO_BIN_EXE_edgedb"), "edgedb-init.exe")?;
-        Command::new(".\\edgedb-init.exe")
+        fs::copy(env!("CARGO_BIN_EXE_gel"), "gel-init.exe")?;
+        Command::new(".\\gel-init.exe")
             .arg("-y")
             .assert()
             .context("edgedb-init", "self install by command name")
@@ -107,9 +107,9 @@ fn github_action_install() -> anyhow::Result<()> {
     let bin_dir =
         dirs::executable_dir().unwrap_or(dirs::data_dir().unwrap().join("edgedb").join("bin"));
     let edgedb = if cfg!(windows) {
-        bin_dir.join("edgedb.exe")
+        bin_dir.join("gel.exe")
     } else {
-        bin_dir.join("edgedb")
+        bin_dir.join("gel")
     };
 
     Command::new(&edgedb)

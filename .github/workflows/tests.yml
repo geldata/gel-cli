@@ -133,10 +133,11 @@ jobs:
           override: true
 
       - run: |
-          cargo build --workspace --test=${{ matrix.test }} --bin edgedb --features portable_tests
+          cargo build --workspace --test=${{ matrix.test }} --bin gel --features portable_tests
 
       - run: |
-          sudo cp target/debug/edgedb /usr/local/bin/
+          sudo cp target/debug/gel /usr/local/bin/gel
+          sudo cp target/debug/gel /usr/local/bin/edgedb
           mkdir home_edgedb
           sudo mv home_edgedb /Users/edgedb
 
