@@ -103,9 +103,7 @@ impl Context {
     pub fn add_bin(self) -> anyhow::Result<Self> {
         self.add_file_mode(
             "gel",
-            fs::read(
-                env::var("GEL_TEST_BIN_EXE").unwrap_or(env!("CARGO_BIN_EXE_gel").into()),
-            )?,
+            fs::read(env::var("GEL_TEST_BIN_EXE").unwrap_or(env!("CARGO_BIN_EXE_gel").into()))?,
             0o755,
         )
     }
