@@ -9,7 +9,7 @@ use tokio::task;
 
 use tokio_stream::StreamExt;
 
-use gel_errors::UnknownDatabaseError;
+use gel_errors::{UnknownDatabaseError, UnsupportedFeatureError};
 
 use crate::commands::list_databases::get_databases;
 use crate::commands::parser::{Dump as DumpOptions, DumpFormat};
@@ -17,6 +17,7 @@ use crate::commands::Options;
 use crate::connect::Connection;
 use crate::hint::HintExt;
 use crate::platform::tmp_file_name;
+use crate::portable::ver;
 
 type Output = Box<dyn AsyncWrite + Unpin + Send>;
 
@@ -175,6 +176,21 @@ async fn dump_db(
     Ok(())
 }
 
+fn _has_config_dump_bug(v: ver::Specific) -> bool {
+    // Does the version potentially have the config dump problem where
+    // DESCRIBE INSTANCE CONFIG fails if the auth extension is loaded?
+    // It is fixed by #8379.
+    // (This probably gives a false negative on one 7.0 nightly, but
+    // oh well.)
+    if v.major != 6 {
+        return false;
+    }
+    match v.minor {
+        ver::MinorVersion::Minor(m) => m == 0,
+        _ => true,
+    }
+}
+
 pub async fn dump_all(
     cli: &mut Connection,
     options: &Options,
@@ -182,9 +198,23 @@ pub async fn dump_all(
     include_secrets: bool,
 ) -> Result<(), anyhow::Error> {
     let databases = get_databases(cli).await?;
-    let config: String = cli
+    let version = cli.get_version().await?.specific();
+    let config_res = cli
         .query_required_single("DESCRIBE SYSTEM CONFIG", &())
-        .await?;
+        .await;
+    // There was a bug in many 6.x nightlies and in 6.0 final that
+    // broke dump --all (and thus upgrade), because the config
+    // couldn't be dumped. Detect it and do the best we can.
+    let config = match config_res {
+        Err(e) if _has_config_dump_bug(version) && e.is::<UnsupportedFeatureError>() => {
+            eprintln!(
+                "Warning: Dumping the system configuration hit a known bug in 6.0 nightlies."
+            );
+            eprintln!("Warning: The dump will omit system configuration.");
+            "# SYSTEM CONFIGURATION OMITTED DUE TO DUMP BUG".to_string()
+        }
+        r => r?,
+    };
     let roles: String = cli.query_required_single("DESCRIBE ROLES", &()).await?;
 
     fs::create_dir_all(dir).await?;
