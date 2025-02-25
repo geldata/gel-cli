@@ -75,7 +75,7 @@ impl RemoteStatus {
             version: Some(cloud_instance.version.clone()),
             connection: None,
             instance_status: Some(cloud_instance.status.clone()),
-            location: format!("\u{2601}\u{FE0F} {}", cloud_instance.region),
+            location: format!("\u{2601} {}", cloud_instance.region),
         })
     }
 }
