@@ -12,6 +12,7 @@ pub use crate::error_display::print_query_warning as warning;
 pub use crate::error_display::print_query_warnings as warnings;
 pub use crate::msg;
 pub use color::Highlight;
+pub use color::TERMINAL_LUMA;
 
 use std::convert::Infallible;
 use std::error::Error;
@@ -657,6 +658,10 @@ macro_rules! success {
     ($($args:tt)*) => {
         $crate::print::write_success(format_args!($($args)*))
     }
+}
+
+pub fn init_colors() {
+    once_cell::sync::Lazy::force(&TERMINAL_LUMA);
 }
 
 pub use crate::{error, success, warn};
