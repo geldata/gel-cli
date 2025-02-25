@@ -114,6 +114,7 @@ fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
         .arg("cli")
         .arg("install")
         .arg("--upgrade")
+        .arg("--no-modify-path")
         .arg("--installation-path")
         .arg(down_dir)
         .no_proxy()
