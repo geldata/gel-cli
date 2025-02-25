@@ -792,7 +792,7 @@ impl InteractiveMigration<'_> {
                 Please retry with different answers.\n\n \
                 Debug info:\n\n {e}"
             ),
-            None => String::from(
+            None => format!(
                 "{BRANDING} could not resolve migration with the \
             provided answers. Please retry with different answers.",
             ),
