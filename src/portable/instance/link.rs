@@ -1,17 +1,14 @@
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
+use gel_tokio::builder::CertCheck;
 use ring::digest;
 
-use rustls::client::danger::HandshakeSignatureValid;
-use rustls::client::danger::{ServerCertVerified, ServerCertVerifier};
-use rustls::client::WebPkiServerVerifier;
-use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{DigitallySignedStruct, SignatureScheme};
-
-use gel_errors::{ClientNoCredentialsError, Error, PasswordRequired};
+use gel_errors::{
+    ClientConnectionFailedError, ClientNoCredentialsError, Error, ErrorKind, PasswordRequired,
+};
 use gel_tokio::credentials::TlsSecurity;
-use gel_tokio::{tls, Client};
+use gel_tokio::Client;
 use gel_tokio::{Builder, Config};
 use rustyline::error::ReadlineError;
 
@@ -27,6 +24,41 @@ use crate::portable::ver::Build;
 use crate::print::{self, Highlight};
 use crate::question;
 use crate::tty_password;
+
+async fn ask_trust_cert(
+    non_interactive: bool,
+    trust_tls_cert: bool,
+    quiet: bool,
+    cert: Vec<u8>,
+) -> Result<(), Error> {
+    let fingerprint = digest::digest(&digest::SHA1_FOR_LEGACY_USE_ONLY, &cert);
+    let (_, cert) = x509_parser::parse_x509_certificate(&cert).map_err(|e| {
+        ClientConnectionFailedError::with_source(e).context("Failed to parse server certificate")
+    })?;
+    if trust_tls_cert {
+        if !quiet {
+            print::warn!("Trusting unknown server certificate: {fingerprint:?}");
+        }
+    } else if non_interactive {
+        return Err(gel_errors::ClientConnectionFailedError::with_message(
+            format!("Unknown server certificate: {fingerprint:?}",),
+        ));
+    } else {
+        let mut q = question::Confirm::new(format!(
+            "Unknown server certificate:\nFingerprint: {fingerprint:?}\nSubject: {}\nIssuer: {}\n\nTrust?",
+            cert.subject(),
+            cert.issuer(),
+        ));
+        q.default(false);
+        if !q.async_ask().await? {
+            return Err(gel_errors::ClientConnectionFailedError::with_message(
+                format!("Unknown server certificate: {fingerprint:?}",),
+            ));
+        }
+    }
+
+    Ok(())
+}
 
 pub fn run(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     run_async(cmd, opts)
@@ -44,22 +76,38 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     }
 
     let mut has_branch: bool = false;
-    let config: Config = conn_params(cmd, opts, &mut has_branch).await?;
+
+    let mut builder = options::prepare_conn_params(opts)?;
+    // If the user doesn't specify a TLS CA, we need to accept all certs
+    if cmd.conn.tls_ca_file.is_none() {
+        builder.tls_security(TlsSecurity::Insecure);
+    }
+    let mut config =
+        prompt_conn_params(&opts.conn_options, &mut builder, cmd, &mut has_branch).await?;
     let mut creds = config.as_credentials()?;
-    let root_cert_store = config.root_cert_store()?;
-    let inner = WebPkiServerVerifier::builder(Arc::new(root_cert_store)).build()?;
-    let verifier = Arc::new(InteractiveCertVerifier {
-        inner,
-        cert_out: Mutex::new(None),
-        tls_security: creds.tls_security,
-        system_ca_only: creds.tls_ca.is_none(),
-        non_interactive: cmd.non_interactive,
-        quiet: cmd.quiet,
-        trust_tls_cert: cmd.trust_tls_cert,
-    });
-    let mut config = config.with_cert_verifier(verifier.clone());
+    let cert_holder: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
+
+    // When linking to a new server, we may need to trust the TLS certificate
+    let non_interactive = cmd.non_interactive;
+    let trust_tls_cert = cmd.trust_tls_cert;
+    let quiet = cmd.quiet;
+    if cmd.conn.tls_ca_file.is_none() {
+        config = config.with_cert_check(CertCheck::new_fn(move |cert| {
+            ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
+        }));
+    }
+
     let mut connect_result = connect(&config).await;
+
+    let new_cert = if let Some(cert) = cert_holder.lock().unwrap().take() {
+        let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert));
+        Some(pem)
+    } else {
+        None
+    };
+
     if let Err(e) = connect_result {
+        eprintln!("Connection error: {e:?}");
         if e.is::<PasswordRequired>() {
             let password;
 
@@ -77,19 +125,16 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
             config = config.with_password(&password);
             creds.password = Some(password);
-            if let Some(cert) = &*verifier.cert_out.lock().unwrap() {
-                let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert.to_vec()));
-                config = config.with_pem_certificates(&pem)?;
+            if let Some(pem) = &new_cert {
+                config = config.with_pem_certificates(pem)?;
             }
             connect_result = Ok(connect(&config).await?);
         } else {
             return Err(e.into());
         }
     }
-
     let mut connection: Client = connect_result.unwrap();
     let ver = get_server_version(&mut connection).await?;
-
     if !has_branch && opts.conn_options.branch.is_none() && opts.conn_options.database.is_none() {
         config = config.with_database(&get_current_branch(&mut connection).await?)?;
 
@@ -112,8 +157,8 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
         }
     }
 
-    if let Some(cert) = &*verifier.cert_out.lock().unwrap() {
-        creds.tls_ca = Some(pem::encode(&pem::Pem::new("CERTIFICATE", cert.to_vec())));
+    if let Some(pem) = &new_cert {
+        creds.tls_ca = Some(pem.clone());
     }
 
     let (cred_path, instance_name) = match &cmd.name {
@@ -208,116 +253,6 @@ pub struct Link {
     pub overwrite: bool,
 }
 
-#[derive(Debug)]
-struct InteractiveCertVerifier {
-    inner: Arc<WebPkiServerVerifier>,
-    cert_out: Mutex<Option<Vec<u8>>>,
-    tls_security: TlsSecurity,
-    system_ca_only: bool,
-    non_interactive: bool,
-    quiet: bool,
-    trust_tls_cert: bool,
-}
-
-impl ServerCertVerifier for InteractiveCertVerifier {
-    fn verify_server_cert(
-        &self,
-        end_entity: &CertificateDer<'_>,
-        intermediates: &[CertificateDer<'_>],
-        server_name: &ServerName,
-        ocsp_response: &[u8],
-        now: UnixTime,
-    ) -> Result<ServerCertVerified, rustls::Error> {
-        use rustls::Error::InvalidCertificate;
-
-        if let TlsSecurity::Insecure = self.tls_security {
-            return Ok(ServerCertVerified::assertion());
-        }
-        match self.inner.verify_server_cert(
-            end_entity,
-            intermediates,
-            server_name,
-            ocsp_response,
-            now,
-        ) {
-            Ok(val) => {
-                return Ok(val);
-            }
-            Err(InvalidCertificate(cert_err))
-                if matches!(cert_err, rustls::CertificateError::UnknownIssuer) =>
-            {
-                // reconstruct Error for easier fallthrough
-                let e = InvalidCertificate(cert_err);
-
-                if !self.system_ca_only {
-                    // Don't continue if the verification failed when the user
-                    // already specified a certificate to trust
-                    return Err(e);
-                }
-
-                let mut root_store = rustls::RootCertStore::empty();
-                root_store.add(end_entity.clone())?;
-                tls::NoHostnameVerifier::new(Arc::new(root_store)).verify_server_cert(
-                    end_entity,
-                    intermediates,
-                    server_name,
-                    ocsp_response,
-                    now,
-                )?;
-
-                // Acquire consensus to trust the root of presented_certs chain
-                let fingerprint = digest::digest(&digest::SHA1_FOR_LEGACY_USE_ONLY, end_entity);
-                if self.trust_tls_cert {
-                    if !self.quiet {
-                        print::warn!("Trusting unknown server certificate: {fingerprint:?}");
-                    }
-                } else if self.non_interactive {
-                    return Err(e);
-                } else if let Ok(answer) = question::Confirm::new(format!(
-                    "Unknown server certificate: {fingerprint:?}. Trust?",
-                ))
-                .default(false)
-                .ask()
-                {
-                    if !answer {
-                        return Err(e);
-                    }
-                } else {
-                    return Err(e);
-                }
-
-                // Export the cert in PEM format and return verification success
-                *self.cert_out.lock().unwrap() = Some(end_entity.to_vec());
-            }
-            Err(e) => return Err(e),
-        }
-
-        Ok(ServerCertVerified::assertion())
-    }
-
-    fn verify_tls12_signature(
-        &self,
-        message: &[u8],
-        cert: &CertificateDer<'_>,
-        dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        self.inner.verify_tls12_signature(message, cert, dss)
-    }
-
-    fn verify_tls13_signature(
-        &self,
-        message: &[u8],
-        cert: &CertificateDer<'_>,
-        dss: &DigitallySignedStruct,
-    ) -> Result<HandshakeSignatureValid, rustls::Error> {
-        self.inner.verify_tls13_signature(message, cert, dss)
-    }
-
-    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
-        self.inner.supported_verify_schemes()
-    }
-}
-
 fn gen_default_instance_name(input: impl fmt::Display) -> String {
     let input = input.to_string();
     let mut name = input
@@ -346,11 +281,6 @@ async fn connect(cfg: &gel_tokio::Config) -> Result<Client, Error> {
     client.ensure_connected().await?;
 
     Ok(client)
-}
-
-async fn conn_params(cmd: &Link, opts: &Options, has_branch: &mut bool) -> anyhow::Result<Config> {
-    let mut builder = options::prepare_conn_params(opts)?;
-    prompt_conn_params(&opts.conn_options, &mut builder, cmd, has_branch).await
 }
 
 async fn get_server_version(connection: &mut Client) -> anyhow::Result<Build> {
@@ -415,15 +345,17 @@ async fn prompt_conn_params(
         if options.host.is_none() {
             builder.host(
                 &question::String::new("Specify server host")
-                    .default(config.host().unwrap_or("localhost"))
-                    .ask()?,
+                    .default(config.host().as_deref().unwrap_or("localhost"))
+                    .async_ask()
+                    .await?,
             )?;
         };
         if options.port.is_none() {
             builder.port(
                 question::String::new("Specify server port")
                     .default(&config.port().unwrap_or(5656).to_string())
-                    .ask()?
+                    .async_ask()
+                    .await?
                     .parse()?,
             )?;
         }
@@ -431,21 +363,34 @@ async fn prompt_conn_params(
             builder.user(
                 &question::String::new("Specify database user")
                     .default(config.user())
-                    .ask()?,
+                    .async_ask()
+                    .await?,
             )?;
         }
 
         if options.database.is_none() && options.branch.is_none() {
-            match question::String::new("Specify database/branch (CTRL + D for default)").ask() {
-                Ok(s) => {
-                    builder.database(&s)?.branch(&s)?;
-                    *has_branch = true;
-                }
-                Err(e) => match e.downcast_ref() {
-                    Some(ReadlineError::Eof) => {}
-                    Some(_) | None => anyhow::bail!(e),
-                },
-            };
+            loop {
+                match question::String::new("Specify database/branch (CTRL + D for default)")
+                    .async_ask()
+                    .await
+                {
+                    Ok(s) => {
+                        if s.is_empty() {
+                            eprintln!("No database/branch specified!");
+                            continue;
+                        }
+                        builder.database(&s)?.branch(&s)?;
+                        *has_branch = true;
+                        break;
+                    }
+                    Err(e) => match e.downcast_ref() {
+                        Some(ReadlineError::Eof) => {
+                            break;
+                        }
+                        Some(_) | None => anyhow::bail!(e),
+                    },
+                };
+            }
         }
 
         Ok(builder.build_env().await?)
