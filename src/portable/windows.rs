@@ -9,13 +9,14 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
+use const_format::formatcp;
 use fn_error_context::context;
 use libflate::gzip;
 use once_cell::sync::{Lazy, OnceCell};
 use url::Url;
 
 use crate::async_util;
-use crate::branding::{BRANDING, BRANDING_CLI, BRANDING_WSL};
+use crate::branding::{BRANDING, BRANDING_CLI, BRANDING_CLI_CMD, BRANDING_WSL};
 use crate::bug;
 use crate::cli::env::Env;
 use crate::cli::upgrade::{self, self_version};
@@ -618,10 +619,10 @@ fn get_wsl() -> anyhow::Result<Option<&'static Wsl>> {
 pub fn try_get_wsl() -> anyhow::Result<&'static Wsl> {
     match WSL.get_or_try_init(|| get_wsl_distro(false)) {
         Ok(v) => Ok(v),
-        Err(e) if e.is::<NoDistribution>() => Err(e).hint(
+        Err(e) if e.is::<NoDistribution>() => Err(e).hint(formatcp!(
             "WSL is initialized automatically on \
               `{BRANDING_CLI_CMD} project init` or `{BRANDING_CLI_CMD} instance create`",
-        )?,
+        ))?,
         Err(e) => Err(e),
     }
 }
