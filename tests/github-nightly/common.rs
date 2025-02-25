@@ -37,7 +37,8 @@ pub fn dock_ubuntu(codename: &str) -> String {
         RUN adduser --uid 1000 --home /home/user1 \
             --shell /bin/bash --ingroup users --gecos "Test User" \
             user1
-        ADD ./edgedb /usr/bin/edgedb
+        ADD ./gel /usr/bin/edgedb
+        ADD ./gel /usr/bin/gel
         ADD ./sudoers /etc/sudoers
     "###,
         codename = codename
@@ -62,7 +63,8 @@ pub fn dock_debian(codename: &str) -> String {
         RUN adduser --uid 1000 --home /home/user1 \
             --shell /bin/bash --ingroup users --gecos "Test User" \
             user1
-        ADD ./edgedb /usr/bin/edgedb
+        ADD ./gel /usr/bin/edgedb
+        ADD ./gel /usr/bin/gel
         ADD ./sudoers /etc/sudoers
     "###,
         codename = codename

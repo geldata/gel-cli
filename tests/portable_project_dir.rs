@@ -9,21 +9,21 @@ use util::*;
 
 #[test]
 fn project_link_and_init_from_non_project_dir() {
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("--version")
         .assert()
         .context("version", "command-line version option")
         .success()
         .stdout(predicates::str::contains(EXPECTED_VERSION));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("server")
         .arg("list-versions")
         .assert()
         .context("list-versions-before", "list with no installed")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("create")
         .arg("inst1")
@@ -31,7 +31,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-create-1", "created `inst1`")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("info")
         .arg("--instance-name")
@@ -41,7 +41,7 @@ fn project_link_and_init_from_non_project_dir() {
         .code(1)
         .stderr(predicates::str::contains("is not initialized"));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("init")
         .arg("--link")
@@ -55,7 +55,7 @@ fn project_link_and_init_from_non_project_dir() {
         )
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("info")
         .arg("--instance-name")
@@ -65,7 +65,7 @@ fn project_link_and_init_from_non_project_dir() {
         .success()
         .stdout(predicates::ord::eq("inst1\n"));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("query")
         .arg("SELECT 1")
         .current_dir("tests/proj/project1")
@@ -73,7 +73,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-query-1", "query of project")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("init")
         .arg("--non-interactive")
@@ -82,7 +82,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-project-init", "init project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("info")
         .arg("--instance-name")
@@ -92,7 +92,7 @@ fn project_link_and_init_from_non_project_dir() {
         .success()
         .stdout(predicates::ord::eq("project2\n"));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("query")
         .arg("SELECT 1")
         .current_dir("tests/proj/project2")
@@ -100,7 +100,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-query-2", "query of project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("upgrade")
         .arg("--force")
@@ -109,7 +109,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-project-upgrade", "upgrade project")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("query")
         .arg("SELECT 1")
         .current_dir("tests/proj/project2")
@@ -117,7 +117,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-query-3", "query after upgrade")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("destroy")
         .arg("--instance=project2")
@@ -126,7 +126,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-destroy-2-no", "should warn")
         .code(2);
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("destroy")
         .arg("--instance=inst1")
@@ -135,7 +135,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-destroy-1-no", "should warn")
         .code(2);
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("destroy")
         .arg("--instance=project1")
@@ -147,7 +147,7 @@ fn project_link_and_init_from_non_project_dir() {
         )
         .code(8); // instance not found
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("list")
         .assert()
@@ -156,7 +156,7 @@ fn project_link_and_init_from_non_project_dir() {
         .stdout(predicates::str::contains("inst1"))
         .stdout(predicates::str::contains("project2"));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("destroy")
         .arg("--instance=project2")
@@ -165,7 +165,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-destroy-2", "should destroy")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("list")
         .assert()
@@ -174,7 +174,7 @@ fn project_link_and_init_from_non_project_dir() {
         .stdout(predicates::str::contains("inst1"))
         .stdout(predicates::str::contains("project2").not());
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("unlink")
         .arg("-D")
@@ -184,7 +184,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-destroy-1", "should unlink and destroy project")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("list")
         .assert()
@@ -193,7 +193,7 @@ fn project_link_and_init_from_non_project_dir() {
         .stdout(predicates::str::contains("inst1").not())
         .stdout(predicates::str::contains("project2").not());
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("init")
         .arg("--non-interactive")
@@ -202,7 +202,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-project-init-2", "init project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("upgrade")
         .arg("--to-latest")
@@ -212,7 +212,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-project-upgrade", "upgrade project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("status")
         .arg("--instance=project2")
@@ -221,7 +221,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-instance-status", "show extended status")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("revert")
         .arg("--instance=project2")
@@ -230,7 +230,7 @@ fn project_link_and_init_from_non_project_dir() {
         .context("proj-dir-project-revert-2", "revert project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("unlink")
         .arg("-D")

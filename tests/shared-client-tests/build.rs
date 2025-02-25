@@ -352,7 +352,7 @@ fn {name}() {{
         write!(
             testcase,
             r#"
-    Command::cargo_bin("edgedb").unwrap_or_else(|_| Command::new("edgedb"))
+    Command::cargo_bin("gel").unwrap_or_else(|_| Command::new("gel"))
         .arg("--no-cli-update-check")
         .arg("--test-output-conn-params")"#,
         );

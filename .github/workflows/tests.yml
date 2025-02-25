@@ -76,7 +76,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: edgedb-linux-binary
-          path: target/x86_64-unknown-linux-musl/debug/edgedb
+          path: target/x86_64-unknown-linux-musl/debug/gel
 
       - name: Install EdgeDB
         uses: edgedb/setup-edgedb@v1
@@ -133,10 +133,11 @@ jobs:
           override: true
 
       - run: |
-          cargo build --workspace --test=${{ matrix.test }} --bin edgedb --features portable_tests
+          cargo build --workspace --test=${{ matrix.test }} --bin gel --features portable_tests
 
       - run: |
-          sudo cp target/debug/edgedb /usr/local/bin/
+          sudo cp target/debug/gel /usr/local/bin/gel
+          sudo cp target/debug/gel /usr/local/bin/edgedb
           mkdir home_edgedb
           sudo mv home_edgedb /Users/edgedb
 
@@ -155,7 +156,7 @@ jobs:
       fail-fast: false
     env:
       _EDGEDB_WSL_DISTRO: Debian
-      _EDGEDB_WSL_LINUX_BINARY: ./linux-binary/edgedb
+      _EDGEDB_WSL_LINUX_BINARY: ./linux-binary/gel
     steps:
       - uses: actions/checkout@v4
         with:
