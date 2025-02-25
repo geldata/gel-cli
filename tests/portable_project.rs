@@ -9,21 +9,21 @@ use util::*;
 
 #[test]
 fn project_link_and_init() {
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("--version")
         .assert()
         .context("version", "command-line version option")
         .success()
         .stdout(predicates::str::contains(EXPECTED_VERSION));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("server")
         .arg("list-versions")
         .assert()
         .context("list-versions-before", "list with no installed")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("create")
         .arg("inst1")
@@ -31,7 +31,7 @@ fn project_link_and_init() {
         .context("create-1", "created `inst1`")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("info")
         .arg("--instance-name")
@@ -41,7 +41,7 @@ fn project_link_and_init() {
         .code(1)
         .stderr(predicates::str::contains("is not initialized"));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("init")
         .arg("--link")
@@ -52,7 +52,7 @@ fn project_link_and_init() {
         .context("project-link", "linked `inst1` to project project1")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("info")
         .arg("--instance-name")
@@ -62,7 +62,7 @@ fn project_link_and_init() {
         .success()
         .stdout(predicates::ord::eq("inst1\n"));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("query")
         .arg("SELECT 1")
         .current_dir("tests/proj/project1")
@@ -70,7 +70,7 @@ fn project_link_and_init() {
         .context("query-1", "query of project")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("init")
         .arg("--non-interactive")
@@ -79,7 +79,7 @@ fn project_link_and_init() {
         .context("project-init", "init project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("info")
         .arg("--instance-name")
@@ -89,7 +89,7 @@ fn project_link_and_init() {
         .success()
         .stdout(predicates::ord::eq("project2\n"));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("query")
         .arg("SELECT 1")
         .current_dir("tests/proj/project2")
@@ -97,7 +97,7 @@ fn project_link_and_init() {
         .context("query-2", "query of project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("upgrade")
         .arg("--force")
@@ -106,7 +106,7 @@ fn project_link_and_init() {
         .context("project-upgrade", "upgrade project")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("query")
         .arg("SELECT 1")
         .current_dir("tests/proj/project2")
@@ -114,7 +114,7 @@ fn project_link_and_init() {
         .context("query-3", "query after upgrade")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("destroy")
         .arg("--instance=project2")
@@ -123,7 +123,7 @@ fn project_link_and_init() {
         .context("destroy-2-no", "should warn")
         .code(2);
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("destroy")
         .arg("--instance=inst1")
@@ -132,7 +132,7 @@ fn project_link_and_init() {
         .context("destroy-1-no", "should warn")
         .code(2);
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("destroy")
         .arg("--instance=project1")
@@ -144,7 +144,7 @@ fn project_link_and_init() {
         )
         .code(8); // instance not found
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("list")
         .assert()
@@ -153,7 +153,7 @@ fn project_link_and_init() {
         .stdout(predicates::str::contains("inst1"))
         .stdout(predicates::str::contains("project2"));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("destroy")
         .arg("--instance=project2")
@@ -162,7 +162,7 @@ fn project_link_and_init() {
         .context("destroy-2", "should destroy")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("list")
         .assert()
@@ -171,7 +171,7 @@ fn project_link_and_init() {
         .stdout(predicates::str::contains("inst1"))
         .stdout(predicates::str::contains("project2").not());
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("unlink")
         .arg("-D")
@@ -181,7 +181,7 @@ fn project_link_and_init() {
         .context("destroy-1", "should unlink and destroy project")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("list")
         .assert()
@@ -190,7 +190,7 @@ fn project_link_and_init() {
         .stdout(predicates::str::contains("inst1").not())
         .stdout(predicates::str::contains("project2").not());
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("init")
         .arg("--non-interactive")
@@ -199,7 +199,7 @@ fn project_link_and_init() {
         .context("project-init-2", "init project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("upgrade")
         .arg("--to-latest")
@@ -209,7 +209,7 @@ fn project_link_and_init() {
         .context("project-upgrade-2", "upgrade project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("status")
         .arg("--instance=project2")
@@ -218,7 +218,7 @@ fn project_link_and_init() {
         .context("instance-status", "show extended status")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("revert")
         .arg("--instance=project2")
@@ -227,7 +227,7 @@ fn project_link_and_init() {
         .context("project-revert-2", "revert project2")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("project")
         .arg("unlink")
         .arg("-D")
@@ -246,14 +246,14 @@ fn hooks() {
     let branch_log_file = path::Path::new("tests/proj/project3/branch.log");
     fs::remove_file(branch_log_file).ok();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("--version")
         .assert()
         .context("version", "command-line version option")
         .success()
         .stdout(predicates::str::contains(EXPECTED_VERSION));
 
-    Command::new("edgedb")
+    Command::new("gel")
         .arg("instance")
         .arg("create")
         .arg("inst2")
@@ -263,7 +263,7 @@ fn hooks() {
         .context("instance-create", "")
         .success();
 
-    Command::new("edgedb")
+    Command::new("gel")
         .current_dir("tests/proj/project3")
         .arg("project")
         .arg("init")
@@ -283,7 +283,7 @@ fn hooks() {
             ],
         });
 
-    Command::new("edgedb")
+    Command::new("gel")
         .current_dir("tests/proj/project3")
         .arg("branch")
         .arg("switch")
@@ -305,7 +305,7 @@ fn hooks() {
     let branch_log = fs::read_to_string(branch_log_file).unwrap();
     assert_eq!(branch_log, "another\n");
 
-    Command::new("edgedb")
+    Command::new("gel")
         .current_dir("tests/proj/project3")
         .arg("branch")
         .arg("merge")
@@ -322,7 +322,7 @@ fn hooks() {
             ],
         });
 
-    Command::new("edgedb")
+    Command::new("gel")
         .current_dir("tests/proj/project3")
         .arg("branch")
         .arg("wipe")
@@ -340,7 +340,7 @@ fn hooks() {
             ],
         });
 
-    Command::new("edgedb")
+    Command::new("gel")
         .current_dir("tests/proj/project3")
         .arg("branch")
         .arg("switch")
@@ -363,7 +363,7 @@ fn hooks() {
     // branch switch, but with explict --instance arg
     // This should prevent hooks from being executed, since
     // this action is not executed "on a project", but "on an instance".
-    Command::new("edgedb")
+    Command::new("gel")
         .current_dir("tests/proj/project3")
         .arg("--instance=inst2")
         .arg("branch")
