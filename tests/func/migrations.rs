@@ -804,7 +804,7 @@ fn error() {
         .arg("empty_err")
         .assert()
         .success();
-    let err = if SERVER.0.version_major >= 6 {
+    let err = if SERVER.0.version_major.is_at_least(6) {
         format!(
             r###"error: Unexpected keyword 'CREATE'
   ┌─ tests/migrations/db1/error/bad.esdl:3:9
@@ -817,7 +817,7 @@ fn error() {
 {BRANDING_CLI_CMD} error: cannot proceed until schema files are fixed
 "###
         )
-    } else if SERVER.0.version_major >= 4 {
+    } else if SERVER.0.version_major.is_at_least(4) {
         format!(
             r###"error: Unexpected keyword 'CREATE'
   ┌─ tests/migrations/db1/error/bad.esdl:3:9
@@ -1092,7 +1092,7 @@ fn input_required() {
 
 #[test]
 fn eof_err() {
-    let err = if SERVER.0.version_major >= 6 {
+    let err = if SERVER.0.version_major.is_at_least(6) {
         format!(
             r###"error: Missing '{{'
    ┌─ tests/migrations/db_eof_err/default.esdl:9:19

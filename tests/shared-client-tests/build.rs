@@ -40,7 +40,7 @@ fn main() {
         (
             "invalid_tls_security",
             "((EDGEDB_CLIENT_TLS_SECURITY|tls_security).*(don't comply|Invalid value)|\
-            Unsupported TLS security)",
+            Unsupported TLS security|Insecure TLS configuration is not allowed in strict mode)",
         ),
         (
             "file_not_found",

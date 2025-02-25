@@ -199,7 +199,7 @@ pub struct ConnectionOptions {
     #[arg(long, hide=true, help_heading=Some(CONN_OPTIONS_GROUP))]
     #[arg(value_name = "insecure | no_host_verification | strict | default")]
     #[arg(global = true)]
-    tls_security: Option<String>,
+    pub tls_security: Option<String>,
 
     /// Override server name used for TLS connections and certificate
     /// verification.
@@ -878,7 +878,7 @@ impl Options {
                             );
                         }
                         let sock = runstate_dir(name)?.join(format!(".s.EDGEDB.admin.{port}"));
-                        cfg = cfg.with_unix_path(&sock);
+                        cfg = cfg.with_unix_path(&sock)?;
                     }
                     (true, Some(_), None) => {
                         anyhow::bail!(
