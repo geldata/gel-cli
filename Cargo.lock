@@ -1492,7 +1492,7 @@ dependencies = [
 
 [[package]]
 name = "gel-cli"
-version = "7.0.1"
+version = "7.0.2"
 dependencies = [
  "anes",
  "ansi-escapes",
