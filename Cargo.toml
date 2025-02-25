@@ -36,10 +36,10 @@ heck = "0.5.0"
 edgeql-parser = {git = "https://github.com/edgedb/edgeql"}
 
 # Use cargo update for these
-gel-protocol = { version = "0", features = ["all-types"] }
-gel-derive = { version = "0" }
-gel-errors = { version = "0" }
-gel-tokio = { version = "0", features=["admin_socket", "unstable"] }
+gel-protocol = { version = "0.8", features = ["all-types"] }
+gel-derive = { version = "0.7" }
+gel-errors = { version = "0.5" }
+gel-tokio = { version = "0.9", features=["admin_socket", "unstable"] }
 
 snafu = "0.8.4"
 ansi-escapes = "0.2"
