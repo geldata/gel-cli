@@ -137,6 +137,11 @@ fn _main() -> anyhow::Result<()> {
         }
     }
 
+    // Determine the terminal background color, which will influence
+    // various printing decisions. (We could let it be done lazily,
+    // but I'd rather it be clear when it is run.)
+    print::init_colors();
+
     let opt = Options::from_args_and_env()?;
     opt.conn_options.validate()?;
     let cfg = config::get_config();

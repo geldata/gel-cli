@@ -51,12 +51,20 @@ pub trait Highlight: colorful::Colorful + colorful::core::StrMarker + Sized {
 
 impl<T: colorful::Colorful + colorful::core::StrMarker + Sized> Highlight for T {}
 
+pub static TERMINAL_LUMA: once_cell::sync::Lazy<Option<f32>> = once_cell::sync::Lazy::new(|| {
+    if !concolor::get(concolor::Stream::Stdout).color() {
+        return None;
+    }
+
+    terminal_light::luma().ok()
+});
+
 static THEME: once_cell::sync::Lazy<Option<Theme>> = once_cell::sync::Lazy::new(|| {
     if !concolor::get(concolor::Stream::Stdout).color() {
         return None;
     }
 
-    let is_term_light = terminal_light::luma().map_or(false, |x| x > 0.6);
+    let is_term_light = TERMINAL_LUMA.map_or(false, |x| x > 0.6);
 
     Some(if is_term_light {
         Theme {
