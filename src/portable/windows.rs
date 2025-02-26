@@ -59,6 +59,8 @@ static IS_IN_WSL: Lazy<bool> = Lazy::new(|| {
     }
 });
 
+const USR_BIN_EXE: &str = const_format::concatcp!("/usr/bin/", BRANDING_CLI_CMD);
+
 static WSL: OnceCell<Wsl> = OnceCell::new();
 
 #[derive(Debug, thiserror::Error)]
@@ -84,7 +86,7 @@ struct WslInfo {
 
 impl Wsl {
     pub fn cli_exe(&self) -> process::Native {
-        let mut pro = process::Native::new("edgedb", "edgedb", "wsl");
+        let mut pro = process::Native::new(BRANDING_CLI_CMD, BRANDING_CLI_CMD, "wsl");
         pro.arg("--user").arg("edgedb");
         pro.arg("--distribution").arg(&self.distribution);
         pro.arg("_EDGEDB_FROM_WINDOWS=1");
@@ -94,7 +96,7 @@ impl Wsl {
             pair.push(log_env);
             pro.arg(pair);
         }
-        pro.arg("/usr/bin/edgedb");
+        pro.arg(USR_BIN_EXE);
         pro.no_proxy();
         pro
     }
@@ -345,12 +347,12 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
     // Note: cannot capture output using wsl.launch
 
     use const_format::concatcp;
-    let data = process::Native::new("check version", "edgedb", "wsl")
+    let data = process::Native::new("check version", BRANDING_CLI_CMD, "wsl")
         .arg("--user")
         .arg("edgedb")
         .arg("--distribution")
         .arg(distro)
-        .arg("/usr/bin/edgedb")
+        .arg(USR_BIN_EXE)
         .arg("--version")
         .get_stdout_text()?;
     let version = data
@@ -543,7 +545,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<Wsl> {
                 &wsl,
                 &distro,
                 &format!(
-                    "cp {} /usr/bin/edgedb && chmod 755 /usr/bin/edgedb",
+                    "cp {} {USR_BIN_EXE} && chmod 755 {USR_BIN_EXE}",
                     shell_escape::unix::escape(path_to_linux(&bin_path)?.into()),
                 ),
             )?;
@@ -554,7 +556,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<Wsl> {
                 &wsl,
                 &distro,
                 &format!(
-                    "mv {} /usr/bin/edgedb && chmod 755 /usr/bin/edgedb",
+                    "mv {} {USR_BIN_EXE} && chmod 755 {USR_BIN_EXE}",
                     shell_escape::unix::escape(path_to_linux(&cache_path)?.into()),
                 ),
             )?;
@@ -666,9 +668,9 @@ fn create_and_start(wsl: &Wsl, name: &str) -> anyhow::Result<()> {
         service_file(name)?,
         format!(
             "wsl \
-        --distribution {} --user edgedb \
-        /usr/bin/edgedb instance start -I {}",
-            &wsl.distribution, &name
+            --distribution {} --user edgedb \
+            {USR_BIN_EXE} instance start -I {name}",
+            &wsl.distribution,
         ),
     )?;
     Ok(())
@@ -692,7 +694,7 @@ pub fn server_cmd(instance: &str, _is_shutdown_supported: bool) -> anyhow::Resul
         cmd.arg("--user").arg("edgedb");
         cmd.arg("--distribution").arg(&wsl.distribution);
         cmd.arg("_EDGEDB_FROM_WINDOWS=1");
-        cmd.arg("/usr/bin/edgedb");
+        cmd.arg(USR_BIN_EXE);
         cmd.arg("instance").arg("stop").arg("-I").arg(&instance);
         cmd
     });
@@ -783,7 +785,11 @@ pub fn list_versions(options: &server::list_versions::Command) -> anyhow::Result
 
 pub fn info(options: &server::info::Command) -> anyhow::Result<()> {
     if let Some(wsl) = get_wsl()? {
-        wsl.cli_exe().arg("server").arg("info").args(options).run()?;
+        wsl.cli_exe()
+            .arg("server")
+            .arg("info")
+            .args(options)
+            .run()?;
     } else {
         anyhow::bail!(
             "WSL distribution is not installed, \
