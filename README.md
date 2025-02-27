@@ -10,13 +10,13 @@ Install
 Install the latest stable build with:
 
 ```
-curl --proto '=https' --tlsv1.2 -sSf https://geldata.com/sh | sh
+curl --proto '=https' --tlsv1.2 -sSfL https://geldata.com/sh | sh
 ```
 
 Nightly builds can be installed with:
 
 ```
-$ curl --proto '=https' --tlsv1.2 -sSf https://geldata.com/sh | sh -s -- --nightly
+$ curl --proto '=https' --tlsv1.2 -sSfL https://geldata.com/sh | sh -s -- --nightly
 ```
 
 
