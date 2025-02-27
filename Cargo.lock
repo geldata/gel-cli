@@ -1625,9 +1625,9 @@ dependencies = [
 
 [[package]]
 name = "gel-stream"
-version = "0.1.2"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db7358591cd63ecab3dd9b84297e0b0e78dc611eb90d91db5ab6651d085c426a"
+checksum = "cdda55267c898a9eed8267b384b6f409d1d115e9b517e5a42107e62219e655db"
 dependencies = [
  "derive_more",
  "futures",
@@ -1645,9 +1645,9 @@ dependencies = [
 
 [[package]]
 name = "gel-tokio"
-version = "0.9.3"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2ead6fc510774a66d06bc656c82bd976c9d84ec1613d372650f866d4365f5ba7"
+checksum = "4a25451634765d7e42a3c2cfb01498dd7f453caa22b9996387792d2ba89dd841"
 dependencies = [
  "anyhow",
  "arc-swap",
