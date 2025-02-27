@@ -6,11 +6,14 @@ on:
       - master
       - ci
       - "releases/*"
+      - "release/*"
   pull_request:
     branches:
       - '*'
   schedule:
     - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs: {}
 
 env:
   RUST_TEST_THREADS: 3
