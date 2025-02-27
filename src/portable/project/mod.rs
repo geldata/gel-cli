@@ -82,7 +82,7 @@ const FUTURES_SCHEMA: &str = "\
 const SIMPLE_SCOPING_SCHEMA: &str = "\
     # Use a simpler algorithm for resolving the scope of object names.\n\
     # This behavior will become the default in Gel 7.0.\n\
-    # See: https://docs.edgedb.com/database/edgeql/path_resolution#new-path-scoping\n\
+    # See: https://docs.geldata.com/reference/edgeql/path_resolution#new-path-scoping\n\
     using future simple_scoping;\n\
 ";
 
