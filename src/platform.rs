@@ -119,11 +119,6 @@ pub fn symlink_dir(original: impl AsRef<Path>, path: impl AsRef<Path>) -> anyhow
     Ok(())
 }
 
-/// The legacy binary path.
-pub fn old_binary_path() -> anyhow::Result<PathBuf> {
-    Ok(home_dir()?.join(".edgedb").join("bin"))
-}
-
 pub fn binary_path() -> anyhow::Result<PathBuf> {
     let dir = match dirs::executable_dir() {
         Some(dir) => dir,
