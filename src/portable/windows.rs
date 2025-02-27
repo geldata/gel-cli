@@ -364,9 +364,14 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
 #[cfg(windows)]
 fn download_binary(dest: &Path) -> anyhow::Result<()> {
     let my_ver = self_version()?;
+    let (arch, _) = crate::portable::platform::get_cli()?
+        .split_once('-')
+        .unwrap();
+    let platform = format!("{arch}-unknown-linux-musl");
+
     let pkgs = repository::get_platform_cli_packages(
         upgrade::channel(),
-        "x86_64-unknown-linux-musl",
+        &platform,
         repository::DEFAULT_TIMEOUT,
     )?;
     let pkg = pkgs.iter().find(|pkg| pkg.version == my_ver);
@@ -375,7 +380,7 @@ fn download_binary(dest: &Path) -> anyhow::Result<()> {
     } else {
         let pkg = repository::get_platform_cli_packages(
             upgrade::channel(),
-            "x86_64-unknown-linux-musl",
+            &platform,
             repository::DEFAULT_TIMEOUT,
         )?
         .into_iter()
