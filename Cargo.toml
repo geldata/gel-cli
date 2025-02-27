@@ -8,7 +8,7 @@ members = [
 [package]
 name = "gel-cli"
 license = "MIT/Apache-2.0"
-version = "7.0.2"
+version = "7.0.3"
 authors = ["Gel Data Inc. <yo@geldata.com>"]
 edition = "2018"
 
