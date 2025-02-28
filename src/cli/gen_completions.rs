@@ -57,15 +57,6 @@ fn write_completion(path: &Path, shell: Shell) -> anyhow::Result<()> {
 pub fn write_completions_home() -> anyhow::Result<()> {
     let home = home_dir()?;
     write_completion(
-        &home.join(".local/share/bash-completion/completions/edgedb"),
-        Shell::Bash,
-    )?;
-    write_completion(
-        &home.join(".config/fish/completions/edgedb.fish"),
-        Shell::Fish,
-    )?;
-    write_completion(&home.join(".zfunc/_edgedb"), Shell::Zsh)?;
-    write_completion(
         &home.join(".local/share/bash-completion/completions/gel"),
         Shell::Bash,
     )?;
