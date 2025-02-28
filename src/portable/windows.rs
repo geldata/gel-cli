@@ -59,6 +59,8 @@ static IS_IN_WSL: Lazy<bool> = Lazy::new(|| {
     }
 });
 
+const USR_BIN_EXE: &str = const_format::concatcp!("/usr/bin/", BRANDING_CLI_CMD);
+
 static WSL: OnceCell<Wsl> = OnceCell::new();
 
 #[derive(Debug, thiserror::Error)]
@@ -83,8 +85,8 @@ struct WslInfo {
 }
 
 impl Wsl {
-    pub fn edgedb(&self) -> process::Native {
-        let mut pro = process::Native::new("edgedb", "edgedb", "wsl");
+    pub fn cli_exe(&self) -> process::Native {
+        let mut pro = process::Native::new(BRANDING_CLI_CMD, BRANDING_CLI_CMD, "wsl");
         pro.arg("--user").arg("edgedb");
         pro.arg("--distribution").arg(&self.distribution);
         pro.arg("_EDGEDB_FROM_WINDOWS=1");
@@ -94,7 +96,7 @@ impl Wsl {
             pair.push(log_env);
             pro.arg(pair);
         }
-        pro.arg("/usr/bin/edgedb");
+        pro.arg(USR_BIN_EXE);
         pro.no_proxy();
         pro
     }
@@ -234,7 +236,7 @@ pub fn create_instance(
         port: Some(port),
         ..options.clone()
     };
-    wsl.edgedb()
+    wsl.cli_exe()
         .arg("instance")
         .arg("create")
         .args(&inner_options)
@@ -257,7 +259,7 @@ pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<()> {
             ..options.clone()
         };
         let status = wsl
-            .edgedb()
+            .cli_exe()
             .arg("instance")
             .arg("destroy")
             .args(&options)
@@ -345,12 +347,12 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
     // Note: cannot capture output using wsl.launch
 
     use const_format::concatcp;
-    let data = process::Native::new("check version", "edgedb", "wsl")
+    let data = process::Native::new("check version", BRANDING_CLI_CMD, "wsl")
         .arg("--user")
         .arg("edgedb")
         .arg("--distribution")
         .arg(distro)
-        .arg("/usr/bin/edgedb")
+        .arg(USR_BIN_EXE)
         .arg("--version")
         .get_stdout_text()?;
     let version = data
@@ -543,7 +545,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<Wsl> {
                 &wsl,
                 &distro,
                 &format!(
-                    "cp {} /usr/bin/edgedb && chmod 755 /usr/bin/edgedb",
+                    "cp {} {USR_BIN_EXE} && chmod 755 {USR_BIN_EXE}",
                     shell_escape::unix::escape(path_to_linux(&bin_path)?.into()),
                 ),
             )?;
@@ -554,7 +556,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<Wsl> {
                 &wsl,
                 &distro,
                 &format!(
-                    "mv {} /usr/bin/edgedb && chmod 755 /usr/bin/edgedb",
+                    "mv {} {USR_BIN_EXE} && chmod 755 {USR_BIN_EXE}",
                     shell_escape::unix::escape(path_to_linux(&cache_path)?.into()),
                 ),
             )?;
@@ -656,7 +658,7 @@ pub fn create_service(info: &InstanceInfo) -> anyhow::Result<()> {
 }
 
 fn create_and_start(wsl: &Wsl, name: &str) -> anyhow::Result<()> {
-    wsl.edgedb()
+    wsl.cli_exe()
         .arg("instance")
         .arg("start")
         .arg("-I")
@@ -666,9 +668,9 @@ fn create_and_start(wsl: &Wsl, name: &str) -> anyhow::Result<()> {
         service_file(name)?,
         format!(
             "wsl \
-        --distribution {} --user edgedb \
-        /usr/bin/edgedb instance start -I {}",
-            &wsl.distribution, &name
+            --distribution {} --user edgedb \
+            {USR_BIN_EXE} instance start -I {name}",
+            &wsl.distribution,
         ),
     )?;
     Ok(())
@@ -680,7 +682,7 @@ pub fn stop_and_disable(_name: &str) -> anyhow::Result<bool> {
 
 pub fn server_cmd(instance: &str, _is_shutdown_supported: bool) -> anyhow::Result<process::Native> {
     let wsl = try_get_wsl()?;
-    let mut pro = wsl.edgedb();
+    let mut pro = wsl.cli_exe();
     pro.arg("instance")
         .arg("start")
         .arg("--foreground")
@@ -692,7 +694,7 @@ pub fn server_cmd(instance: &str, _is_shutdown_supported: bool) -> anyhow::Resul
         cmd.arg("--user").arg("edgedb");
         cmd.arg("--distribution").arg(&wsl.distribution);
         cmd.arg("_EDGEDB_FROM_WINDOWS=1");
-        cmd.arg("/usr/bin/edgedb");
+        cmd.arg(USR_BIN_EXE);
         cmd.arg("instance").arg("stop").arg("-I").arg(&instance);
         cmd
     });
@@ -701,7 +703,7 @@ pub fn server_cmd(instance: &str, _is_shutdown_supported: bool) -> anyhow::Resul
 
 pub fn daemon_start(instance: &str) -> anyhow::Result<()> {
     let wsl = try_get_wsl()?;
-    wsl.edgedb()
+    wsl.cli_exe()
         .arg("instance")
         .arg("start")
         .arg("-I")
@@ -739,7 +741,7 @@ pub fn is_wrapped() -> bool {
 
 pub fn install(options: &server::install::Command) -> anyhow::Result<()> {
     ensure_wsl()?
-        .edgedb()
+        .cli_exe()
         .arg("server")
         .arg("install")
         .args(options)
@@ -749,7 +751,7 @@ pub fn install(options: &server::install::Command) -> anyhow::Result<()> {
 
 pub fn uninstall(options: &server::uninstall::Command) -> anyhow::Result<()> {
     if let Some(wsl) = get_wsl()? {
-        wsl.edgedb()
+        wsl.cli_exe()
             .arg("server")
             .arg("uninstall")
             .args(options)
@@ -765,7 +767,7 @@ pub fn uninstall(options: &server::uninstall::Command) -> anyhow::Result<()> {
 
 pub fn list_versions(options: &server::list_versions::Command) -> anyhow::Result<()> {
     if let Some(wsl) = get_wsl()? {
-        wsl.edgedb()
+        wsl.cli_exe()
             .arg("server")
             .arg("list-versions")
             .args(options)
@@ -783,7 +785,11 @@ pub fn list_versions(options: &server::list_versions::Command) -> anyhow::Result
 
 pub fn info(options: &server::info::Command) -> anyhow::Result<()> {
     if let Some(wsl) = get_wsl()? {
-        wsl.edgedb().arg("server").arg("info").args(options).run()?;
+        wsl.cli_exe()
+            .arg("server")
+            .arg("info")
+            .args(options)
+            .run()?;
     } else {
         anyhow::bail!(
             "WSL distribution is not installed, \
@@ -798,7 +804,7 @@ pub fn reset_password(
     name: &str,
 ) -> anyhow::Result<()> {
     if let Some(wsl) = get_wsl()? {
-        wsl.edgedb()
+        wsl.cli_exe()
             .arg("instance")
             .arg("reset-password")
             .args(options)
@@ -816,7 +822,7 @@ pub fn reset_password(
 pub fn start(options: &control::Start, name: &str) -> anyhow::Result<()> {
     if let Some(wsl) = get_wsl()? {
         if options.foreground {
-            wsl.edgedb()
+            wsl.cli_exe()
                 .arg("instance")
                 .arg("start")
                 .args(options)
@@ -839,7 +845,7 @@ pub fn stop(options: &control::Stop, name: &str) -> anyhow::Result<()> {
         fs::remove_file(&service_file)
             .map_err(|e| log::warn!("error removing {service_file:?}: {e:#}"))
             .ok();
-        wsl.edgedb()
+        wsl.cli_exe()
             .arg("instance")
             .arg("stop")
             .args(options)
@@ -855,7 +861,7 @@ pub fn stop(options: &control::Stop, name: &str) -> anyhow::Result<()> {
 
 pub fn restart(options: &control::Restart) -> anyhow::Result<()> {
     if let Some(wsl) = get_wsl()? {
-        wsl.edgedb()
+        wsl.cli_exe()
             .arg("instance")
             .arg("restart")
             .args(options)
@@ -871,7 +877,7 @@ pub fn restart(options: &control::Restart) -> anyhow::Result<()> {
 
 pub fn logs(options: &control::Logs) -> anyhow::Result<()> {
     if let Some(wsl) = get_wsl()? {
-        wsl.edgedb()
+        wsl.cli_exe()
             .arg("instance")
             .arg("logs")
             .args(options)
@@ -888,7 +894,7 @@ pub fn logs(options: &control::Logs) -> anyhow::Result<()> {
 pub fn status(options: &status::Status) -> anyhow::Result<()> {
     if options.service {
         if let Some(wsl) = get_wsl()? {
-            wsl.edgedb()
+            wsl.cli_exe()
                 .arg("instance")
                 .arg("status")
                 .args(options)
@@ -907,7 +913,7 @@ pub fn status(options: &status::Status) -> anyhow::Result<()> {
         };
         if let Some(wsl) = get_wsl()? {
             let status = wsl
-                .edgedb()
+                .cli_exe()
                 .arg("instance")
                 .arg("status")
                 .args(&inner_opts)
@@ -932,7 +938,7 @@ fn list_local(options: &status::List) -> anyhow::Result<Vec<status::JsonStatus>>
             ..options.clone()
         };
         if let Some(wsl) = get_wsl()? {
-            wsl.edgedb()
+            wsl.cli_exe()
                 .arg("instance")
                 .arg("list")
                 .args(&inner_opts)
@@ -948,7 +954,7 @@ fn list_local(options: &status::List) -> anyhow::Result<Vec<status::JsonStatus>>
     };
     let local: Vec<status::JsonStatus> = if let Some(wsl) = get_wsl()? {
         let text = wsl
-            .edgedb()
+            .cli_exe()
             .arg("instance")
             .arg("list")
             .args(&inner_opts)
@@ -1030,7 +1036,7 @@ pub fn list(options: &status::List, opts: &crate::Options) -> anyhow::Result<()>
 
 pub fn upgrade(options: &instance::upgrade::Command, name: &str) -> anyhow::Result<()> {
     let wsl = try_get_wsl()?;
-    wsl.edgedb()
+    wsl.cli_exe()
         .arg("instance")
         .arg("upgrade")
         .args(options)
@@ -1042,7 +1048,7 @@ pub fn upgrade(options: &instance::upgrade::Command, name: &str) -> anyhow::Resu
 
 pub fn revert(options: &instance::revert::Command, name: &str) -> anyhow::Result<()> {
     let wsl = try_get_wsl()?;
-    wsl.edgedb()
+    wsl.cli_exe()
         .arg("instance")
         .arg("revert")
         .args(options)
@@ -1107,7 +1113,7 @@ pub fn extension_install(
         ..cmd.clone()
     };
 
-    wsl.edgedb()
+    wsl.cli_exe()
         .arg("instance")
         .arg("install")
         .args(&options)
@@ -1126,7 +1132,7 @@ pub fn extension_uninstall(
         ..cmd.clone()
     };
 
-    wsl.edgedb()
+    wsl.cli_exe()
         .arg("instance")
         .arg("uninstall")
         .args(&options)
