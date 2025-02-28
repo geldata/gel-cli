@@ -69,10 +69,7 @@ pub fn write_completions_home() -> anyhow::Result<()> {
         &home.join(".local/share/bash-completion/completions/gel"),
         Shell::Bash,
     )?;
-    write_completion(
-        &home.join(".config/fish/completions/gel.fish"),
-        Shell::Fish,
-    )?;
+    write_completion(&home.join(".config/fish/completions/gel.fish"), Shell::Fish)?;
     write_completion(&home.join(".zfunc/_gel"), Shell::Zsh)?;
     Ok(())
 }
