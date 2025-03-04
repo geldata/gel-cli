@@ -56,7 +56,7 @@ pub static TERMINAL_LUMA: once_cell::sync::Lazy<Option<f32>> = once_cell::sync::
         return None;
     }
 
-    terminal_light::luma().ok()
+    terminal_light::luma_with_timeout(std::time::Duration::from_millis(5000)).ok()
 });
 
 static THEME: once_cell::sync::Lazy<Option<Theme>> = once_cell::sync::Lazy::new(|| {
