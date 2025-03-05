@@ -140,7 +140,7 @@ bitflags = "2.6"
 renamore = {version="0.3.2", features = ["always-fallback"]}
 anes = "0.2.0"
 geozero = {version="0.14.0", features=["with-wkb"]}
-terminal-light = "1.7.0"
+terminal-light = {git = "https://github.com/msullivan/terminal-light"}
 globset = "0.4.15"
 x509-parser = "0.17.0"
 
