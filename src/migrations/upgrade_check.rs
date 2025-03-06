@@ -290,7 +290,7 @@ fn print_apply_migration_error() {
     msg!(
         "    {} {}",
         BRANDING_CLI_CMD,
-        " migration create --squash".emphasized()
+        "migration create --squash".emphasized()
     );
 }
 
