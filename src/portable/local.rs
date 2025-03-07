@@ -376,12 +376,11 @@ impl InstanceInfo {
     }
 
     pub fn admin_conn_params(&self) -> anyhow::Result<Builder> {
-        let mut builder = Builder::new();
-        builder.port(self.port);
-        builder.unix_path(&runstate_dir(&self.name)?);
-        builder.admin(true);
-        builder.user("edgedb");
-        builder.database("edgedb");
+        let builder = Builder::new()
+            .port(self.port)
+            .unix_path(&runstate_dir(&self.name)?)
+            .user("edgedb")
+            .database("edgedb");
         Ok(builder)
     }
 }

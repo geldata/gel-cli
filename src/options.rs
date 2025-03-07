@@ -862,15 +862,14 @@ impl Options {
             // `config.with_password()` but we need it here so that
             // `edgedb://?password_env=NON_EXISTING` does not read the
             // environemnt variable
-            builder.password("");
+            builder = builder.password("");
         }
-        match builder.build() {
+        match builder.clone().build() {
             Ok(config) => {
                 let mut cfg = with_password(&self.conn_options, config).await?;
                 match (cfg.admin(), cfg.port(), cfg.local_instance_name()) {
                     (false, _, _) => {}
-                    (true, None, _) => {}
-                    (true, Some(port), Some(name)) => {
+                    (true, port, Some(name)) => {
                         if !instance_data_dir(name)?.exists() {
                             anyhow::bail!(
                                 "The --admin option requires \
@@ -878,9 +877,9 @@ impl Options {
                             );
                         }
                         let sock = runstate_dir(name)?.join(format!(".s.EDGEDB.admin.{port}"));
-                        cfg = cfg.with_unix_path(&sock)?;
+                        cfg = cfg.with_unix_path(&sock);
                     }
-                    (true, Some(_), None) => {
+                    (true, _, None) => {
                         anyhow::bail!(
                             "The --admin option requires \
                                        --unix-path or local instance name"
@@ -890,7 +889,12 @@ impl Options {
                 Ok(Connector::new(Ok(cfg)))
             }
             Err(e) => {
-                let (_, cfg, errors) = builder.build_no_fail().await;
+                // let (_, cfg, errors) = builder.build_no_fail().await;
+
+                // TODO
+                let cfg = builder.build()?;
+                let errors = ();
+
                 // ask password anyways, so input that fed as a password
                 // never goes to anywhere else
                 with_password(&self.conn_options, cfg).await?;
@@ -949,7 +953,7 @@ pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
     let tmp = &opts.conn_options;
     let mut bld = Builder::new();
     if let Some(path) = &tmp.unix_path {
-        bld.unix_path(path);
+        bld = bld.unix_path(path);
     }
     if let Some(host) = &tmp.host {
         if host.contains('/') {
@@ -958,47 +962,47 @@ pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
                 a path to a unix socket. Use TCP connection if possible, \
                 otherwise use `--unix-path`."
             );
-            bld.unix_path(host);
+            bld = bld.unix_path(host);
         } else {
-            bld.host_string(host);
+            bld = bld.host_string(host);
         }
     }
     if let Some(port) = tmp.port {
-        bld.port(port);
+        bld = bld.port(port);
     }
     if let Some(dsn) = &tmp.dsn {
-        bld.dsn(dsn);
+        bld = bld.dsn(dsn);
     }
     if let Some(instance) = &tmp.instance {
-        bld.instance(instance.clone());
+        bld = bld.instance(instance.clone());
     }
     if let Some(secret_key) = &tmp.secret_key {
-        bld.secret_key(secret_key);
+        bld = bld.secret_key(secret_key);
     }
     if let Some(file_path) = &tmp.credentials_file {
-        bld.credentials_file(file_path);
+        bld = bld.credentials_file(file_path);
     }
-    if tmp.admin {
-        bld.admin(true);
-    }
+    // if tmp.admin {
+    //     bld.admin(true);
+    // }
     if let Some(user) = &tmp.user {
-        bld.user(user);
+        bld = bld.user(user);
     }
     if let Some(val) = tmp.wait_until_available {
-        bld.wait_until_available(val);
+        bld = bld.wait_until_available(val);
     }
     if let Some(val) = tmp.connect_timeout {
-        bld.connect_timeout(val);
+        bld = bld.connect_timeout(val);
     }
     if let Some(val) = &tmp.secret_key {
-        bld.secret_key(val);
+        bld =  bld.secret_key(val);
     }
     if let Some(database) = &tmp.database {
-        bld.database(database);
-        bld.branch(database);
+        bld = bld.database(database);
+        bld = bld.branch(database);
     } else if let Some(branch) = &tmp.branch {
-        bld.branch(branch);
-        bld.database(branch);
+        bld = bld.branch(branch);
+        bld = bld.database(branch);
     }
 
     bld = load_tls_options(tmp, bld)?;

@@ -9,9 +9,6 @@ use crate::commands::ExitCode;
 use crate::print::{self, err_marker, msg};
 use crate::process::{self, IntoArg};
 
-const DOMAIN_LABEL_MAX_LENGTH: usize = 63;
-const CLOUD_INSTANCE_NAME_MAX_LENGTH: usize = DOMAIN_LABEL_MAX_LENGTH - 2 + 1; // "--" -> "/"
-
 #[derive(Clone, Debug)]
 pub enum InstanceName {
     Local(String),

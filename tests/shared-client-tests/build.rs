@@ -156,6 +156,7 @@ static MUTEX: Mutex<()> = Mutex::new(());
         write!(
             testcase,
             r#"
+#[allow(non_snake_case)]
 #[test]
 "#
         );

@@ -80,10 +80,10 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     let mut builder = options::prepare_conn_params(opts)?;
     // If the user doesn't specify a TLS CA, we need to accept all certs
     if cmd.conn.tls_ca_file.is_none() {
-        builder.tls_security(TlsSecurity::Insecure);
+        builder = builder.tls_security(TlsSecurity::Insecure);
     }
     let mut config =
-        prompt_conn_params(&opts.conn_options, &mut builder, cmd, &mut has_branch).await?;
+        prompt_conn_params(&opts.conn_options, builder, cmd, &mut has_branch).await?;
     let mut creds = config.as_credentials()?;
     let cert_holder: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
 
@@ -92,9 +92,9 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     let trust_tls_cert = cmd.trust_tls_cert;
     let quiet = cmd.quiet;
     if cmd.conn.tls_ca_file.is_none() {
-        config = config.with_cert_check(CertCheck::new_fn(move |cert| {
-            ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
-        }));
+        // config = config.with_cert_check(CertCheck::new_fn(move |cert| {
+        //     ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
+        // }));
     }
 
     let mut connect_result = connect(&config).await;
@@ -125,9 +125,9 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
             config = config.with_password(&password);
             creds.password = Some(password);
-            if let Some(pem) = &new_cert {
-                config = config.with_pem_certificates(pem)?;
-            }
+            // if let Some(pem) = &new_cert {
+            //     config = config.with_pem_certificates(pem)?;
+            // }
             connect_result = Ok(connect(&config).await?);
         } else {
             return Err(e.into());
@@ -136,17 +136,17 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     let mut connection: Client = connect_result.unwrap();
     let ver = get_server_version(&mut connection).await?;
     if !has_branch && opts.conn_options.branch.is_none() && opts.conn_options.database.is_none() {
-        config = config.with_database(&get_current_branch(&mut connection).await?)?;
+        // config = config.with_database(&get_current_branch(&mut connection).await?)?;
 
-        eprintln!("using the {}", config.db);
+        // eprintln!("using the {}", config.db);
 
-        if ver.specific().major >= 5 {
-            creds.branch = Some(config.database().to_string());
-            creds.database = None;
-        } else {
-            creds.database = Some(config.database().to_string());
-            creds.branch = None;
-        }
+        // if ver.specific().major >= 5 {
+        //     creds.branch = Some(config.database().to_string());
+        //     creds.database = None;
+        // } else {
+        //     creds.database = Some(config.database().to_string());
+        //     creds.branch = None;
+        // }
     }
 
     if let Some(pem) = &new_cert {
@@ -302,7 +302,7 @@ async fn get_current_branch(connection: &mut Client) -> anyhow::Result<String> {
 
 async fn prompt_conn_params(
     options: &ConnectionOptions,
-    builder: &mut Builder,
+    mut builder: Builder,
     link: &Link,
     has_branch: &mut bool,
 ) -> anyhow::Result<Config> {
@@ -311,7 +311,7 @@ async fn prompt_conn_params(
     }
 
     if link.non_interactive {
-        let config = match builder.build_env().await {
+        let config = match builder.clone().build_env().await {
             Ok(config) => config,
             Err(e) if e.is::<ClientNoCredentialsError>() => {
                 return Err(anyhow::anyhow!("no connection options are specified")).with_hint(
@@ -336,32 +336,34 @@ async fn prompt_conn_params(
         }
         Ok(config)
     } else if options.dsn.is_none() {
-        let (_, config, _) = builder.build_no_fail().await;
-        if options.host.is_none() {
-            builder.host_string(
-                &question::String::new("Specify server host")
-                    .default(config.host().as_deref().unwrap_or("localhost"))
-                    .async_ask()
-                    .await?,
-            );
-        };
-        if options.port.is_none() {
-            builder.port(
-                question::String::new("Specify server port")
-                    .default(&config.port().unwrap_or(5656).to_string())
-                    .async_ask()
-                    .await?
-                    .parse()?,
-            );
-        }
-        if options.user.is_none() {
-            builder.user(
-                &question::String::new("Specify database user")
-                    .default(config.user())
-                    .async_ask()
-                    .await?,
-            );
-        }
+        // let (_, config, _) = builder.build_no_fail().await;
+        let config = builder.clone().build()?;
+
+        // if options.host.is_none() {
+        //     builder.host_string(
+        //         &question::String::new("Specify server host")
+        //             .default(config.host().as_deref().unwrap_or("localhost"))
+        //             .async_ask()
+        //             .await?,
+        //     );
+        // };
+        // if options.port.is_none() {
+        //     builder.port(
+        //         question::String::new("Specify server port")
+        //             .default(&config.port().unwrap_or(5656).to_string())
+        //             .async_ask()
+        //             .await?
+        //             .parse()?,
+        //     );
+        // }
+        // if options.user.is_none() {
+        //     builder.user(
+        //         &question::String::new("Specify database user")
+        //             .default(config.user())
+        //             .async_ask()
+        //             .await?,
+        //     );
+        // }
 
         if options.database.is_none() && options.branch.is_none() {
             loop {
@@ -374,7 +376,7 @@ async fn prompt_conn_params(
                             eprintln!("No database/branch specified!");
                             continue;
                         }
-                        builder.database(&s).branch(&s);
+                        builder = builder.database(&s).branch(&s);
                         *has_branch = true;
                         break;
                     }

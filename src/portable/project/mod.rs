@@ -12,7 +12,7 @@ use std::str::FromStr;
 
 use fn_error_context::context;
 
-use gel_dsn::gel::{Project, ProjectDir};
+use gel_dsn::gel::ProjectDir;
 use gel_tokio::Builder;
 use tokio::task::spawn_blocking;
 
@@ -216,7 +216,7 @@ impl Handle<'_> {
         Ok(builder)
     }
     pub fn get_default_builder(&self) -> anyhow::Result<Builder> {
-        let mut builder = Builder::new().instance_string(&self.name);
+        let builder = Builder::new().instance_string(&self.name);
         Ok(builder)
     }
     pub async fn get_default_connection(&self) -> anyhow::Result<Connection> {
@@ -329,7 +329,9 @@ pub struct Location {
 }
 
 pub fn get_stash_path(path: &Path) -> anyhow::Result<PathBuf> {
-    unimplemented!()
+    // Never returns None if we pass Assume
+    Ok(gel_dsn::gel::ProjectSearchResult::find(ProjectDir::Assume(path.to_path_buf()))?
+        .unwrap().stash_path)
 }
 
 pub async fn find_project_async(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
@@ -338,14 +340,14 @@ pub async fn find_project_async(override_dir: Option<&Path>) -> anyhow::Result<O
 }
 
 pub fn find_project(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
-    let manifest = gel_dsn::gel::Project::find(if let Some(dir) = override_dir {
+    let manifest = gel_dsn::gel::ProjectSearchResult::find(if let Some(dir) = override_dir {
         ProjectDir::Search(dir.to_path_buf())
     } else {
         ProjectDir::SearchCwd
     })?;
     Ok(manifest.map(|manifest| Location {
-        root: manifest.parent().unwrap().to_owned(),
-        manifest,
+        root: manifest.project_path.parent().unwrap().to_owned(),
+        manifest: manifest.project_path.to_path_buf(),
     }))
 }
 

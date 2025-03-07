@@ -68,20 +68,21 @@ pub async fn read(path: &Path) -> anyhow::Result<Credentials> {
 }
 
 pub fn maybe_update_credentials_file(config: &Config, ask: bool) -> anyhow::Result<()> {
-    if config.is_creds_file_outdated() {
-        if let Some(instance_name) = config.local_instance_name() {
-            let creds_path = path(instance_name)?;
-            if !ask
-                || question::Confirm::new(format!(
-                    "The format of the instance credential file at {} is outdated, \
-             update now?",
-                    creds_path.display(),
-                ))
-                .ask()?
-            {
-                write(&creds_path, &config.as_credentials()?)?;
-            }
-        }
-    }
+    // TODO
+    // if config.is_creds_file_outdated() {
+    //     if let Some(instance_name) = config.local_instance_name() {
+    //         let creds_path = path(instance_name)?;
+    //         if !ask
+    //             || question::Confirm::new(format!(
+    //                 "The format of the instance credential file at {} is outdated, \
+    //          update now?",
+    //                 creds_path.display(),
+    //             ))
+    //             .ask()?
+    //         {
+    //             write(&creds_path, &config.as_credentials()?)?;
+    //         }
+    //     }
+    // }
     Ok(())
 }
