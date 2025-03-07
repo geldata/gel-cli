@@ -138,10 +138,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     if !has_branch && opts.conn_options.branch.is_none() && opts.conn_options.database.is_none() {
         config = config.with_database(&get_current_branch(&mut connection).await?)?;
 
-        eprintln!(
-            "using the {}",
-            config.db
-        );
+        eprintln!("using the {}", config.db);
 
         if ver.specific().major >= 5 {
             creds.branch = Some(config.database().to_string());
@@ -173,7 +170,10 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                             .default(&default)
                             .async_ask()
                             .await?;
-                    if matches!(InstanceName::from_str(&name), Err(_) | Ok(InstanceName::Cloud { .. })) {
+                    if matches!(
+                        InstanceName::from_str(&name),
+                        Err(_) | Ok(InstanceName::Cloud { .. })
+                    ) {
                         print::error!(
                             "Instance name must be a valid identifier, \
                              (regex: ^[a-zA-Z_0-9]+(-[a-zA-Z_0-9]+)*$)"

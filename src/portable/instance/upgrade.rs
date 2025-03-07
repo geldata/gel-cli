@@ -568,7 +568,9 @@ fn reinit_and_restore(inst: &InstanceInfo, paths: &Paths) -> anyhow::Result<()> 
 
 async fn restore_instance(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()> {
     use crate::commands::parser::Restore;
-    let mut conn_params = inst.admin_conn_params()?.wait_until_available(Duration::from_secs(300));
+    let mut conn_params = inst
+        .admin_conn_params()?
+        .wait_until_available(Duration::from_secs(300));
 
     log::info!("Restoring instance {:?}", inst.name);
     let cfg = conn_params.build_env().await?;

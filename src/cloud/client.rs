@@ -10,7 +10,6 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 
 use anyhow::Context;
-use gel_tokio::Builder;
 use log::warn;
 use reqwest::{header, StatusCode};
 

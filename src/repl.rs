@@ -189,7 +189,7 @@ impl State {
     }
     pub async fn try_connect(&mut self, branch: DatabaseBranch) -> anyhow::Result<()> {
         let mut params = self.conn_params.clone();
-        params.branch(branch)?;
+        params.db(branch.clone())?;
         let mut conn = params.connect_interactive().await?;
         conn.set_tag(REPL_QUERY_TAG);
         let fetched_version = conn.get_version().await?;
@@ -284,8 +284,8 @@ impl State {
         };
 
         let current_database = match &self.current_branch {
-            Some(db) => db,
-            None => &self.branch,
+            Some(db) => db.clone(),
+            None => self.branch.name().unwrap_or("<unknown>").into(),
         };
 
         let inst = self.conn_params.get()?.instance_name();

@@ -12,7 +12,9 @@ use std::str::FromStr;
 
 use fn_error_context::context;
 
+use gel_dsn::gel::{Project, ProjectDir};
 use gel_tokio::Builder;
+use tokio::task::spawn_blocking;
 
 use crate::branding::QUERY_TAG;
 use crate::branding::{BRANDING_SCHEMA_FILE_EXT, MANIFEST_FILE_DISPLAY_NAME};
@@ -331,16 +333,20 @@ pub fn get_stash_path(path: &Path) -> anyhow::Result<PathBuf> {
 }
 
 pub async fn find_project_async(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
-    let manifest = gel_dsn::gel::Project::find();
+    let override_dir = override_dir.map(|dir| dir.to_path_buf());
+    spawn_blocking(move || find_project(override_dir.as_deref())).await?
+}
 
+pub fn find_project(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
+    let manifest = gel_dsn::gel::Project::find(if let Some(dir) = override_dir {
+        ProjectDir::Search(dir.to_path_buf())
+    } else {
+        ProjectDir::SearchCwd
+    })?;
     Ok(manifest.map(|manifest| Location {
         root: manifest.parent().unwrap().to_owned(),
         manifest,
     }))
-}
-
-pub fn find_project(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
-    let manifest = gel_dsn::gel::Project::find();
 }
 
 pub async fn load_ctx(override_dir: Option<&Path>) -> anyhow::Result<Option<Context>> {

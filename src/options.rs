@@ -1005,7 +1005,10 @@ pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
     Ok(bld)
 }
 
-pub fn load_tls_options(options: &ConnectionOptions, mut builder: Builder) -> anyhow::Result<Builder> {
+pub fn load_tls_options(
+    options: &ConnectionOptions,
+    mut builder: Builder,
+) -> anyhow::Result<Builder> {
     if let Some(cert_file) = &options.tls_ca_file {
         builder = builder.tls_ca_file(cert_file);
     }

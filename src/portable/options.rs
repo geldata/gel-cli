@@ -33,7 +33,9 @@ impl Into<gel_tokio::InstanceName> for InstanceName {
     fn into(self) -> gel_tokio::InstanceName {
         match self {
             InstanceName::Local(s) => gel_tokio::InstanceName::Local(s),
-            InstanceName::Cloud { org_slug, name } => gel_tokio::InstanceName::Cloud(CloudName { org_slug, name }),
+            InstanceName::Cloud { org_slug, name } => {
+                gel_tokio::InstanceName::Cloud(CloudName { org_slug, name })
+            }
         }
     }
 }

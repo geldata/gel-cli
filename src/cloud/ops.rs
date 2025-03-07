@@ -49,8 +49,7 @@ impl CloudInstance {
         let config = Builder::new()
             .secret_key(secret_key)
             .instance(self.name.clone())
-            .build_env()
-            .await?;
+            .build()?;
         let mut creds = config.as_credentials()?;
         // TODO(tailhook) can this be emitted from as_credentials()?
         creds.tls_ca.clone_from(&self.tls_ca);
@@ -425,10 +424,7 @@ pub async fn list(
         match RemoteStatus::from_cloud_instance(&client, &cloud_instance).await {
             Ok(status) => rv.push(status),
             Err(e) => {
-                errors.add(e.context(format!(
-                    "probing {}",
-                    cloud_instance.name
-                )));
+                errors.add(e.context(format!("probing {}", cloud_instance.name)));
             }
         }
     }

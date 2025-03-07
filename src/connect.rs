@@ -159,6 +159,12 @@ impl Connector {
         }
         Ok(self)
     }
+    pub fn db(&mut self, db: DatabaseBranch) -> anyhow::Result<&mut Self> {
+        if let Ok(cfg) = self.config.as_mut() {
+            *cfg = cfg.with_db(db);
+        }
+        Ok(self)
+    }
     pub fn wait_until_available(&mut self, dur: Duration) -> &mut Self {
         if let Ok(cfg) = self.config.as_mut() {
             *cfg = cfg.clone().with_wait_until_available(dur);

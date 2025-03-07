@@ -135,7 +135,10 @@ pub fn get_envs(names: &[&str]) -> Result<Option<(String, String)>, anyhow::Erro
     Ok(None)
 }
 
-pub fn parse<T: std::str::FromStr>(s: &str) -> anyhow::Result<T> where T::Err: std::fmt::Display {
+pub fn parse<T: std::str::FromStr>(s: &str) -> anyhow::Result<T>
+where
+    T::Err: std::fmt::Display,
+{
     T::from_str(s).map_err(|e| anyhow::anyhow!("Invalid value: {e}"))
 }
 

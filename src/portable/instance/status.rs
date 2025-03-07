@@ -346,7 +346,10 @@ fn cloud_status(
 }
 
 async fn try_get_version(creds: &Credentials) -> anyhow::Result<String> {
-    let config = Builder::new().params(creds.clone()).without_system().build()?;
+    let config = Builder::new()
+        .params(creds.clone())
+        .without_system()
+        .build()?;
     let mut conn = Connection::connect(&config, QUERY_TAG).await?;
     let ver = conn
         .query_required_single("SELECT sys::get_version_as_str()", &())
@@ -395,7 +398,7 @@ async fn _remote_status(name: &str, quiet: bool) -> anyhow::Result<RemoteStatus>
     let location = format!(
         "{}:{}",
         credentials.host.as_deref().unwrap_or("localhost"),
-        credentials.port.clone()
+        credentials.port.unwrap_or(DEFAULT_PORT)
     );
     Ok(RemoteStatus {
         name: name.into(),
