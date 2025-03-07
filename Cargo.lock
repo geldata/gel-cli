@@ -1439,8 +1439,6 @@ dependencies = [
 [[package]]
 name = "gel-auth"
 version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88768ad83c06b9d2b350b2e62b4000666ffccfe768275b47772dee218af3a8e8"
 dependencies = [
  "base64 0.22.1",
  "constant_time_eq",
@@ -1497,6 +1495,7 @@ dependencies = [
  "fs_extra",
  "futures-util",
  "gel-derive",
+ "gel-dsn",
  "gel-errors",
  "gel-protocol",
  "gel-tokio",
@@ -1586,8 +1585,6 @@ dependencies = [
 [[package]]
 name = "gel-derive"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39c136cc723c84c27f1c294c9ecb3fbd59287b7845b02c8c3c264d7a43653cd6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1596,10 +1593,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "gel-dsn"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "crc16",
+ "derive_more",
+ "dirs",
+ "gel-auth",
+ "gel-errors",
+ "gel-stream",
+ "log",
+ "paste",
+ "percent-encoding",
+ "rustls-pemfile",
+ "rustls-pki-types",
+ "serde",
+ "serde_json",
+ "sha1",
+ "thiserror 2.0.11",
+ "url",
+ "whoami",
+]
+
+[[package]]
 name = "gel-errors"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a34c9305d1e0dd0180d802ce457476dc1dea8a7aeab98bd803ae57e8d84be51"
 dependencies = [
  "bytes",
 ]
@@ -1607,8 +1626,6 @@ dependencies = [
 [[package]]
 name = "gel-protocol"
 version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e85ee2aeaf483be7f4fa95fee42bcfe96dab254456189d14af30ddfe3d0e04b7"
 dependencies = [
  "bigdecimal",
  "bitflags 2.8.0",
@@ -1626,8 +1643,6 @@ dependencies = [
 [[package]]
 name = "gel-stream"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdda55267c898a9eed8267b384b6f409d1d115e9b517e5a42107e62219e655db"
 dependencies = [
  "derive_more",
  "futures",
@@ -1636,6 +1651,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-platform-verifier",
  "rustls-tokio-stream",
+ "serde",
  "socket2",
  "thiserror 2.0.11",
  "tokio",
@@ -1646,8 +1662,6 @@ dependencies = [
 [[package]]
 name = "gel-tokio"
 version = "0.9.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a25451634765d7e42a3c2cfb01498dd7f453caa22b9996387792d2ba89dd841"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1660,6 +1674,7 @@ dependencies = [
  "futures-util",
  "gel-auth",
  "gel-derive",
+ "gel-dsn",
  "gel-errors",
  "gel-protocol",
  "gel-stream",
@@ -2983,6 +2998,12 @@ dependencies = [
  "smallvec",
  "windows-targets 0.52.6",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pathdiff"

@@ -207,23 +207,21 @@ impl Handle<'_> {
         }
     }
     pub fn get_builder(&self) -> anyhow::Result<Builder> {
-        let mut builder = Builder::new();
-        builder.instance(&self.name)?;
+        let mut builder = Builder::new().instance_string(&self.name);
         if let Some(database) = &self.database {
-            builder.database(database)?;
+            builder = builder.database(database);
         }
         Ok(builder)
     }
     pub fn get_default_builder(&self) -> anyhow::Result<Builder> {
-        let mut builder = Builder::new();
-        builder.instance(&self.name)?;
+        let mut builder = Builder::new().instance_string(&self.name);
         Ok(builder)
     }
     pub async fn get_default_connection(&self) -> anyhow::Result<Connection> {
-        Ok(Connection::connect(&self.get_default_builder()?.build_env().await?, QUERY_TAG).await?)
+        Ok(Connection::connect(&self.get_default_builder()?.build()?, QUERY_TAG).await?)
     }
     pub async fn get_connection(&self) -> anyhow::Result<Connection> {
-        Ok(Connection::connect(&self.get_builder()?.build_env().await?, QUERY_TAG).await?)
+        Ok(Connection::connect(&self.get_builder()?.build()?, QUERY_TAG).await?)
     }
     #[tokio::main(flavor = "current_thread")]
     pub async fn get_version(&self) -> anyhow::Result<ver::Build> {
@@ -328,8 +326,12 @@ pub struct Location {
     pub manifest: PathBuf,
 }
 
+pub fn get_stash_path(path: &Path) -> anyhow::Result<PathBuf> {
+    unimplemented!()
+}
+
 pub async fn find_project_async(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
-    let manifest = gel_tokio::get_project_path(override_dir, true).await?;
+    let manifest = gel_dsn::gel::Project::find();
 
     Ok(manifest.map(|manifest| Location {
         root: manifest.parent().unwrap().to_owned(),
@@ -337,9 +339,8 @@ pub async fn find_project_async(override_dir: Option<&Path>) -> anyhow::Result<O
     }))
 }
 
-#[tokio::main(flavor = "current_thread")]
-pub async fn find_project(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
-    find_project_async(override_dir).await
+pub fn find_project(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
+    let manifest = gel_dsn::gel::Project::find();
 }
 
 pub async fn load_ctx(override_dir: Option<&Path>) -> anyhow::Result<Option<Context>> {

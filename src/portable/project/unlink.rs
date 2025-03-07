@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use clap::ValueHint;
-use gel_tokio::get_stash_path;
 
 use crate::branding::MANIFEST_FILE_DISPLAY_NAME;
 use crate::commands::ExitCode;
@@ -13,6 +12,8 @@ use crate::portable::instance::destroy;
 use crate::portable::project;
 use crate::print::{self, msg, Highlight};
 use crate::question;
+
+use super::get_stash_path;
 
 pub fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     let Some(project) = project::find_project(options.project_dir.as_deref())? else {

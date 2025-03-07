@@ -138,7 +138,7 @@ pub fn main(options: Options, cfg: Config) -> Result<(), anyhow::Error> {
         input_mode: cfg.shell.input_mode.unwrap_or(repl::InputMode::Emacs),
         print_stats: cfg.shell.print_stats.unwrap_or(repl::PrintStats::Off),
         history_limit: cfg.shell.history_size.unwrap_or(10000),
-        branch: conn_config.database().into(),
+        branch: conn_config.db.clone(),
         conn_params: conn,
         last_version: None,
         connection: None,

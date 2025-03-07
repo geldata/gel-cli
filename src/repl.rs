@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use bytes::BytesMut;
+use gel_dsn::gel::DatabaseBranch;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 
@@ -96,7 +97,7 @@ pub struct State {
     pub print_stats: PrintStats,
     pub history_limit: usize,
     pub conn_params: Connector,
-    pub branch: String,
+    pub branch: DatabaseBranch,
     pub connection: Option<Connection>,
     pub last_version: Option<ver::Build>,
     pub initial_text: String,
@@ -135,15 +136,15 @@ impl PromptRpc {
 
 impl State {
     pub async fn connect(&mut self) -> anyhow::Result<()> {
-        let branch = self.conn_params.get()?.branch().to_owned();
-        self.try_connect(&branch).await?;
+        let branch = self.conn_params.get()?.db.to_owned();
+        self.try_connect(branch).await?;
         Ok(())
     }
     pub async fn reconnect(&mut self) -> anyhow::Result<()> {
-        let branch = self.conn_params.get()?.branch().to_owned();
+        let branch = self.conn_params.get()?.db.to_owned();
         let cur_state = self.edgeql_state.clone();
         let cur_state_desc = self.edgeql_state_desc.clone();
-        self.try_connect(&branch).await?;
+        self.try_connect(branch).await?;
         if let Some(conn) = &mut self.connection {
             if cur_state_desc == self.edgeql_state_desc {
                 conn.set_state(cur_state);
@@ -186,7 +187,7 @@ impl State {
         );
         Ok(())
     }
-    pub async fn try_connect(&mut self, branch: &str) -> anyhow::Result<()> {
+    pub async fn try_connect(&mut self, branch: DatabaseBranch) -> anyhow::Result<()> {
         let mut params = self.conn_params.clone();
         params.branch(branch)?;
         let mut conn = params.connect_interactive().await?;
@@ -197,7 +198,7 @@ impl State {
             self.last_version = Some(fetched_version.to_owned());
         }
         self.conn_params = params;
-        self.branch = branch.into();
+        self.branch = branch;
         self.current_branch = Some(conn.get_current_branch().await?.to_string());
         self.connection = Some(conn);
         self.read_state();
@@ -287,13 +288,12 @@ impl State {
             None => &self.branch,
         };
 
-        let inst = self.conn_params.get()?.instance_name().to_owned();
+        let inst = self.conn_params.get()?.instance_name();
 
         let location = match inst {
-            Some(gel_tokio::InstanceName::Cloud {
-                org_slug: org,
-                name,
-            }) => format!("{org}/{name}:{current_database}",),
+            Some(gel_tokio::InstanceName::Cloud(cloud_name)) => {
+                format!("{cloud_name}:{current_database}",)
+            }
             Some(gel_tokio::InstanceName::Local(name)) => {
                 format!("{name}:{current_database}",)
             }

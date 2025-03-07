@@ -4,7 +4,7 @@ use edgedb_cli_derive::IntoArgs;
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::cloud;
 use crate::options::CloudOptions;
-use crate::portable::options::InstanceName;
+use crate::portable::options::{InstanceName};
 use crate::print::msg;
 use crate::question;
 

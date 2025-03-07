@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 
+use gel_dsn::gel::DatabaseBranch;
 use tokio::time::sleep;
 use tokio_stream::Stream;
 
@@ -150,11 +151,11 @@ impl Connector {
     }
     pub fn branch(&mut self, name: &str) -> anyhow::Result<&mut Self> {
         if let Ok(cfg) = self.config.as_mut() {
-            let mut c = cfg.clone().with_branch(name)?;
-            if name != "__default__" {
-                c = c.with_database(name)?;
+            if name == "__default__" {
+                *cfg = cfg.with_db(DatabaseBranch::Default);
+            } else {
+                *cfg = cfg.with_db(DatabaseBranch::Ambiguous(name.to_string()));
             }
-            *cfg = c;
         }
         Ok(self)
     }
@@ -188,10 +189,9 @@ impl Connector {
 
     fn warning_msg(&self, cfg: &Config) -> String {
         let desc = match cfg.instance_name() {
-            Some(gel_tokio::InstanceName::Cloud {
-                org_slug: org,
-                name,
-            }) => format!("{BRANDING_CLOUD} instance '{org}/{name}'"),
+            Some(gel_tokio::InstanceName::Cloud(cloud_name)) => {
+                format!("{BRANDING_CLOUD} instance '{cloud_name}'")
+            }
             Some(gel_tokio::InstanceName::Local(name)) => {
                 format!("{BRANDING} instance '{}' at {}", name, cfg.display_addr())
             }
@@ -254,11 +254,8 @@ impl Connection {
         ConnectionError::Error(err)
     }
 
-    pub fn database(&self) -> &str {
-        self.config.database()
-    }
-    pub fn branch(&self) -> &str {
-        self.config.branch()
+    pub fn database(&self) -> &DatabaseBranch {
+        &self.config.db
     }
     pub fn set_ignore_error_state(&mut self) -> State {
         let new_state = make_ignore_error_state(self.inner.state_descriptor());
@@ -290,26 +287,26 @@ impl Connection {
         Ok(self.server_version.insert(build))
     }
     pub async fn get_current_branch(&mut self) -> Result<Cow<'_, str>, Error> {
-        if self.branch() != "__default__" {
-            Ok(self.branch().into())
-        } else {
-            let state = make_ignore_error_state(self.inner.state_descriptor());
-            let resp: raw::Response<Vec<String>> = self
-                .inner
-                .query(
-                    "SELECT sys::get_current_database()",
-                    &(),
-                    &state,
-                    &self.annotations,
-                    Capabilities::empty(),
-                    IoFormat::Binary,
-                    Cardinality::AtMostOne,
-                )
-                .await
-                .context("cannot fetch current database branch")?;
-            let branch = resp.data.into_iter().next().unwrap_or_default();
-            Ok(branch.into())
+        if let Some(name) = self.config.db.name() {
+            return Ok(name.into());
         }
+
+        let state = make_ignore_error_state(self.inner.state_descriptor());
+        let resp: raw::Response<Vec<String>> = self
+            .inner
+            .query(
+                "SELECT sys::get_current_database()",
+                &(),
+                &state,
+                &self.annotations,
+                Capabilities::empty(),
+                IoFormat::Binary,
+                Cardinality::AtMostOne,
+            )
+            .await
+            .context("cannot fetch current database branch")?;
+        let branch = resp.data.into_iter().next().unwrap_or_default();
+        Ok(branch.into())
     }
     pub async fn query<R, A>(&mut self, query: &str, arguments: &A) -> Result<Vec<R>, Error>
     where

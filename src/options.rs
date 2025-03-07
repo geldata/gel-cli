@@ -864,7 +864,7 @@ impl Options {
             // environemnt variable
             builder.password("");
         }
-        match builder.build_env().await {
+        match builder.build() {
             Ok(config) => {
                 let mut cfg = with_password(&self.conn_options, config).await?;
                 match (cfg.admin(), cfg.port(), cfg.local_instance_name()) {
@@ -960,17 +960,17 @@ pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
             );
             bld.unix_path(host);
         } else {
-            bld.host(host)?;
+            bld.host_string(host);
         }
     }
     if let Some(port) = tmp.port {
-        bld.port(port)?;
+        bld.port(port);
     }
     if let Some(dsn) = &tmp.dsn {
-        bld.dsn(dsn).context("invalid DSN")?;
+        bld.dsn(dsn);
     }
     if let Some(instance) = &tmp.instance {
-        bld.instance(&instance.to_string())?;
+        bld.instance(instance.clone());
     }
     if let Some(secret_key) = &tmp.secret_key {
         bld.secret_key(secret_key);
@@ -982,7 +982,7 @@ pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
         bld.admin(true);
     }
     if let Some(user) = &tmp.user {
-        bld.user(user)?;
+        bld.user(user);
     }
     if let Some(val) = tmp.wait_until_available {
         bld.wait_until_available(val);
@@ -994,20 +994,20 @@ pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
         bld.secret_key(val);
     }
     if let Some(database) = &tmp.database {
-        bld.database(database)?;
-        bld.branch(database)?;
+        bld.database(database);
+        bld.branch(database);
     } else if let Some(branch) = &tmp.branch {
-        bld.branch(branch)?;
-        bld.database(branch)?;
+        bld.branch(branch);
+        bld.database(branch);
     }
 
-    load_tls_options(tmp, &mut bld)?;
+    bld = load_tls_options(tmp, bld)?;
     Ok(bld)
 }
 
-pub fn load_tls_options(options: &ConnectionOptions, builder: &mut Builder) -> anyhow::Result<()> {
+pub fn load_tls_options(options: &ConnectionOptions, mut builder: Builder) -> anyhow::Result<Builder> {
     if let Some(cert_file) = &options.tls_ca_file {
-        builder.tls_ca_file(cert_file);
+        builder = builder.tls_ca_file(cert_file);
     }
     let mut security = match options.tls_security.as_deref() {
         None => None,
@@ -1045,10 +1045,10 @@ pub fn load_tls_options(options: &ConnectionOptions, builder: &mut Builder) -> a
         }
     }
     if let Some(s) = security {
-        builder.tls_security(s);
+        builder = builder.tls_security(s);
     }
     if let Some(tls_server_name) = &options.tls_server_name {
-        builder.tls_server_name(tls_server_name)?;
+        builder = builder.tls_server_name(tls_server_name);
     }
-    Ok(())
+    Ok(builder)
 }

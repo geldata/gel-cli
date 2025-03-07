@@ -40,6 +40,7 @@ gel-protocol = { version = "0.8", features = ["all-types"] }
 gel-derive = { version = "0.7" }
 gel-errors = { version = "0.5" }
 gel-tokio = { version = "0.9", features=["admin_socket", "unstable"] }
+gel-dsn = { version = "0.1", features = ["unstable"] }
 
 snafu = "0.8.4"
 ansi-escapes = "0.2"
@@ -198,3 +199,12 @@ vec_init_then_push = 'allow'
 while_let_on_iterator = 'allow'
 too_many_arguments = 'allow'
 clone_on_copy = 'allow'
+
+[patch.crates-io]
+gel-protocol = { path = "../edgedb-rust/gel-protocol" }
+gel-derive = { path = "../edgedb-rust/gel-derive" }
+gel-dsn = { path = "../edgedb-rust/gel-dsn" }
+gel-errors = { path = "../edgedb-rust/gel-errors" }
+gel-tokio = { path = "../edgedb-rust/gel-tokio" }
+gel-auth = { path = "../edgedb-rust/gel-auth" }
+gel-stream = { path = "../edgedb-rust/gel-stream" }

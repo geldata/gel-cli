@@ -1,11 +1,9 @@
-use gel_tokio::get_stash_path;
-
 use crate::branding::BRANDING_CLOUD;
 use crate::connect::Connection;
 use crate::credentials;
 use crate::platform::tmp_file_path;
 use crate::portable::options::InstanceName;
-use crate::portable::project;
+use crate::portable::project::{self, get_stash_path};
 use std::fs;
 use std::sync::Mutex;
 
@@ -71,8 +69,8 @@ impl Context {
 
         // if the instance is unknown, current branch is just "the branch of the connection"
         // so we can pull it out here (if it is not the default branch)
-        if connection.branch() != "__default__" {
-            return Ok(connection.branch().to_string());
+        if let Some(name) = connection.database().name() {
+            return Ok(name.to_string());
         }
 
         // if the connection branch is the default branch, query the database to see

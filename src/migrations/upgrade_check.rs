@@ -179,9 +179,10 @@ async fn do_check(ctx: &Context, status_file: &Path, watch: bool) -> anyhow::Res
         .await
         .with_context(|| format!("cannot read cert file {cert_path:?}"))?;
     let config = Builder::new()
-        .port(status.port)?
+        .port(status.port)
         .pem_certificates(&cert_data)?
-        .constrained_build()
+        .without_system()
+        .build()
         .context("cannot build connection params")?;
     let cli = &mut Connection::connect(&config, QUERY_TAG).await?;
 

@@ -1,4 +1,5 @@
 use std::fmt;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use gel_tokio::builder::CertCheck;
@@ -7,7 +8,7 @@ use ring::digest;
 use gel_errors::{
     ClientConnectionFailedError, ClientNoCredentialsError, Error, ErrorKind, PasswordRequired,
 };
-use gel_tokio::credentials::TlsSecurity;
+use gel_tokio::credentials::{AsCredentials, TlsSecurity};
 use gel_tokio::Client;
 use gel_tokio::{Builder, Config};
 use rustyline::error::ReadlineError;
@@ -18,7 +19,6 @@ use crate::hint::HintExt;
 use crate::options;
 use crate::options::CloudOptions;
 use crate::options::{ConnectionOptions, Options};
-use crate::portable::local::is_valid_local_instance_name;
 use crate::portable::options::InstanceName;
 use crate::portable::ver::Build;
 use crate::print::{self, Highlight};
@@ -139,13 +139,8 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
         config = config.with_database(&get_current_branch(&mut connection).await?)?;
 
         eprintln!(
-            "using the default {} '{}'",
-            if ver.specific().major >= 5 {
-                "branch"
-            } else {
-                "database"
-            },
-            config.database()
+            "using the {}",
+            config.db
         );
 
         if ver.specific().major >= 5 {
@@ -178,7 +173,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                             .default(&default)
                             .async_ask()
                             .await?;
-                    if !is_valid_local_instance_name(&name) {
+                    if matches!(InstanceName::from_str(&name), Err(_) | Ok(InstanceName::Cloud { .. })) {
                         print::error!(
                             "Instance name must be a valid identifier, \
                              (regex: ^[a-zA-Z_0-9]+(-[a-zA-Z_0-9]+)*$)"
@@ -333,22 +328,22 @@ async fn prompt_conn_params(
         };
         if !link.quiet {
             eprintln!(
-                "Authenticating to edgedb://{}@{}/{}",
+                "Authenticating to gel://{}@{}/{}",
                 config.user(),
                 config.display_addr(),
-                config.database(),
+                config.db.name().unwrap_or_default(),
             );
         }
         Ok(config)
     } else if options.dsn.is_none() {
         let (_, config, _) = builder.build_no_fail().await;
         if options.host.is_none() {
-            builder.host(
+            builder.host_string(
                 &question::String::new("Specify server host")
                     .default(config.host().as_deref().unwrap_or("localhost"))
                     .async_ask()
                     .await?,
-            )?;
+            );
         };
         if options.port.is_none() {
             builder.port(
@@ -357,7 +352,7 @@ async fn prompt_conn_params(
                     .async_ask()
                     .await?
                     .parse()?,
-            )?;
+            );
         }
         if options.user.is_none() {
             builder.user(
@@ -365,7 +360,7 @@ async fn prompt_conn_params(
                     .default(config.user())
                     .async_ask()
                     .await?,
-            )?;
+            );
         }
 
         if options.database.is_none() && options.branch.is_none() {
@@ -379,7 +374,7 @@ async fn prompt_conn_params(
                             eprintln!("No database/branch specified!");
                             continue;
                         }
-                        builder.database(&s)?.branch(&s)?;
+                        builder.database(&s).branch(&s);
                         *has_branch = true;
                         break;
                     }

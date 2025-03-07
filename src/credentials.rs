@@ -1,16 +1,16 @@
 use std::collections::BTreeSet;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use anyhow::Context;
 use fn_error_context::context;
 use fs_err as fs;
 
-use gel_tokio::credentials::Credentials;
-use gel_tokio::Config;
+use gel_tokio::credentials::{AsCredentials, Credentials};
+use gel_tokio::{Config, InstanceName};
 
 use crate::platform::{config_dir, tmp_file_name};
-use crate::portable::local::is_valid_local_instance_name;
 use crate::question;
 
 pub fn base_dir() -> anyhow::Result<PathBuf> {
@@ -33,7 +33,7 @@ pub fn all_instance_names() -> anyhow::Result<BTreeSet<String>> {
         let item = item?;
         if let Ok(filename) = item.file_name().into_string() {
             if let Some(name) = filename.strip_suffix(".json") {
-                if is_valid_local_instance_name(name) {
+                if InstanceName::from_str(name).is_ok() {
                     result.insert(name.into());
                 }
             }
