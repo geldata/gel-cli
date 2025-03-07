@@ -175,13 +175,12 @@ async fn do_check(ctx: &Context, status_file: &Path, watch: bool) -> anyhow::Res
     } else {
         Path::new(&status.tls_cert_file).to_path_buf()
     };
-    let cert_data = fs::read_to_string(&cert_path)
-        .await
-        .with_context(|| format!("cannot read cert file {cert_path:?}"))?;
     let config = Builder::new()
-        .port(status.port)?
-        .pem_certificates(&cert_data)?
-        .constrained_build()
+        .port(status.port)
+        .tls_ca_file(&cert_path)
+        .without_system()
+        .with_fs()
+        .build()
         .context("cannot build connection params")?;
     let cli = &mut Connection::connect(&config, QUERY_TAG).await?;
 

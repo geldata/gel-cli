@@ -1,6 +1,7 @@
 use std::io::{stdout, Write};
 
 use anyhow::Context;
+use gel_tokio::{CloudName, InstanceName};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD};
 use crate::browser::open_link;
@@ -16,10 +17,7 @@ pub fn show_ui(cmd: &UI, opts: &Options) -> anyhow::Result<()> {
     let cfg = connector.get()?;
 
     let url = match cfg.instance_name() {
-        Some(gel_tokio::InstanceName::Cloud {
-            org_slug: org,
-            name,
-        }) => get_cloud_ui_url(cmd, org, name, cfg, opts)?,
+        Some(InstanceName::Cloud(cloud_name)) => get_cloud_ui_url(cmd, cloud_name, cfg, opts)?,
         _ => get_local_ui_url(cmd, cfg)?,
     };
 
@@ -41,18 +39,21 @@ pub fn show_ui(cmd: &UI, opts: &Options) -> anyhow::Result<()> {
 
 fn get_cloud_ui_url(
     cmd: &UI,
-    org: &str,
-    name: &str,
+    cloud_name: &CloudName,
     cfg: &gel_tokio::Config,
     opts: &Options,
 ) -> anyhow::Result<String> {
     let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
     client.ensure_authenticated()?;
     let url = if client.is_default_partition {
-        format!("https://cloud.edgedb.com/{org}/{name}")
+        format!("https://cloud.edgedb.com/{cloud_name}")
     } else {
-        let inst = cloud::ops::find_cloud_instance_by_name(name, org, &client)?
-            .ok_or_else(|| anyhow::anyhow!("instance not found"))?;
+        let inst = cloud::ops::find_cloud_instance_by_name(
+            &cloud_name.name,
+            &cloud_name.org_slug,
+            &client,
+        )?
+        .ok_or_else(|| anyhow::anyhow!("instance not found"))?;
         match inst.ui_url {
             Some(url) => url,
             None => get_local_ui_url(cmd, cfg)?,

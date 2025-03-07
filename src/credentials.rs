@@ -1,16 +1,16 @@
 use std::collections::BTreeSet;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use anyhow::Context;
 use fn_error_context::context;
 use fs_err as fs;
 
 use gel_tokio::credentials::Credentials;
-use gel_tokio::Config;
+use gel_tokio::{Config, InstanceName};
 
 use crate::platform::{config_dir, tmp_file_name};
-use crate::portable::local::is_valid_local_instance_name;
 use crate::question;
 
 pub fn base_dir() -> anyhow::Result<PathBuf> {
@@ -33,7 +33,7 @@ pub fn all_instance_names() -> anyhow::Result<BTreeSet<String>> {
         let item = item?;
         if let Ok(filename) = item.file_name().into_string() {
             if let Some(name) = filename.strip_suffix(".json") {
-                if is_valid_local_instance_name(name) {
+                if InstanceName::from_str(name).is_ok() {
                     result.insert(name.into());
                 }
             }
@@ -68,18 +68,26 @@ pub async fn read(path: &Path) -> anyhow::Result<Credentials> {
 }
 
 pub fn maybe_update_credentials_file(config: &Config, ask: bool) -> anyhow::Result<()> {
-    if config.is_creds_file_outdated() {
-        if let Some(instance_name) = config.local_instance_name() {
-            let creds_path = path(instance_name)?;
-            if !ask
-                || question::Confirm::new(format!(
-                    "The format of the instance credential file at {} is outdated, \
-             update now?",
-                    creds_path.display(),
-                ))
-                .ask()?
-            {
-                write(&creds_path, &config.as_credentials()?)?;
+    use gel_tokio::credentials::AsCredentials;
+    if let Some(instance_name) = config.local_instance_name() {
+        if let Ok(creds_path) = path(instance_name) {
+            if let Ok(creds) = config.as_credentials() {
+                let new = serde_json::to_value(&creds)?;
+                let old = serde_json::from_str::<serde_json::Value>(
+                    &std::fs::read_to_string(&creds_path).unwrap_or_default(),
+                )?;
+                if new != old {
+                    if !ask
+                        || question::Confirm::new(format!(
+                            "The format of the instance credential file at {} is outdated, \
+                    update now?",
+                            creds_path.display(),
+                        ))
+                        .ask()?
+                    {
+                        std::fs::write(&creds_path, &new.to_string())?;
+                    }
+                }
             }
         }
     }

@@ -10,6 +10,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
 
 use anyhow::Context;
+use log::warn;
 use reqwest::{header, StatusCode};
 
 use crate::branding::BRANDING_CLI_CMD;
@@ -84,13 +85,14 @@ impl CloudClient {
         let profile = if let Some(p) = options_profile.clone() {
             Some(p)
         } else {
-            gel_tokio::env::Env::cloud_profile()?
+            Env::cloud_profile()?
         };
         let secret_key = if let Some(secret_key) = options_secret_key {
             Some(secret_key.into())
         } else if let Some(secret_key) = Env::cloud_secret_key()? {
+            warn!("Using deprecated cloud secret key from environment variable: Use GEL_SECRET_KEY instead");
             Some(secret_key)
-        } else if let Some(secret_key) = gel_tokio::env::Env::secret_key()? {
+        } else if let Some(secret_key) = Env::secret_key()? {
             Some(secret_key)
         } else {
             match fs::read_to_string(cloud_config_file(&profile)?) {
@@ -164,9 +166,9 @@ impl CloudClient {
         };
 
         let api_endpoint = reqwest::Url::parse(&api_endpoint)?;
-        if let Some(cloud_certs) = gel_tokio::env::Env::_cloud_certs()? {
+        if let Some(cloud_certs) = Env::cloud_certs()? {
             log::info!("Using cloud certs for {cloud_certs:?}");
-            let root = cloud_certs.root();
+            let root = cloud_certs.certificates_pem();
             log::trace!("{root}");
             // Add all certificates from the PEM bundle to the root store
             builder = builder

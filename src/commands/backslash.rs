@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 use clap::{CommandFactory, FromArgMatches};
 use const_format::concatcp;
+use gel_dsn::gel::DatabaseBranch;
 use once_cell::sync::Lazy;
 use prettytable::{Cell, Row, Table};
 use regex::Regex;
@@ -596,7 +597,7 @@ pub async fn execute(
             let result = execute::common(Some(conn), cmd, &options).await?;
 
             if let Some(branch) = result.new_branch {
-                prompt.try_connect(&branch).await?;
+                prompt.try_connect(DatabaseBranch::Branch(branch)).await?;
             }
 
             Ok(Skip)
@@ -674,7 +675,7 @@ pub async fn execute(
                 print::warn!("WARNING: Transaction canceled.");
             }
             prompt
-                .try_connect(&c.database_name)
+                .try_connect(DatabaseBranch::Ambiguous(c.database_name.clone()))
                 .await
                 .map_err(|e| {
                     print::error!("Cannot connect: {e:#}");

@@ -1,3 +1,5 @@
+use gel_dsn::gel::DEFAULT_PORT;
+use gel_tokio::credentials::AsCredentials;
 use std::io::{stdout, Write};
 use url::Url;
 
@@ -7,8 +9,8 @@ pub fn show_credentials(options: &Options, c: &Command) -> anyhow::Result<()> {
     use gel_tokio::credentials::TlsSecurity;
 
     let connector = options.block_on_create_connector()?;
-    let builder = connector.get()?;
-    let creds = builder.as_credentials()?;
+    let creds = connector.get()?;
+    let creds = creds.as_credentials()?;
     if let Some(result) = if c.json {
         Some(serde_json::to_string_pretty(&creds)?)
     } else if c.insecure_dsn {
@@ -16,7 +18,7 @@ pub fn show_credentials(options: &Options, c: &Command) -> anyhow::Result<()> {
             "edgedb://{}@{}:{}",
             creds.user,
             creds.host.unwrap_or("localhost".into()),
-            creds.port,
+            creds.port.unwrap_or(DEFAULT_PORT),
         ))?;
         url.set_password(creds.password.as_deref()).ok();
         if let Some(database) = creds.database {
@@ -38,7 +40,7 @@ pub fn show_credentials(options: &Options, c: &Command) -> anyhow::Result<()> {
     } else {
         let mut settings = vec![
             ("Host", creds.host.unwrap_or("localhost".to_string())),
-            ("Port", creds.port.to_string()),
+            ("Port", creds.port.unwrap_or(DEFAULT_PORT).to_string()),
             ("User", creds.user.clone()),
             (
                 "Password",

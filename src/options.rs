@@ -5,10 +5,11 @@ use std::time::Duration;
 
 use color_print::cformat;
 use const_format::concatcp;
-use gel_errors::{ClientNoCredentialsError, ResultExt};
+use gel_dsn::gel::UnixPath;
+use gel_errors::ClientNoCredentialsError;
 use gel_protocol::model;
 use gel_tokio::credentials::TlsSecurity;
-use gel_tokio::{Builder, Config};
+use gel_tokio::Builder;
 use is_terminal::IsTerminal;
 use tokio::task::spawn_blocking as unblock;
 
@@ -24,7 +25,7 @@ use crate::connect::Connector;
 use crate::hint::HintExt;
 use crate::markdown;
 use crate::portable;
-use crate::portable::local::{instance_data_dir, runstate_dir};
+use crate::portable::local::runstate_dir;
 use crate::portable::options::InstanceName;
 use crate::portable::project;
 use crate::print::{self, AsRelativeToCurrentDir, Highlight};
@@ -862,38 +863,25 @@ impl Options {
             // `config.with_password()` but we need it here so that
             // `edgedb://?password_env=NON_EXISTING` does not read the
             // environemnt variable
-            builder.password("");
+            builder = builder.password("");
         }
-        match builder.build_env().await {
-            Ok(config) => {
-                let mut cfg = with_password(&self.conn_options, config).await?;
-                match (cfg.admin(), cfg.port(), cfg.local_instance_name()) {
-                    (false, _, _) => {}
-                    (true, None, _) => {}
-                    (true, Some(port), Some(name)) => {
-                        if !instance_data_dir(name)?.exists() {
-                            anyhow::bail!(
-                                "The --admin option requires \
-                                           --unix-path or local instance name"
-                            );
-                        }
-                        let sock = runstate_dir(name)?.join(format!(".s.EDGEDB.admin.{port}"));
-                        cfg = cfg.with_unix_path(&sock)?;
-                    }
-                    (true, Some(_), None) => {
-                        anyhow::bail!(
-                            "The --admin option requires \
-                                       --unix-path or local instance name"
-                        );
-                    }
+        match builder.clone().build() {
+            Ok(mut config) => {
+                if let Some(password) = with_password(&self.conn_options, config.user()).await? {
+                    config = config.with_password(&password);
                 }
-                Ok(Connector::new(Ok(cfg)))
+                Ok(Connector::new(Ok(config)))
             }
             Err(e) => {
-                let (_, cfg, errors) = builder.build_no_fail().await;
+                let (cfg, errors) = builder.compute()?;
+
                 // ask password anyways, so input that fed as a password
                 // never goes to anywhere else
-                with_password(&self.conn_options, cfg).await?;
+                with_password(
+                    &self.conn_options,
+                    &cfg.user.unwrap_or("edgedb".to_string()),
+                )
+                .await?;
 
                 if e.is::<ClientNoCredentialsError>() {
                     let project = project::find_project_async(None).await?;
@@ -927,87 +915,98 @@ impl Options {
     }
 }
 
-async fn with_password(options: &ConnectionOptions, config: Config) -> anyhow::Result<Config> {
+async fn with_password(options: &ConnectionOptions, user: &str) -> anyhow::Result<Option<String>> {
     if options.password_from_stdin {
         let password = unblock(tty_password::read_stdin).await??;
-        Ok(config.with_password(&password))
+        Ok(Some(password))
     } else if options.no_password {
-        Ok(config)
+        Ok(None)
     } else if options.password {
-        let user = config.user().to_owned();
+        let user = user.to_string();
         let password = unblock(move || {
-            tty_password::read(format!("Password for '{}': ", user.escape_default()))
+            let user = user.escape_default();
+            tty_password::read(format!("Password for '{user}': "))
         })
         .await??;
-        Ok(config.with_password(&password))
+        Ok(Some(password))
     } else {
-        Ok(config)
+        Ok(None)
     }
 }
 
 pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
     let tmp = &opts.conn_options;
     let mut bld = Builder::new();
-    if let Some(path) = &tmp.unix_path {
-        bld.unix_path(path);
+    if tmp.admin {
+        if tmp.unix_path.is_none() && tmp.instance.is_none() {
+            anyhow::bail!("`--admin` requires `--unix-path` or `--instance`");
+        }
+        if let Some(unix_path) = &tmp.unix_path {
+            bld = bld.unix_path(unix_path.to_path_buf());
+        }
+        if let Some(instance) = &tmp.instance {
+            let InstanceName::Local(name) = &instance else {
+                anyhow::bail!("`--instance` must be a local instance name when using `--admin`");
+            };
+            let sock = runstate_dir(name)?.join(".EDGEDB.admin.");
+            bld = bld.unix_path(UnixPath::PortSuffixed(sock));
+        }
     }
     if let Some(host) = &tmp.host {
         if host.contains('/') {
-            log::warn!(
-                "Deprecated: `--host` containing a slash is \
-                a path to a unix socket. Use TCP connection if possible, \
-                otherwise use `--unix-path`."
+            anyhow::bail!(
+                "`--host` must be a hostname or IP address, not a path to a unix socket.
+                Use `--admin` and `--unix-path` or `--instance` to administer a local instance."
             );
-            bld.unix_path(host);
         } else {
-            bld.host(host)?;
+            bld = bld.host_string(host);
         }
     }
     if let Some(port) = tmp.port {
-        bld.port(port)?;
+        bld = bld.port(port);
     }
     if let Some(dsn) = &tmp.dsn {
-        bld.dsn(dsn).context("invalid DSN")?;
+        bld = bld.dsn(dsn);
     }
     if let Some(instance) = &tmp.instance {
-        bld.instance(&instance.to_string())?;
+        bld = bld.instance(instance.clone());
     }
     if let Some(secret_key) = &tmp.secret_key {
-        bld.secret_key(secret_key);
+        bld = bld.secret_key(secret_key);
     }
     if let Some(file_path) = &tmp.credentials_file {
-        bld.credentials_file(file_path);
-    }
-    if tmp.admin {
-        bld.admin(true);
+        bld = bld.credentials_file(file_path);
     }
     if let Some(user) = &tmp.user {
-        bld.user(user)?;
+        bld = bld.user(user);
     }
     if let Some(val) = tmp.wait_until_available {
-        bld.wait_until_available(val);
+        bld = bld.wait_until_available(val);
     }
     if let Some(val) = tmp.connect_timeout {
-        bld.connect_timeout(val);
+        bld = bld.connect_timeout(val);
     }
     if let Some(val) = &tmp.secret_key {
-        bld.secret_key(val);
+        bld = bld.secret_key(val);
     }
     if let Some(database) = &tmp.database {
-        bld.database(database)?;
-        bld.branch(database)?;
+        bld = bld.database(database);
+        bld = bld.branch(database);
     } else if let Some(branch) = &tmp.branch {
-        bld.branch(branch)?;
-        bld.database(branch)?;
+        bld = bld.branch(branch);
+        bld = bld.database(branch);
     }
 
-    load_tls_options(tmp, &mut bld)?;
+    bld = load_tls_options(tmp, bld)?;
     Ok(bld)
 }
 
-pub fn load_tls_options(options: &ConnectionOptions, builder: &mut Builder) -> anyhow::Result<()> {
+pub fn load_tls_options(
+    options: &ConnectionOptions,
+    mut builder: Builder,
+) -> anyhow::Result<Builder> {
     if let Some(cert_file) = &options.tls_ca_file {
-        builder.tls_ca_file(cert_file);
+        builder = builder.tls_ca_file(cert_file);
     }
     let mut security = match options.tls_security.as_deref() {
         None => None,
@@ -1045,10 +1044,10 @@ pub fn load_tls_options(options: &ConnectionOptions, builder: &mut Builder) -> a
         }
     }
     if let Some(s) = security {
-        builder.tls_security(s);
+        builder = builder.tls_security(s);
     }
     if let Some(tls_server_name) = &options.tls_server_name {
-        builder.tls_server_name(tls_server_name)?;
+        builder = builder.tls_server_name(tls_server_name);
     }
-    Ok(())
+    Ok(builder)
 }

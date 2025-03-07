@@ -2,18 +2,12 @@ use std::fmt;
 use std::str::FromStr;
 
 use edgedb_cli_derive::IntoArgs;
+use gel_tokio::CloudName;
 
-use crate::branding::BRANDING_CLOUD;
 use crate::cloud::ops::CloudTier;
 use crate::commands::ExitCode;
-use crate::portable::local::{
-    is_valid_cloud_instance_name, is_valid_cloud_org_name, is_valid_local_instance_name,
-};
 use crate::print::{self, err_marker, msg};
 use crate::process::{self, IntoArg};
-
-const DOMAIN_LABEL_MAX_LENGTH: usize = 63;
-const CLOUD_INSTANCE_NAME_MAX_LENGTH: usize = DOMAIN_LABEL_MAX_LENGTH - 2 + 1; // "--" -> "/"
 
 #[derive(Clone, Debug)]
 pub enum InstanceName {
@@ -25,8 +19,19 @@ impl From<gel_tokio::InstanceName> for InstanceName {
     fn from(x: gel_tokio::InstanceName) -> Self {
         match x {
             gel_tokio::InstanceName::Local(s) => InstanceName::Local(s),
-            gel_tokio::InstanceName::Cloud { org_slug, name } => {
+            gel_tokio::InstanceName::Cloud(CloudName { org_slug, name }) => {
                 InstanceName::Cloud { org_slug, name }
+            }
+        }
+    }
+}
+
+impl Into<gel_tokio::InstanceName> for InstanceName {
+    fn into(self) -> gel_tokio::InstanceName {
+        match self {
+            InstanceName::Local(s) => gel_tokio::InstanceName::Local(s),
+            InstanceName::Cloud { org_slug, name } => {
+                gel_tokio::InstanceName::Cloud(CloudName { org_slug, name })
             }
         }
     }
@@ -44,43 +49,8 @@ impl fmt::Display for InstanceName {
 impl FromStr for InstanceName {
     type Err = anyhow::Error;
     fn from_str(name: &str) -> anyhow::Result<InstanceName> {
-        if let Some((org_slug, instance_name)) = name.split_once('/') {
-            if !is_valid_cloud_instance_name(instance_name) {
-                anyhow::bail!(
-                    "instance name \"{}\" must be a valid identifier, \
-                     regex: ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$",
-                    instance_name,
-                );
-            }
-            if !is_valid_cloud_org_name(org_slug) {
-                anyhow::bail!(
-                    "org name \"{}\" must be a valid identifier, \
-                     regex: ^-?[a-zA-Z0-9_]+(-[a-zA-Z0-9]+)*$",
-                    org_slug,
-                );
-            }
-            if name.len() > CLOUD_INSTANCE_NAME_MAX_LENGTH {
-                anyhow::bail!(
-                    "invalid {BRANDING_CLOUD} instance name \"{}\": \
-                    length cannot exceed {} characters",
-                    name,
-                    CLOUD_INSTANCE_NAME_MAX_LENGTH,
-                );
-            }
-            Ok(InstanceName::Cloud {
-                org_slug: org_slug.into(),
-                name: instance_name.into(),
-            })
-        } else {
-            if !is_valid_local_instance_name(name) {
-                anyhow::bail!(
-                    "instance name must be a valid identifier, \
-                     regex: ^[a-zA-Z_0-9]+(-[a-zA-Z_0-9]+)*$ or \
-                     {BRANDING_CLOUD} instance name ORG/INST."
-                );
-            }
-            Ok(InstanceName::Local(name.into()))
-        }
+        let name = gel_tokio::InstanceName::from_str(name)?;
+        Ok(name.into())
     }
 }
 
@@ -107,13 +77,7 @@ pub fn instance_arg(
 
     {
         // infer instance from current project
-        let bld = gel_tokio::Builder::new();
-
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
-        let config = rt.block_on(bld.build_env())?;
+        let config = gel_tokio::Builder::new().build()?;
 
         let instance = config.instance_name().cloned();
 

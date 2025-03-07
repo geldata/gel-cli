@@ -588,7 +588,7 @@ pub fn bootstrap(
         .with_context(|| format!("renaming {:?} -> {:?}", tmp_data, paths.data_dir))?;
 
     let mut creds = Credentials::default();
-    creds.port = info.port;
+    creds.port = Some(info.port);
     creds.user = user.into();
     creds.database = Some(database.to_string());
     creds.password = Some(password);

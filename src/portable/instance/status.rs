@@ -5,12 +5,14 @@ use std::future::{pending, Future};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
 use edgedb_cli_derive::IntoArgs;
 use fn_error_context::context;
+use gel_dsn::gel::DEFAULT_PORT;
 use humantime::format_duration;
 use is_terminal::IsTerminal;
 use tokio::join;
@@ -31,7 +33,7 @@ use crate::platform::data_dir;
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::upgrade::{BackupMeta, UpgradeMeta};
-use crate::portable::local::{is_valid_local_instance_name, lock_file, read_ports};
+use crate::portable::local::{lock_file, read_ports};
 use crate::portable::local::{InstanceInfo, Paths};
 use crate::portable::options::{instance_arg, InstanceName};
 use crate::portable::{linux, macos, windows};
@@ -344,7 +346,10 @@ fn cloud_status(
 }
 
 async fn try_get_version(creds: &Credentials) -> anyhow::Result<String> {
-    let config = Builder::new().credentials(creds)?.constrained_build()?;
+    let config = Builder::new()
+        .params(creds.clone())
+        .without_system()
+        .build()?;
     let mut conn = Connection::connect(&config, QUERY_TAG).await?;
     let ver = conn
         .query_required_single("SELECT sys::get_version_as_str()", &())
@@ -393,7 +398,7 @@ async fn _remote_status(name: &str, quiet: bool) -> anyhow::Result<RemoteStatus>
     let location = format!(
         "{}:{}",
         credentials.host.as_deref().unwrap_or("localhost"),
-        credentials.port.clone()
+        credentials.port.unwrap_or(DEFAULT_PORT)
     );
     Ok(RemoteStatus {
         name: name.into(),
@@ -466,7 +471,7 @@ pub fn list_local(
         let fname = entry.file_name();
         let name_op = fname
             .to_str()
-            .and_then(|x| is_valid_local_instance_name(x).then_some(x));
+            .and_then(|x| InstanceName::from_str(x).is_ok().then_some(x));
         if let Some(name) = name_op {
             Some(Ok((name.into(), entry.path())))
         } else {
@@ -935,7 +940,7 @@ impl RemoteStatus {
             "  Host: {}",
             creds.host.as_ref().map_or("localhost", |x| &x[..])
         );
-        println!("  Port: {}", creds.port);
+        println!("  Port: {}", creds.port.unwrap_or(DEFAULT_PORT));
         if !is_cloud {
             println!("  User: {}", creds.user);
             println!(
@@ -956,7 +961,7 @@ impl RemoteStatus {
     pub fn json(&self) -> JsonStatus {
         JsonStatus {
             name: self.name.clone(),
-            port: Some(self.credentials.port),
+            port: self.credentials.port,
             version: self.version.clone(),
             service_status: None,
             remote_status: self.connection.as_ref().map(|s| s.as_str().to_string()),

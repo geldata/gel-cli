@@ -1,5 +1,55 @@
-use gel_tokio::define_env;
 use std::path::PathBuf;
+
+use gel_dsn::gel::CloudCerts;
+
+macro_rules! define_env {
+    (
+        $(
+            #[doc=$doc:expr]
+            #[env($($env_name:expr),+)]
+            $(#[preprocess=$preprocess:expr])?
+            $(#[parse=$parse:expr])?
+            $(#[validate=$validate:expr])?
+            $name:ident: $type:ty
+        ),* $(,)?
+    ) => {
+        #[derive(Debug, Clone)]
+        pub struct Env {
+        }
+
+        #[allow(clippy::diverging_sub_expression)]
+        impl Env {
+            $(
+                #[doc = $doc]
+                pub fn $name() -> ::std::result::Result<::std::option::Option<$type>, anyhow::Error> {
+                    const ENV_NAMES: &[&str] = &[$(stringify!($env_name)),+];
+                    let Some((_name, s)) = $crate::cli::env::get_envs(ENV_NAMES)? else {
+                        return Ok(None);
+                    };
+                    $(let Some(s) = $preprocess(&s, context)? else {
+                        return Ok(None);
+                    };)?
+
+                    // This construct lets us choose between $parse and std::str::FromStr
+                    // without requiring all types to implement FromStr.
+                    #[allow(unused_labels)]
+                    let value: $type = 'block: {
+                        $(
+                            break 'block $parse(&name, &s)?;
+
+                            // Disable the fallback parser
+                            #[cfg(all(debug_assertions, not(debug_assertions)))]
+                        )?
+                        $crate::cli::env::parse::<_>(&s)?
+                    };
+
+                    $($validate(name, &value)?;)?
+                    Ok(Some(value))
+                }
+            )*
+        }
+    };
+}
 
 define_env! {
     /// Path to the editor executable
@@ -34,6 +84,18 @@ define_env! {
     #[env(GEL_CLOUD_SECRET_KEY, EDGEDB_CLOUD_SECRET_KEY)]
     cloud_secret_key: String,
 
+    /// Cloud secret key
+    #[env(GEL_SECRET_KEY, EDGEDB_SECRET_KEY)]
+    secret_key: String,
+
+    /// Cloud profile
+    #[env(GEL_CLOUD_PROFILE, EDGEDB_CLOUD_PROFILE)]
+    cloud_profile: String,
+
+    /// Cloud certificates
+    #[env(_GEL_CLOUD_CERTS, _EDGEDB_CLOUD_CERTS)]
+    cloud_certs: CloudCerts,
+
     /// Cloud API endpoint URL
     #[env(GEL_CLOUD_API_ENDPOINT, EDGEDB_CLOUD_API_ENDPOINT)]
     cloud_api_endpoint: String,
@@ -61,6 +123,23 @@ define_env! {
     /// System pager
     #[env(PAGER)]
     system_pager: String,
+}
+
+pub fn get_envs(names: &[&str]) -> Result<Option<(String, String)>, anyhow::Error> {
+    for name in names {
+        let value = std::env::var(name).ok();
+        if let Some(value) = value {
+            return Ok(Some((name.to_string(), value)));
+        }
+    }
+    Ok(None)
+}
+
+pub fn parse<T: std::str::FromStr>(s: &str) -> anyhow::Result<T>
+where
+    T::Err: std::fmt::Display,
+{
+    T::from_str(s).map_err(|e| anyhow::anyhow!("Invalid value: {e}"))
 }
 
 #[derive(Debug)]

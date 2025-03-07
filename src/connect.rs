@@ -1,5 +1,4 @@
 use std::borrow::Cow;
-use std::error::Error as StdError;
 use std::future::{pending, Future};
 use std::mem;
 use std::pin::Pin;
@@ -9,6 +8,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 
+use gel_dsn::gel::DatabaseBranch;
 use tokio::time::sleep;
 use tokio_stream::Stream;
 
@@ -39,6 +39,8 @@ use crate::portable::ver;
 pub enum ConnectionError {
     #[error("Connection error: {0}")]
     Error(Error),
+    #[error("I/O error. Check your connection to the database: {0}")]
+    IoError(Error),
     #[error(
         "Permission error. This is usually caused by a firewall. Try disabling \
         your OS's firewall or any other firewalls you have installed"
@@ -150,11 +152,17 @@ impl Connector {
     }
     pub fn branch(&mut self, name: &str) -> anyhow::Result<&mut Self> {
         if let Ok(cfg) = self.config.as_mut() {
-            let mut c = cfg.clone().with_branch(name)?;
-            if name != "__default__" {
-                c = c.with_database(name)?;
+            if name == "__default__" {
+                *cfg = cfg.with_db(DatabaseBranch::Default);
+            } else {
+                *cfg = cfg.with_db(DatabaseBranch::Ambiguous(name.to_string()));
             }
-            *cfg = c;
+        }
+        Ok(self)
+    }
+    pub fn db(&mut self, db: DatabaseBranch) -> anyhow::Result<&mut Self> {
+        if let Ok(cfg) = self.config.as_mut() {
+            *cfg = cfg.with_db(db);
         }
         Ok(self)
     }
@@ -180,7 +188,10 @@ impl Connector {
             QUERY_TAG
         };
         let conn = tokio::select!(
-            conn = Connection::connect(cfg, tag) => conn?,
+            conn = Connection::connect(cfg, tag) => {
+                if interactive { eprintln!() }
+                conn?
+            },
             _ = self.print_warning(cfg, interactive) => unreachable!(),
         );
         Ok(conn)
@@ -188,10 +199,9 @@ impl Connector {
 
     fn warning_msg(&self, cfg: &Config) -> String {
         let desc = match cfg.instance_name() {
-            Some(gel_tokio::InstanceName::Cloud {
-                org_slug: org,
-                name,
-            }) => format!("{BRANDING_CLOUD} instance '{org}/{name}'"),
+            Some(gel_tokio::InstanceName::Cloud(cloud_name)) => {
+                format!("{BRANDING_CLOUD} instance '{cloud_name}'")
+            }
             Some(gel_tokio::InstanceName::Local(name)) => {
                 format!("{BRANDING} instance '{}' at {}", name, cfg.display_addr())
             }
@@ -225,6 +235,18 @@ impl Connector {
 }
 
 impl Connection {
+    pub fn from_raw(cfg: &Config, raw: raw::Connection, tag: impl ToString) -> Connection {
+        let mut annotations = Annotations::new();
+        annotations.insert("tag".to_string(), tag.to_string());
+        Connection {
+            inner: raw,
+            state: State::empty(),
+            server_version: None,
+            config: cfg.clone(),
+            annotations: Arc::new(Annotations::new()),
+        }
+    }
+
     pub async fn connect(cfg: &Config, tag: impl ToString) -> Result<Connection, ConnectionError> {
         let mut annotations = Annotations::new();
         annotations.insert("tag".to_string(), tag.to_string());
@@ -240,25 +262,25 @@ impl Connection {
     }
 
     fn map_connection_err(err: Error) -> ConnectionError {
-        if let Some(io_error) = err
-            .source()
-            .and_then(|v| v.downcast_ref::<std::io::Error>())
-            .and_then(|v| v.raw_os_error())
-        {
-            // permission error
-            if io_error == 1 {
-                return ConnectionError::PermissionError(err);
+        let mut source_walker: &dyn std::error::Error = &err;
+
+        while let Some(source) = source_walker.source() {
+            if let Some(io_error) = source.downcast_ref::<std::io::Error>() {
+                let kind = io_error.kind();
+                if kind == std::io::ErrorKind::PermissionDenied {
+                    return ConnectionError::PermissionError(err);
+                }
+                let message = io_error.to_string();
+                return ConnectionError::IoError(err.context(message));
             }
+            source_walker = source;
         }
 
         ConnectionError::Error(err)
     }
 
-    pub fn database(&self) -> &str {
-        self.config.database()
-    }
-    pub fn branch(&self) -> &str {
-        self.config.branch()
+    pub fn database(&self) -> &DatabaseBranch {
+        &self.config.db
     }
     pub fn set_ignore_error_state(&mut self) -> State {
         let new_state = make_ignore_error_state(self.inner.state_descriptor());
@@ -290,26 +312,26 @@ impl Connection {
         Ok(self.server_version.insert(build))
     }
     pub async fn get_current_branch(&mut self) -> Result<Cow<'_, str>, Error> {
-        if self.branch() != "__default__" {
-            Ok(self.branch().into())
-        } else {
-            let state = make_ignore_error_state(self.inner.state_descriptor());
-            let resp: raw::Response<Vec<String>> = self
-                .inner
-                .query(
-                    "SELECT sys::get_current_database()",
-                    &(),
-                    &state,
-                    &self.annotations,
-                    Capabilities::empty(),
-                    IoFormat::Binary,
-                    Cardinality::AtMostOne,
-                )
-                .await
-                .context("cannot fetch current database branch")?;
-            let branch = resp.data.into_iter().next().unwrap_or_default();
-            Ok(branch.into())
+        if let Some(name) = self.config.db.name() {
+            return Ok(name.into());
         }
+
+        let state = make_ignore_error_state(self.inner.state_descriptor());
+        let resp: raw::Response<Vec<String>> = self
+            .inner
+            .query(
+                "SELECT sys::get_current_database()",
+                &(),
+                &state,
+                &self.annotations,
+                Capabilities::empty(),
+                IoFormat::Binary,
+                Cardinality::AtMostOne,
+            )
+            .await
+            .context("cannot fetch current database branch")?;
+        let branch = resp.data.into_iter().next().unwrap_or_default();
+        Ok(branch.into())
     }
     pub async fn query<R, A>(&mut self, query: &str, arguments: &A) -> Result<Vec<R>, Error>
     where

@@ -12,7 +12,9 @@ use std::str::FromStr;
 
 use fn_error_context::context;
 
+use gel_dsn::gel::ProjectDir;
 use gel_tokio::Builder;
+use tokio::task::spawn_blocking;
 
 use crate::branding::QUERY_TAG;
 use crate::branding::{BRANDING_SCHEMA_FILE_EXT, MANIFEST_FILE_DISPLAY_NAME};
@@ -207,23 +209,21 @@ impl Handle<'_> {
         }
     }
     pub fn get_builder(&self) -> anyhow::Result<Builder> {
-        let mut builder = Builder::new();
-        builder.instance(&self.name)?;
+        let mut builder = Builder::new().instance_string(&self.name);
         if let Some(database) = &self.database {
-            builder.database(database)?;
+            builder = builder.database(database);
         }
         Ok(builder)
     }
     pub fn get_default_builder(&self) -> anyhow::Result<Builder> {
-        let mut builder = Builder::new();
-        builder.instance(&self.name)?;
+        let builder = Builder::new().instance_string(&self.name);
         Ok(builder)
     }
     pub async fn get_default_connection(&self) -> anyhow::Result<Connection> {
-        Ok(Connection::connect(&self.get_default_builder()?.build_env().await?, QUERY_TAG).await?)
+        Ok(Connection::connect(&self.get_default_builder()?.build()?, QUERY_TAG).await?)
     }
     pub async fn get_connection(&self) -> anyhow::Result<Connection> {
-        Ok(Connection::connect(&self.get_builder()?.build_env().await?, QUERY_TAG).await?)
+        Ok(Connection::connect(&self.get_builder()?.build()?, QUERY_TAG).await?)
     }
     #[tokio::main(flavor = "current_thread")]
     pub async fn get_version(&self) -> anyhow::Result<ver::Build> {
@@ -328,18 +328,29 @@ pub struct Location {
     pub manifest: PathBuf,
 }
 
-pub async fn find_project_async(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
-    let manifest = gel_tokio::get_project_path(override_dir, true).await?;
-
-    Ok(manifest.map(|manifest| Location {
-        root: manifest.parent().unwrap().to_owned(),
-        manifest,
-    }))
+pub fn get_stash_path(path: &Path) -> anyhow::Result<PathBuf> {
+    Ok(
+        gel_dsn::gel::ProjectSearchResult::find(ProjectDir::Exact(path.join("gel.toml")))?
+            .ok_or_else(|| anyhow::anyhow!("No project file found"))?
+            .stash_path,
+    )
 }
 
-#[tokio::main(flavor = "current_thread")]
-pub async fn find_project(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
-    find_project_async(override_dir).await
+pub async fn find_project_async(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
+    let override_dir = override_dir.map(|dir| dir.to_path_buf());
+    spawn_blocking(move || find_project(override_dir.as_deref())).await?
+}
+
+pub fn find_project(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
+    let manifest = gel_dsn::gel::ProjectSearchResult::find(if let Some(dir) = override_dir {
+        ProjectDir::Search(dir.to_path_buf())
+    } else {
+        ProjectDir::SearchCwd
+    })?;
+    Ok(manifest.map(|manifest| Location {
+        root: manifest.project_path.parent().unwrap().to_owned(),
+        manifest: manifest.project_path.to_path_buf(),
+    }))
 }
 
 pub async fn load_ctx(override_dir: Option<&Path>) -> anyhow::Result<Option<Context>> {

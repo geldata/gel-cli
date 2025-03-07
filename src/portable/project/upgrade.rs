@@ -3,7 +3,6 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use clap::ValueHint;
-use gel_tokio::get_stash_path;
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD};
 use crate::cloud;
@@ -20,6 +19,8 @@ use crate::portable::ver;
 use crate::portable::windows;
 use crate::print::{self, msg, AsRelativeToCurrentDir, Highlight};
 use crate::question;
+
+use super::get_stash_path;
 
 pub fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     let (query, version_set) = Query::from_options(

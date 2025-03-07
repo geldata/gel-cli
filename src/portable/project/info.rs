@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 
 use clap::ValueHint;
 use const_format::concatcp;
-use gel_tokio::get_stash_path;
 
 use crate::branding::BRANDING_CLI_CMD;
 use crate::branding::BRANDING_CLOUD;
@@ -11,6 +10,8 @@ use crate::commands::ExitCode;
 use crate::portable::project;
 use crate::print::{self, msg, Highlight};
 use crate::table;
+
+use super::get_stash_path;
 
 pub fn run(options: &Command) -> anyhow::Result<()> {
     let ctx = project::ensure_ctx(options.project_dir.as_deref())?;

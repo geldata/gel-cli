@@ -8,6 +8,7 @@ use std::fmt::{Display, Formatter};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 struct ResultPredicate {
     result: Value,
@@ -25,10 +26,10 @@ impl Predicate<str> for ResultPredicate {
             match self.result.get(k) {
                 Some(expected) if k == "waitUntilAvailable" => {
                     let expected = expected.as_str().unwrap().parse::<Duration>().unwrap();
-                    if v.as_i64().is_none() {
+                    if v.as_str().is_none() {
                         panic!("illegal waitUntilAvailable: {}", v);
                     }
-                    let v = Duration::from_micros(v.as_i64().unwrap());
+                    let v = Duration::from_str(v.as_str().unwrap()).unwrap();
                     if expected != v {
                         println!("{}: {} != {}", k, v, expected);
                         return false;

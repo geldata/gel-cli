@@ -39,8 +39,9 @@ edgeql-parser = {git = "https://github.com/edgedb/edgeql"}
 gel-protocol = { version = "0.8", features = ["all-types"] }
 gel-derive = { version = "0.7" }
 gel-errors = { version = "0.5" }
-gel-tokio = { version = "0.9", features=["admin_socket", "unstable"] }
 gel-auth = { version = "0.1" }
+gel-tokio = { version = "0.10", features=["admin_socket", "unstable"] }
+gel-dsn = { version = "0.2", features = ["unstable", "gel", "auto-log-trace", "auto-log-warning"] }
 
 snafu = "0.8.4"
 ansi-escapes = "0.2"
@@ -198,3 +199,10 @@ vec_init_then_push = 'allow'
 while_let_on_iterator = 'allow'
 too_many_arguments = 'allow'
 clone_on_copy = 'allow'
+
+[patch.crates-io]
+gel-dsn = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "unix_path_tweak" }
+gel-stream = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "unix_path_tweak" }
+gel-errors = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "unix_path_tweak" }
+gel-tokio = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "unix_path_tweak" }
+gel-protocol = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "unix_path_tweak" }

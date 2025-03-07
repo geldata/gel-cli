@@ -115,8 +115,8 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
         .enable_all()
         .build()?
         .block_on(async {
-            let conn_params = inst.admin_conn_params()?.constrained_build()?;
-            let mut cli = Connection::connect(&conn_params, QUERY_TAG).await?;
+            let config = inst.admin_conn_params()?;
+            let mut cli = Connection::connect(&config, QUERY_TAG).await?;
             cli.execute(
                 &format!(
                     r###"
