@@ -33,7 +33,7 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.81'
