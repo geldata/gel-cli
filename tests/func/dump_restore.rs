@@ -4,7 +4,7 @@ use crate::{ServerGuard, SERVER};
 
 #[test]
 fn dump_restore_cycle() {
-    std::fs::create_dir_all("./tmp").expect("can create directory");
+    let tempdir = tempfile::tempdir().unwrap();
     println!("before");
     SERVER
         .admin_cmd()
@@ -25,7 +25,7 @@ fn dump_restore_cycle() {
     SERVER
         .database_cmd("dump_01")
         .arg("dump")
-        .arg("./tmp/dump_01.dump")
+        .arg(tempdir.path().join("dump_01.dump"))
         .assert()
         .success();
     println!("dumped");
@@ -40,7 +40,7 @@ fn dump_restore_cycle() {
     SERVER
         .database_cmd("restore_01")
         .arg("restore")
-        .arg("./tmp/dump_01.dump")
+        .arg(tempdir.path().join("dump_01.dump"))
         .assert()
         .success();
     println!("restored");
@@ -67,6 +67,8 @@ fn dump_all_without_a_format() {
 
 #[test]
 fn dump_restore_all() {
+    let tempdir = tempfile::tempdir().unwrap();
+
     SERVER
         .admin_cmd()
         .arg("database")
@@ -95,7 +97,7 @@ fn dump_restore_all() {
             .arg("dump")
             .arg("--all")
             .arg("--format=dir")
-            .arg("./tmp/dump_02")
+            .arg(&tempdir.path())
             .ok();
         if r.is_err() && retry < 5 {
             retry += 1;
@@ -110,7 +112,7 @@ fn dump_restore_all() {
         .admin_cmd()
         .arg("restore")
         .arg("--all")
-        .arg("./tmp/dump_02")
+        .arg(&tempdir.path())
         .assert()
         .success();
 

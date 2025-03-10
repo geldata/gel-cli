@@ -33,7 +33,7 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.81'
@@ -66,7 +66,7 @@ jobs:
         run: "sudo apt-get install musl-tools"
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
         with:
           components: "cargo,rustc,rust-std"
           target: "x86_64-unknown-linux-musl"
@@ -103,7 +103,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.81'
@@ -129,7 +129,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.81'
@@ -166,7 +166,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.81'
@@ -208,7 +208,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.81'
@@ -229,7 +229,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.81'
