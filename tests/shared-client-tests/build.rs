@@ -118,7 +118,12 @@ static MUTEX: Mutex<()> = Mutex::new(());
     'testcase: for case in connection_testcases.as_array().unwrap() {
         let mut testcase = Vec::new();
         let case = case.as_object().unwrap();
-        let name = case.get("name").unwrap().as_str().unwrap();
+        let name = case
+            .get("name")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .replace(|c: char| !c.is_alphanumeric(), "_");
         let opts = case
             .get("opts")
             .and_then(|v| v.as_object())
@@ -151,6 +156,7 @@ static MUTEX: Mutex<()> = Mutex::new(());
         write!(
             testcase,
             r#"
+#[allow(non_snake_case)]
 #[test]
 "#
         );
