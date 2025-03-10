@@ -2,6 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
+use gel_dsn::gel::DatabaseBranch;
 use gel_tokio::builder::CertCheck;
 use ring::digest;
 
@@ -14,13 +15,13 @@ use gel_tokio::{Builder, Config};
 use rustyline::error::ReadlineError;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
+use crate::connect::Connection;
 use crate::credentials;
 use crate::hint::HintExt;
 use crate::options;
 use crate::options::CloudOptions;
 use crate::options::{ConnectionOptions, Options};
 use crate::portable::options::InstanceName;
-use crate::portable::ver::Build;
 use crate::print::{self, Highlight};
 use crate::question;
 use crate::tty_password;
@@ -91,13 +92,13 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     let non_interactive = cmd.non_interactive;
     let trust_tls_cert = cmd.trust_tls_cert;
     let quiet = cmd.quiet;
-    if cmd.conn.tls_ca_file.is_none() {
-        // config = config.with_cert_check(CertCheck::new_fn(move |cert| {
-        //     ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
-        // }));
-    }
-
-    let mut connect_result = connect(&config).await;
+    let mut connect_result = if cmd.conn.tls_ca_file.is_none() {
+        gel_tokio::raw::Connection::connect_with_cert_check(&config, CertCheck::new_fn(move |cert| {
+            ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
+        })).await
+    } else {
+        gel_tokio::raw::Connection::connect(&config).await
+    };
 
     let new_cert = if let Some(cert) = cert_holder.lock().unwrap().take() {
         let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert));
@@ -125,28 +126,30 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
             config = config.with_password(&password);
             creds.password = Some(password);
-            // if let Some(pem) = &new_cert {
-            //     config = config.with_pem_certificates(pem)?;
-            // }
-            connect_result = Ok(connect(&config).await?);
+            if let Some(pem) = &new_cert {
+                config = config.with_pem_certificates(pem)?;
+            }
+            connect_result = Ok(gel_tokio::raw::Connection::connect(&config).await?);
         } else {
             return Err(e.into());
         }
     }
-    let mut connection: Client = connect_result.unwrap();
-    let ver = get_server_version(&mut connection).await?;
+    let mut connection = Connection::from_raw(&config, connect_result.unwrap(), "link");
+    let ver = connection.get_version().await?.clone();
     if !has_branch && opts.conn_options.branch.is_none() && opts.conn_options.database.is_none() {
-        // config = config.with_database(&get_current_branch(&mut connection).await?)?;
+        let branch = connection.get_current_branch().await?;
 
-        // eprintln!("using the {}", config.db);
+        if ver.specific().major >= 5 {
+            config = config.with_db(DatabaseBranch::Branch(branch.to_string()));
+            creds.branch = Some(branch.into());
+            creds.database = None;
+        } else {
+            config = config.with_db(DatabaseBranch::Database(branch.to_string()));
+            creds.database = Some(branch.to_string());
+            creds.branch = None;
+        }
 
-        // if ver.specific().major >= 5 {
-        //     creds.branch = Some(config.database().to_string());
-        //     creds.database = None;
-        // } else {
-        //     creds.database = Some(config.database().to_string());
-        //     creds.branch = None;
-        // }
+        eprintln!("using the {}", config.db);
     }
 
     if let Some(pem) = &new_cert {
@@ -276,13 +279,6 @@ async fn connect(cfg: &gel_tokio::Config) -> Result<Client, Error> {
     client.ensure_connected().await?;
 
     Ok(client)
-}
-
-async fn get_server_version(connection: &mut Client) -> anyhow::Result<Build> {
-    let ver: String = connection
-        .query_required_single("SELECT sys::get_version_as_str()", &())
-        .await?;
-    ver.parse()
 }
 
 async fn get_current_branch(connection: &mut Client) -> anyhow::Result<String> {

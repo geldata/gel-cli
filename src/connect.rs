@@ -231,6 +231,18 @@ impl Connector {
 }
 
 impl Connection {
+    pub fn from_raw(cfg: &Config, raw: raw::Connection, tag: impl ToString) -> Connection {
+        let mut annotations = Annotations::new();
+        annotations.insert("tag".to_string(), tag.to_string());
+        Connection {
+            inner: raw,
+            state: State::empty(),
+            server_version: None,
+            config: cfg.clone(),
+            annotations: Arc::new(Annotations::new()),
+        }
+    }
+    
     pub async fn connect(cfg: &Config, tag: impl ToString) -> Result<Connection, ConnectionError> {
         let mut annotations = Annotations::new();
         annotations.insert("tag".to_string(), tag.to_string());
