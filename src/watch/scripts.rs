@@ -43,8 +43,9 @@ pub async fn run_script(
     script: &str,
     current_dir: &path::Path,
 ) -> Result<std::process::ExitStatus, anyhow::Error> {
+    let marker = marker.to_string();
+
     let status = if !cfg!(windows) {
-        let marker = marker.to_string();
         process::Native::new("", marker, "/bin/sh")
             .arg("-c")
             .arg(script)
@@ -52,10 +53,10 @@ pub async fn run_script(
             .run_for_status()
             .await?
     } else {
-        let wsl = windows::try_get_wsl()?;
-        wsl.sh(current_dir)
-            .arg("-c")
+        process::Native::new("", marker, "cmd.exe")
+            .arg("/c")
             .arg(script)
+            .current_dir(current_dir)
             .run_for_status()
             .await?
     };
