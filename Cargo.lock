@@ -256,6 +256,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-fn-stream"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e71711442f1016c768c259bec59300a10efe753bc3e686ec19e2c6a54a97c29b"
+dependencies = [
+ "futures-util",
+ "pin-project-lite",
+]
+
+[[package]]
 name = "async-trait"
 version = "0.1.86"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1455,6 +1465,7 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "assert_cmd",
+ "async-fn-stream",
  "backtrace",
  "base32",
  "base64 0.22.1",
