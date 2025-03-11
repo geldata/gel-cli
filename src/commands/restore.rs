@@ -1,18 +1,17 @@
 use std::collections::BTreeSet;
 use std::convert::TryInto;
 use std::ffi::OsString;
-use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
 use std::str;
 use std::task::{ready, Context, Poll};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
+use async_fn_stream::TryStreamEmitter;
 use bytes::{Bytes, BytesMut};
 use fn_error_context::context;
 use futures_util::stream::StreamExt;
-use futures_util::FutureExt;
 use indicatif::{HumanBytes, ProgressBar};
 use tokio::fs;
 use tokio::io::{self, AsyncRead, AsyncReadExt};
@@ -20,7 +19,7 @@ use tokio_stream::Stream;
 
 use edgeql_parser::helpers::quote_name;
 use edgeql_parser::preparser::is_empty;
-use gel_errors::{Error, ErrorKind, UserError};
+use gel_errors::Error;
 
 use crate::branding::BRANDING;
 use crate::commands::list_databases;
@@ -40,80 +39,89 @@ pub enum PacketType {
 }
 
 pub struct Packets {
-    input: Option<Input>,
-    buf: Option<BytesMut>,
-    future: Option<
-        Pin<Box<dyn Future<Output = (Input, BytesMut, Option<Result<Bytes, Error>>)> + Send>>,
-    >,
+    input: Pin<Box<dyn Stream<Item = Result<Bytes, Error>> + Send>>,
 }
 
-async fn read_packet(
-    input: &mut Input,
-    buf: &mut BytesMut,
-    expected: PacketType,
-) -> Result<Option<Bytes>, anyhow::Error> {
+async fn packet_generator(
+    emitter: TryStreamEmitter<Bytes, Error>,
+    mut input: impl AsyncRead + Unpin + Send + 'static,
+) -> Result<(), Error> {
     const HEADER_LEN: usize = 1 + 20 + 4;
-    while buf.len() < HEADER_LEN {
-        buf.reserve(HEADER_LEN);
-        let n = input
-            .read_buf(buf)
-            .await
-            .context("Cannot read packet header")?;
-        if n == 0 {
-            // EOF
-            if buf.is_empty() {
-                return Ok(None);
-            } else {
-                return Err(io::Error::from(io::ErrorKind::UnexpectedEof))
-                    .context("Cannot read packet header")?;
+    let mut buf = BytesMut::with_capacity(65536);
+    let mut packet_index = 0;
+
+    'outer: loop {
+        while buf.len() < HEADER_LEN {
+            buf.reserve(HEADER_LEN);
+            let n = input
+                .read_buf(&mut buf)
+                .await
+                .context("Cannot read packet header")?;
+            if n == 0 {
+                // EOF
+                if buf.is_empty() {
+                    break 'outer;
+                } else {
+                    return Err(io::Error::from(io::ErrorKind::UnexpectedEof))
+                        .context("Cannot read packet header")?;
+                }
             }
         }
-    }
-    let typ = match buf[0] {
-        b'H' => PacketType::Header,
-        b'D' => PacketType::Block,
-        _ => return Err(anyhow::anyhow!("Invalid block type {:x}", buf[0])),
-    };
-    if typ != expected {
-        return Err(anyhow::anyhow!(
-            "Expected block {:?}, got {:?}",
-            expected,
-            typ
-        ));
-    }
-    let len = u32::from_be_bytes(buf[1 + 20..][..4].try_into().unwrap()) as usize;
-    if buf.capacity() < HEADER_LEN + len {
-        buf.reserve(HEADER_LEN + len - buf.capacity());
-    }
-    while buf.len() < HEADER_LEN + len {
-        let read = input
-            .read_buf(buf)
-            .await
-            .with_context(|| format!("Error reading block of {len} bytes"))?;
-        if read == 0 {
-            return Err(io::Error::from(io::ErrorKind::UnexpectedEof))
-                .with_context(|| format!("Error reading block of {len} bytes"))?;
+
+        let expected = if packet_index == 0 {
+            PacketType::Header
+        } else {
+            PacketType::Block
+        };
+
+        let packet_type = match buf[0] {
+            b'H' => PacketType::Header,
+            b'D' => PacketType::Block,
+            _ => {
+                return Err(io::Error::from(io::ErrorKind::InvalidData))
+                    .context(format!("Invalid block type {:x}", buf[0]))?
+            }
+        };
+
+        if packet_type != expected {
+            return Err(io::Error::from(io::ErrorKind::InvalidData)).context(format!(
+                "Expected type {expected:?}, got {packet_type:?} at packet {packet_index}"
+            ))?;
         }
+
+        let len = u32::from_be_bytes(buf[1 + 20..][..4].try_into().unwrap()) as usize;
+
+        if buf.capacity() < HEADER_LEN + len {
+            buf.reserve((HEADER_LEN + len - buf.capacity()).next_power_of_two());
+        }
+
+        while buf.len() < HEADER_LEN + len {
+            let read = input
+                .read_buf(&mut buf)
+                .await
+                .with_context(|| format!("Error reading block of {len} bytes"))?;
+            if read == 0 {
+                return Err(io::Error::from(io::ErrorKind::UnexpectedEof))
+                    .with_context(|| format!("Error reading block of {len} bytes"))?;
+            }
+        }
+
+        let block = buf.split_to(HEADER_LEN + len).split_off(HEADER_LEN);
+        emitter.emit(block.freeze()).await;
+
+        _ = buf.try_reclaim(len);
+        packet_index += 1;
     }
-    Ok(Some(
-        buf.split_to(HEADER_LEN + len)
-            .split_off(HEADER_LEN)
-            .freeze(),
-    ))
+
+    Ok(())
 }
 
 impl Packets {
-    fn next_packet(
-        &mut self,
-    ) -> impl Future<Output = (Input, BytesMut, Option<Result<Bytes, Error>>)> + Send {
-        let mut input = self.input.take().unwrap();
-        let mut buf = self.buf.take().unwrap();
-        async move {
-            let res = read_packet(&mut input, &mut buf, PacketType::Block)
-                .await
-                .map_err(UserError::with_source_ref)
-                .transpose();
-            (input, buf, res)
+    fn new(input: impl AsyncRead + Unpin + Send + 'static) -> Self {
+        Packets {
+            input: Box::pin(async_fn_stream::try_fn_stream(move |emitter| {
+                packet_generator(emitter, input)
+            })),
         }
     }
 }
@@ -124,22 +132,7 @@ impl Stream for Packets {
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Bytes, Error>>> {
-        let mut future = self
-            .future
-            .take()
-            .unwrap_or_else(|| self.next_packet().boxed());
-        match future.as_mut().poll(cx) {
-            Poll::Ready((input, buf, res)) => {
-                self.future = None;
-                self.input = Some(input);
-                self.buf = Some(buf);
-                Poll::Ready(res)
-            }
-            Poll::Pending => {
-                self.future = Some(future);
-                Poll::Pending
-            }
-        }
+        self.input.poll_next_unpin(cx)
     }
 }
 
@@ -148,6 +141,21 @@ struct StreamWithProgress<T: Stream<Item = Result<Bytes, Error>> + Unpin> {
     bar: ProgressBar,
     progress: u64,
     total: Option<u64>,
+    speed_checkpoint: (Instant, u64),
+    last_estimated_speed: f64,
+}
+
+impl<T: Stream<Item = Result<Bytes, Error>> + Unpin> StreamWithProgress<T> {
+    fn new(input: T, bar: ProgressBar, total: Option<u64>) -> Self {
+        Self {
+            input,
+            bar,
+            progress: 0,
+            total,
+            speed_checkpoint: (Instant::now(), 0),
+            last_estimated_speed: 0.0,
+        }
+    }
 }
 
 impl<T: Stream<Item = Result<Bytes, Error>> + Unpin> Stream for StreamWithProgress<T> {
@@ -158,16 +166,32 @@ impl<T: Stream<Item = Result<Bytes, Error>> + Unpin> Stream for StreamWithProgre
         if let Some(Ok(block)) = &next {
             this.bar.tick();
             this.progress += block.len() as u64;
+
+            let elapsed = this.speed_checkpoint.0.elapsed().as_secs_f64();
+            let estimated_speed = if elapsed > 1.0 {
+                let estimated_speed = (this.progress - this.speed_checkpoint.1) as f64 / elapsed;
+                if this.speed_checkpoint.0.elapsed() > Duration::from_secs(30) {
+                    this.speed_checkpoint = (Instant::now(), this.progress);
+                }
+                (estimated_speed + this.last_estimated_speed) / 2.0
+            } else {
+                this.last_estimated_speed
+            };
+
+            this.last_estimated_speed = estimated_speed;
+
             if let Some(total) = this.total {
                 this.bar.set_message(format!(
-                    "Restoring database: {}/{} processed.",
+                    "Restoring database: {}/{} processed ({}/s)",
                     HumanBytes(this.progress),
-                    HumanBytes(total)
+                    HumanBytes(total),
+                    HumanBytes(estimated_speed as u64)
                 ));
             } else {
                 this.bar.set_message(format!(
-                    "Restoring database: {} processed.",
-                    HumanBytes(this.progress)
+                    "Restoring database: {} processed ({}/s)",
+                    HumanBytes(this.progress),
+                    HumanBytes(estimated_speed as u64)
                 ));
             }
         } else {
@@ -214,7 +238,6 @@ async fn restore_db<'x>(
     _options: &Options,
     params: &RestoreCmd,
 ) -> Result<(), anyhow::Error> {
-    use PacketType::*;
     let RestoreCmd {
         path: ref filename,
         all: _,
@@ -257,26 +280,14 @@ async fn restore_db<'x>(
     if version == 0 || version > MAX_SUPPORTED_DUMP_VER {
         Err(anyhow::anyhow!("Unsupported dump version {}", version)).with_context(file_ctx)?
     }
-    let mut buf = BytesMut::with_capacity(65536);
-    let header = read_packet(&mut input, &mut buf, Header)
+    let mut packets = Packets::new(input);
+    let header = packets
+        .next()
         .await
-        .with_context(file_ctx)?
-        .ok_or_else(|| anyhow::anyhow!("Dump is empty"))
-        .with_context(file_ctx)?;
+        .ok_or_else(|| anyhow::anyhow!("Dump is empty"))??;
     let bar = ProgressBar::new_spinner();
     bar.set_message("Restoring database");
-    let input = Packets {
-        input: Some(input),
-        buf: Some(buf),
-        future: None,
-    };
-
-    let input = StreamWithProgress {
-        input,
-        bar,
-        progress: 0,
-        total: file_size,
-    };
+    let input = StreamWithProgress::new(packets, bar, file_size);
 
     cli.restore(header, input).await?;
 
@@ -359,4 +370,45 @@ pub async fn restore_all<'x>(
             .with_context(|| format!("restoring database {database:?}"))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::AsyncWriteExt;
+
+    #[tokio::test]
+    async fn test_packets() {
+        let mut fake_stream = Vec::new();
+        // The header is 1 + 20 + 4 bytes where the last four bytes are a length and we ignore the rest
+        for packet in 0..100 {
+            let len: u32 = 16 + packet;
+            let mut buf = BytesMut::with_capacity(1 + 20 + 4 + len as usize);
+            buf.extend_from_slice(&[0; 1 + 20 + 4]);
+            buf[0] = if packet == 0 { b'H' } else { b'D' };
+            buf[21..25].copy_from_slice(&len.to_be_bytes());
+            fake_stream.extend_from_slice(&buf.freeze());
+            fake_stream.extend_from_slice(&vec![b'.'; len as usize]);
+        }
+
+        // Use a tokio task with a duplex to feed the fake stream in chunks of 11 bytes
+        let (mut tx, rx) = tokio::io::duplex(100);
+        let task = tokio::spawn(async move {
+            for chunk in fake_stream.chunks(11) {
+                tx.write_all(chunk).await.unwrap();
+            }
+        });
+
+        let mut packets = Packets::new(Box::new(rx));
+        let mut packet = 0;
+        while let Some(data) = packets.next().await {
+            let data = data.unwrap();
+            let expected = Bytes::from(vec![b'.'; 16 + packet]);
+            assert_eq!(data, expected);
+            packet += 1;
+        }
+
+        assert_eq!(packet, 100);
+        task.await.unwrap();
+    }
 }
