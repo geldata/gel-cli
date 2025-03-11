@@ -1,4 +1,5 @@
 use std::fs;
+use std::process;
 
 use crate::cli::env::Env;
 use anyhow::Context;
@@ -32,7 +33,11 @@ pub fn get_server() -> anyhow::Result<&'static str> {
         if cfg!(target_os = "macos") {
             Ok("x86_64-apple-darwin")
         } else if cfg!(target_os = "linux") {
-            return Ok("x86_64-unknown-linux-gnu");
+            if is_musl()? {
+                return Ok("x86_64-unknown-linux-musl");
+            } else {
+                return Ok("x86_64-unknown-linux-gnu");
+            }
         } else if cfg!(windows) {
             // on windows use server version from linux
             // as we run server in WSL
@@ -44,13 +49,27 @@ pub fn get_server() -> anyhow::Result<&'static str> {
         if cfg!(target_os = "macos") {
             return Ok("aarch64-apple-darwin");
         } else if cfg!(target_os = "linux") {
-            return Ok("aarch64-unknown-linux-gnu");
+            if is_musl()? {
+                return Ok("aarch64-unknown-linux-musl");
+            } else {
+                return Ok("aarch64-unknown-linux-gnu");
+            }
         } else {
             anyhow::bail!("unsupported OS on aarch64")
         }
     } else {
         anyhow::bail!("unsupported architecture");
     }
+}
+
+pub fn is_musl() -> anyhow::Result<bool> {
+    // Check `ldd --version` output for the string 'musl'.
+    // This is what the rustup install script does so it is probably
+    // good enough.
+    let output = process::Command::new("ldd").arg("--version").output()?;
+    let output_string = String::from_utf8(output.stdout)?;
+
+    Ok(output_string.contains("musl"))
 }
 
 fn docker_check() -> anyhow::Result<bool> {
