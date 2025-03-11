@@ -171,6 +171,7 @@ impl<T: Stream<Item = Result<Bytes, Error>> + Unpin> Stream for StreamWithProgre
                 ));
             }
         } else {
+            this.bar.set_message("Processing data");
             this.bar.finish();
         }
         Poll::Ready(next)
