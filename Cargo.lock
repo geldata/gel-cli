@@ -5370,7 +5370,7 @@ dependencies = [
 [[package]]
 name = "xterm-query"
 version = "0.5.0"
-source = "git+https://github.com/msullivan/xterm-query/#13a7fd895f38bf604ed3e784e7d787fd7b8702b3"
+source = "git+https://github.com/msullivan/xterm-query/#5fdf0c5514e4a10a0a56bb2e3caa509ff49af67b"
 dependencies = [
  "nix 0.29.0",
  "thiserror 1.0.69",
