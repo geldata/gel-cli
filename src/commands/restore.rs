@@ -5,12 +5,15 @@ use std::future::Future;
 use std::path::Path;
 use std::pin::Pin;
 use std::str;
-use std::task::{Context, Poll};
+use std::task::{ready, Context, Poll};
 use std::time::Duration;
 
 use anyhow::Context as _;
 use bytes::{Bytes, BytesMut};
 use fn_error_context::context;
+use futures_util::stream::StreamExt;
+use futures_util::FutureExt;
+use indicatif::{HumanBytes, ProgressBar};
 use tokio::fs;
 use tokio::io::{self, AsyncRead, AsyncReadExt};
 use tokio_stream::Stream;
@@ -36,9 +39,12 @@ pub enum PacketType {
     Block,
 }
 
-pub struct Packets<'a> {
-    input: &'a mut Input,
-    buf: BytesMut,
+pub struct Packets {
+    input: Option<Input>,
+    buf: Option<BytesMut>,
+    future: Option<
+        Pin<Box<dyn Future<Output = (Input, BytesMut, Option<Result<Bytes, Error>>)> + Send>>,
+    >,
 }
 
 async fn read_packet(
@@ -96,24 +102,78 @@ async fn read_packet(
     ))
 }
 
-impl Packets<'_> {
-    async fn next(&mut self) -> Option<Result<Bytes, Error>> {
-        read_packet(self.input, &mut self.buf, PacketType::Block)
-            .await
-            .map_err(UserError::with_source_ref)
-            .transpose()
+impl Packets {
+    fn next_packet(
+        &mut self,
+    ) -> impl Future<Output = (Input, BytesMut, Option<Result<Bytes, Error>>)> + Send {
+        let mut input = self.input.take().unwrap();
+        let mut buf = self.buf.take().unwrap();
+        async move {
+            let res = read_packet(&mut input, &mut buf, PacketType::Block)
+                .await
+                .map_err(UserError::with_source_ref)
+                .transpose();
+            (input, buf, res)
+        }
     }
 }
 
-impl Stream for Packets<'_> {
+impl Stream for Packets {
     type Item = Result<Bytes, Error>;
     fn poll_next(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Bytes, Error>>> {
-        let next = self.next();
-        tokio::pin!(next);
-        next.poll(cx)
+        let mut future = self
+            .future
+            .take()
+            .unwrap_or_else(|| self.next_packet().boxed());
+        match future.as_mut().poll(cx) {
+            Poll::Ready((input, buf, res)) => {
+                self.future = None;
+                self.input = Some(input);
+                self.buf = Some(buf);
+                Poll::Ready(res)
+            }
+            Poll::Pending => {
+                self.future = Some(future);
+                Poll::Pending
+            }
+        }
+    }
+}
+
+struct StreamWithProgress<T: Stream<Item = Result<Bytes, Error>> + Unpin> {
+    input: T,
+    bar: ProgressBar,
+    progress: u64,
+    total: Option<u64>,
+}
+
+impl<T: Stream<Item = Result<Bytes, Error>> + Unpin> Stream for StreamWithProgress<T> {
+    type Item = Result<Bytes, Error>;
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        let this = self.get_mut();
+        let next = ready!(this.input.poll_next_unpin(cx));
+        if let Some(Ok(block)) = &next {
+            this.bar.tick();
+            this.progress += block.len() as u64;
+            if let Some(total) = this.total {
+                this.bar.set_message(format!(
+                    "Restoring database: {}/{} processed.",
+                    HumanBytes(this.progress),
+                    HumanBytes(total)
+                ));
+            } else {
+                this.bar.set_message(format!(
+                    "Restoring database: {} processed.",
+                    HumanBytes(this.progress)
+                ));
+            }
+        } else {
+            this.bar.finish();
+        }
+        Poll::Ready(next)
     }
 }
 
@@ -168,8 +228,8 @@ async fn restore_db<'x>(
     }
 
     let file_ctx = &|| format!("Failed to read dump {}", filename.display());
-    let mut input = if filename.to_str() == Some("-") {
-        Box::new(io::stdin()) as Input
+    let (mut input, file_size) = if filename.to_str() == Some("-") {
+        (Box::new(io::stdin()) as Input, None)
     } else {
         let file = fs::File::open(filename).await.with_context(file_ctx)?;
         let file_size = file.metadata().await?.len();
@@ -178,7 +238,7 @@ async fn restore_db<'x>(
             filename.display(),
             file_size as f64 / 1048576.0
         );
-        Box::new(file) as Input
+        (Box::new(file) as Input, Some(file_size))
     };
     let mut buf = [0u8; 17 + 8];
     input
@@ -202,14 +262,25 @@ async fn restore_db<'x>(
         .with_context(file_ctx)?
         .ok_or_else(|| anyhow::anyhow!("Dump is empty"))
         .with_context(file_ctx)?;
-    cli.restore(
-        header,
-        Packets {
-            input: &mut input,
-            buf,
-        },
-    )
-    .await?;
+    let bar = ProgressBar::new_spinner();
+    bar.set_message("Restoring database");
+    let input = Packets {
+        input: Some(input),
+        buf: Some(buf),
+        future: None,
+    };
+
+    let input = StreamWithProgress {
+        input,
+        bar,
+        progress: 0,
+        total: file_size,
+    };
+
+    cli.restore(header, input).await?;
+
+    eprintln!("Restore completed");
+
     Ok(())
 }
 
