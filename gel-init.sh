@@ -4,21 +4,21 @@
 # Portions Copyright (c) 2020 MagicStack Inc.
 # Portions Copyright (c) 2016 The Rust Project Developers.
 #
-# This is a simple script that can be downloaded from https://edgedb.com to
-# install `edgedb` CLI tools. Its job is to detect the host platform and to
+# This is a simple script that can be downloaded from https://geldata.com to
+# install `gel` CLI tools. Its job is to detect the host platform and to
 # download and run the relevant installer.
 
 set -u
 
-EDGEDB_PKG_ROOT="${EDGEDB_PKG_ROOT:-https://packages.edgedb.com}"
+EDGEDB_PKG_ROOT="${EDGEDB_PKG_ROOT:-https://packages.geldata.com}"
 
 usage() {
     cat 1>&2 <<EOF
-edgedb-init
-The installer for edgedb command-line tools
+gel-init
+The installer for gel command-line tools
 
 USAGE:
-    edgedb-init [FLAGS] [OPTIONS]
+    gel-init [FLAGS] [OPTIONS]
 
 FLAGS:
     -h, --help              Print help information
@@ -74,11 +74,11 @@ main() {
             _ext=".exe"
             ;;
     esac
-    local _url="${EDGEDB_PKG_ROOT}/dist/${_arch}${suffix:+.}${suffix}/edgedb-cli${_ext}"
+    local _url="${EDGEDB_PKG_ROOT}/dist/${_arch}${suffix:+.}${suffix}/gel-cli${_ext}"
 
     local _dir
-    _dir="$(mktemp -d 2>/dev/null || ensure mktemp -d -t edgedb)"
-    local _file="${_dir}/edgedb${_ext}"
+    _dir="$(mktemp -d 2>/dev/null || ensure mktemp -d -t gel)"
+    local _file="${_dir}/gel${_ext}"
 
     local _ansi_escapes_are_valid=false
     if [ -t 2 ]; then
@@ -103,7 +103,7 @@ main() {
     ensure chmod u+x "$_file"
     if [ ! -x "$_file" ]; then
         printf '%s\n' "Cannot execute $_file (likely because of mounting /tmp as noexec)." 1>&2
-        printf '%s\n' "Please copy the file to a location where you can execute binaries and run ./edgedb-cli${_ext} _self_install." 1>&2
+        printf '%s\n' "Please copy the file to a location where you can execute binaries and run ./gel-cli${_ext} _self_install." 1>&2
         exit 1
     fi
 
@@ -194,7 +194,7 @@ get_architecture() {
 }
 
 say() {
-    printf 'edgedb-init: %s\n' "$1"
+    printf 'gel-init: %s\n' "$1"
 }
 
 err() {

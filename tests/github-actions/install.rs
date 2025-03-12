@@ -52,10 +52,10 @@ fn github_action_install() -> anyhow::Result<()> {
     };
 
     let routes = warp::filters::path::end()
-        .and(warp::fs::file("./edgedb-init.sh"))
+        .and(warp::fs::file("./gel-init.sh"))
         .or(path("dist")
             .and(path(plat))
-            .and(path("edgedb-cli"))
+            .and(path("gel-cli"))
             .and(warp::filters::path::end())
             .and(warp::fs::file(env!("CARGO_BIN_EXE_gel"))));
 
@@ -82,7 +82,7 @@ fn github_action_install() -> anyhow::Result<()> {
         Command::new(".\\gel-init.exe")
             .arg("-y")
             .assert()
-            .context("edgedb-init", "self install by command name")
+            .context("gel-init", "self install by command name")
             .success();
     } else {
         let mut tmpfile = tempfile::NamedTempFile::new()?;
