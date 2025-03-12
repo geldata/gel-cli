@@ -123,7 +123,7 @@ main() {
 
     local _retval=$?
 
-    ignore rm "$_file"
+    ignore rm "$_file" 2> /dev/null  # CLI will try to remove self
     ignore rmdir "$_dir"
 
     return "$_retval"
