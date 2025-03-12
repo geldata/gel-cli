@@ -942,13 +942,13 @@ pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
             anyhow::bail!("`--admin` requires `--unix-path` or `--instance`");
         }
         if let Some(unix_path) = &tmp.unix_path {
-            bld = bld.unix_path(unix_path.to_path_buf());
+            bld = bld.unix_path(UnixPath::PortSuffixed(unix_path.join(".s.EDGEDB.admin.")));
         }
         if let Some(instance) = &tmp.instance {
             let InstanceName::Local(name) = &instance else {
                 anyhow::bail!("`--instance` must be a local instance name when using `--admin`");
             };
-            let sock = runstate_dir(name)?.join(".EDGEDB.admin.");
+            let sock = runstate_dir(name)?.join(".s.EDGEDB.admin.");
             bld = bld.unix_path(UnixPath::PortSuffixed(sock));
         }
     }
