@@ -15,15 +15,6 @@ fn with_comment() {
 }
 
 #[test]
-fn deprecated_unix_host() {
-    SERVER
-        .admin_cmd_deprecated()
-        .write_stdin("SELECT 1")
-        .assert()
-        .success();
-}
-
-#[test]
 fn stdin_password() {
     SERVER
         .admin_cmd()
@@ -292,10 +283,15 @@ fn branch_commands() {
             .arg("branch")
             .arg("current")
             .arg("--plain")
-            .output()
-            .unwrap();
-        String::from_utf8(output.stdout).unwrap().trim().into()
+            .assert()
+            .context("project-current", "get current project branch")
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        String::from_utf8(output).unwrap().trim().into()
     }
+
     #[track_caller]
     fn get_current_instance_branch(instance_name: &str) -> String {
         let output = crate::edgedb_cli_cmd()
@@ -304,9 +300,13 @@ fn branch_commands() {
             .arg("branch")
             .arg("current")
             .arg("--plain")
-            .output()
-            .unwrap();
-        String::from_utf8(output.stdout).unwrap().trim().into()
+            .assert()
+            .context("instance-current", "get current instance branch")
+            .success()
+            .get_output()
+            .stdout
+            .clone();
+        String::from_utf8(output).unwrap().trim().into()
     }
 
     // branch current after project init
