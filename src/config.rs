@@ -16,7 +16,7 @@ pub struct Config {
     pub shell: ShellConfig,
 }
 
-#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 pub struct ShellConfig {
     #[serde(default)]
@@ -77,5 +77,59 @@ where
         Err(serde::de::Error::custom("timeout is too large"))
     } else {
         Ok(Some(rv))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    #[test]
+    pub fn test_cli_config() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let tempfile = tempdir.path().join("cli.toml");
+        std::fs::write(&tempfile, "[shell]\n").unwrap();
+        let config = read_config(tempfile).unwrap();
+        assert_eq!(config.shell, ShellConfig::default());
+    }
+
+    #[test]
+    pub fn test_doc_cli_config() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let tempfile = tempdir.path().join("cli.toml");
+        std::fs::write(
+            &tempfile,
+            br#"
+[shell]
+expand-strings = true
+history-size = 10000
+implicit-properties = false
+limit = 100
+input-mode = "emacs"
+output-format = "json-pretty"
+print-stats = "off"
+verbose-errors = false
+"#,
+        )
+        .unwrap();
+        let config = read_config(tempfile).unwrap();
+        assert_eq!(
+            config.shell,
+            ShellConfig {
+                expand_strings: Some(true),
+                history_size: Some(10000),
+                implicit_properties: Some(false),
+                limit: Some(100),
+                idle_transaction_timeout: None,
+                input_mode: Some(repl::InputMode::Emacs),
+                output_format: Some(repl::OutputFormat::JsonPretty),
+                sql_output_format: None,
+                display_typenames: None,
+                print_stats: Some(repl::PrintStats::Off),
+                verbose_errors: Some(false),
+                input_language: None,
+            }
+        );
     }
 }
