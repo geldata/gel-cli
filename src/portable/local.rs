@@ -10,6 +10,7 @@ use std::time::SystemTime;
 use anyhow::Context;
 use fn_error_context::context;
 
+use gel_dsn::gel::UnixPath;
 use gel_tokio::{Builder, Config};
 
 use crate::branding::BRANDING;
@@ -378,7 +379,9 @@ impl InstanceInfo {
     pub fn admin_conn_params(&self) -> anyhow::Result<Config> {
         let config = Builder::new()
             .port(self.port)
-            .unix_path(&runstate_dir(&self.name)?)
+            .unix_path(UnixPath::with_port_suffix(
+                runstate_dir(&self.name)?.join(".s.EDGEDB.admin."),
+            ))
             .wait_until_available(std::time::Duration::from_secs(300))
             .without_system()
             .build()?;
