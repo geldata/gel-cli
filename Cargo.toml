@@ -40,6 +40,7 @@ gel-protocol = { version = "0.8", features = ["all-types"] }
 gel-derive = { version = "0.7" }
 gel-errors = { version = "0.5" }
 gel-tokio = { version = "0.9", features=["admin_socket", "unstable"] }
+gel-auth = { version = "0.1" }
 
 snafu = "0.8.4"
 ansi-escapes = "0.2"
@@ -55,7 +56,6 @@ const_format = "0.2.33"
 strsim = "0.11.0"
 whoami = "1.1"
 is-terminal = "0.4.4"
-scram = { git="https://github.com/elprans/scram" }
 rpassword = "7.3.1"
 colorful = "0.3.2"
 terminal_size = "0.4"
@@ -70,7 +70,6 @@ unicode-width = "0.1.10"
 serde = "1.0"
 serde_json = {version="1.0", features=["preserve_order"]}
 serde_path_to_error = "0.1.3"
-serde_str = {git="https://github.com/tailhook/serde-str"}
 serde_millis = "0.1.1"
 dirs = "6.0"
 uuid = {version="1.1.2", features=["serde", "v4", "fast-rng"]}

@@ -1,5 +1,4 @@
 use std::fs;
-use std::num::NonZeroU32;
 use std::path::Path;
 
 use base64::display::Base64Display;
@@ -22,7 +21,7 @@ use crate::tty_password;
 const PASSWORD_LENGTH: usize = 24;
 const PASSWORD_CHARS: &[u8] = b"0123456789\
     abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const HASH_ITERATIONS: u32 = 4096;
+const HASH_ITERATIONS: usize = 4096;
 const SALT_LENGTH: usize = 16;
 
 pub fn generate_password() -> String {
@@ -168,44 +167,6 @@ pub fn password_hash(password: &str) -> String {
     ring::rand::SystemRandom::new()
         .fill(&mut salt)
         .expect("random bytes");
-    _build_verifier(password, &salt[..], HASH_ITERATIONS)
-}
-
-fn _build_verifier(password: &str, salt: &[u8], iterations: u32) -> String {
-    use ring::hmac;
-    use sha2::digest::Digest;
-    use sha2::Sha256;
-
-    let iterations = NonZeroU32::new(iterations).expect("non-zero iterations");
-    let salted_password = scram::hash_password(password, iterations, salt);
-    let key = hmac::Key::new(hmac::HMAC_SHA256, &salted_password[..]);
-    let client_key = hmac::sign(&key, b"Client Key");
-    let server_key = hmac::sign(&key, b"Server Key");
-    let stored_key = Sha256::digest(client_key.as_ref());
-
-    format!(
-        "SCRAM-SHA-256${iterations}:{salt}${stored_key}:{server_key}",
-        iterations = iterations,
-        salt = _b64(salt),
-        stored_key = _b64(stored_key.as_ref()),
-        server_key = _b64(server_key.as_ref())
-    )
-}
-
-#[test]
-fn test_verifier() {
-    use base64::engine::general_purpose::STANDARD;
-    use base64::Engine;
-
-    let salt = "W22ZaJ0SNY7soEsUEjb6gQ==";
-    let raw_salt = STANDARD.decode(salt).unwrap();
-    let password = "pencil";
-    let verifier = _build_verifier(password, &raw_salt, 4096);
-    let stored_key = "WG5d8oPm3OtcPnkdi4Uo7BkeZkBFzpcXkuLmtbsT4qY=";
-    let server_key = "wfPLwcE6nTWhTAmQ7tl2KeoiWGPlZqQxSrmfPwDl2dU=";
-
-    assert_eq!(
-        verifier,
-        format!("SCRAM-SHA-256$4096:{salt}${stored_key}:{server_key}")
-    );
+    gel_auth::scram::StoredKey::generate(password.as_bytes(), &salt[..], HASH_ITERATIONS)
+        .to_string()
 }

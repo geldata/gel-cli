@@ -30,15 +30,21 @@ use crate::prompt::{self, Control};
 pub const TX_MARKER: &str = "[tx]";
 pub const FAILURE_MARKER: &str = "[tx:failed]";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, serde::Serialize, serde::Deserialize,
+)]
 #[value(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum InputLanguage {
     EdgeQl,
     Sql,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, serde::Serialize, serde::Deserialize,
+)]
 #[value(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum OutputFormat {
     Default,
     Json,
@@ -48,15 +54,21 @@ pub enum OutputFormat {
     Tabular,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, serde::Serialize, serde::Deserialize,
+)]
 #[value(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum InputMode {
     Vi,
     Emacs,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum, serde::Serialize, serde::Deserialize,
+)]
 #[value(rename_all = "kebab-case")]
+#[serde(rename_all = "kebab-case")]
 pub enum PrintStats {
     Off,
     Query,

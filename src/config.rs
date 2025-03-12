@@ -25,21 +25,21 @@ pub struct ShellConfig {
     pub history_size: Option<usize>,
     #[serde(default)]
     pub implicit_properties: Option<bool>,
-    #[serde(with = "serde_str::opt", default)]
+    #[serde(default)]
     pub input_mode: Option<repl::InputMode>,
     #[serde(default)]
     pub limit: Option<usize>,
     #[serde(default, deserialize_with = "parse_idle_tx_timeout")]
     pub idle_transaction_timeout: Option<Duration>,
-    #[serde(with = "serde_str::opt", default)]
+    #[serde(default)]
     pub input_language: Option<repl::InputLanguage>,
-    #[serde(with = "serde_str::opt", default)]
+    #[serde(default)]
     pub output_format: Option<repl::OutputFormat>,
-    #[serde(with = "serde_str::opt", default)]
+    #[serde(default)]
     pub sql_output_format: Option<repl::OutputFormat>,
     #[serde(default)]
     pub display_typenames: Option<bool>,
-    #[serde(with = "serde_str::opt", default)]
+    #[serde(default)]
     pub print_stats: Option<repl::PrintStats>,
     #[serde(default)]
     pub verbose_errors: Option<bool>,
