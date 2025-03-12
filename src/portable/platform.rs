@@ -68,6 +68,7 @@ pub fn is_musl() -> anyhow::Result<bool> {
     // good enough.
     let output = process::Command::new("ldd").arg("--version").output()?;
     let output_string = String::from_utf8(output.stdout)?;
+    println!("looool {}", output_string);
 
     Ok(output_string.contains("musl"))
 }
