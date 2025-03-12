@@ -206,3 +206,4 @@ gel-stream = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "un
 gel-errors = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "unix_path_tweak" }
 gel-tokio = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "unix_path_tweak" }
 gel-protocol = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "unix_path_tweak" }
+gel-auth = { git = "https://github.com/mmastrac/edgedb-rust.git", branch = "unix_path_tweak" }

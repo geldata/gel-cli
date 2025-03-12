@@ -1436,26 +1436,7 @@ dependencies = [
 [[package]]
 name = "gel-auth"
 version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88768ad83c06b9d2b350b2e62b4000666ffccfe768275b47772dee218af3a8e8"
-dependencies = [
- "base64 0.22.1",
- "constant_time_eq",
- "derive_more",
- "hmac",
- "md5",
- "rand 0.8.5",
- "roaring",
- "sha2",
- "thiserror 2.0.12",
- "tracing",
- "unicode-normalization",
-]
-
-[[package]]
-name = "gel-auth"
-version = "0.1.3"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#25ffc8a5b85b68f101a810dc30df79a48e444f03"
+source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
 dependencies = [
  "base64 0.22.1",
  "constant_time_eq",
@@ -1512,7 +1493,7 @@ dependencies = [
  "fs-err",
  "fs_extra",
  "futures-util",
- "gel-auth 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gel-auth",
  "gel-derive 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "gel-dsn",
  "gel-errors",
@@ -1614,7 +1595,7 @@ dependencies = [
 [[package]]
 name = "gel-derive"
 version = "0.7.0"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#25ffc8a5b85b68f101a810dc30df79a48e444f03"
+source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1625,13 +1606,13 @@ dependencies = [
 [[package]]
 name = "gel-dsn"
 version = "0.2.0"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#25ffc8a5b85b68f101a810dc30df79a48e444f03"
+source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
 dependencies = [
  "base64 0.22.1",
  "crc16",
  "derive_more",
  "dirs",
- "gel-auth 0.1.3 (git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak)",
+ "gel-auth",
  "gel-errors",
  "gel-stream",
  "log",
@@ -1650,7 +1631,7 @@ dependencies = [
 [[package]]
 name = "gel-errors"
 version = "0.5.0"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#25ffc8a5b85b68f101a810dc30df79a48e444f03"
+source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
 dependencies = [
  "bytes",
 ]
@@ -1658,7 +1639,7 @@ dependencies = [
 [[package]]
 name = "gel-protocol"
 version = "0.8.0"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#25ffc8a5b85b68f101a810dc30df79a48e444f03"
+source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
 dependencies = [
  "bigdecimal",
  "bitflags 2.9.0",
@@ -1676,7 +1657,7 @@ dependencies = [
 [[package]]
 name = "gel-stream"
 version = "0.2.1"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#25ffc8a5b85b68f101a810dc30df79a48e444f03"
+source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
 dependencies = [
  "derive_more",
  "futures",
@@ -1695,8 +1676,8 @@ dependencies = [
 
 [[package]]
 name = "gel-tokio"
-version = "0.10.0"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#25ffc8a5b85b68f101a810dc30df79a48e444f03"
+version = "0.10.1"
+source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1707,7 +1688,7 @@ dependencies = [
  "crc16",
  "dirs",
  "futures-util",
- "gel-auth 0.1.3 (git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak)",
+ "gel-auth",
  "gel-derive 0.7.0 (git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak)",
  "gel-dsn",
  "gel-errors",
@@ -2075,9 +2056,9 @@ checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
 
 [[package]]
 name = "humantime"
-version = "2.1.0"
+version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a3a5bfb195931eeb336b2a7b4d761daec841b97f947d34394601737a7bba5e4"
+checksum = "9b112acc8b3adf4b107a8ec20977da0273a8c386765a3ec0229bd500a1443f9f"
 
 [[package]]
 name = "humantime-serde"
