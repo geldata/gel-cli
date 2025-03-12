@@ -1498,6 +1498,7 @@ dependencies = [
  "fs-err",
  "fs_extra",
  "futures-util",
+ "gel-auth",
  "gel-derive",
  "gel-errors",
  "gel-protocol",
@@ -1539,13 +1540,11 @@ dependencies = [
  "ring",
  "rpassword",
  "rustyline",
- "scram",
  "semver",
  "serde",
  "serde_json",
  "serde_millis",
  "serde_path_to_error",
- "serde_str",
  "sha1",
  "sha2",
  "shell-escape",
@@ -3806,16 +3805,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 
 [[package]]
-name = "scram"
-version = "0.7.0"
-source = "git+https://github.com/elprans/scram#b1f594638f1022ed7e6550a63ad94bb95256a097"
-dependencies = [
- "base64 0.21.7",
- "rand 0.8.5",
- "ring",
-]
-
-[[package]]
 name = "scroll"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3910,14 +3899,6 @@ name = "serde_spanned"
 version = "0.6.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "87607cb1398ed59d48732e575a4c28a7a8ebf2454b964fe3f224f2afc07909e1"
-dependencies = [
- "serde",
-]
-
-[[package]]
-name = "serde_str"
-version = "1.0.0"
-source = "git+https://github.com/tailhook/serde-str#d48076ec69a86e82abeca5f44c0b73ada1fda848"
 dependencies = [
  "serde",
 ]

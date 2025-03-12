@@ -21,7 +21,6 @@ struct Cache {
     timestamp: SystemTime,
     #[serde(with = "humantime_serde")]
     expires: SystemTime,
-    #[serde(with = "serde_str::opt")]
     version: Option<ver::Semver>,
 }
 
