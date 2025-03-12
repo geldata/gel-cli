@@ -55,7 +55,7 @@ fn github_action_install() -> anyhow::Result<()> {
         .and(warp::fs::file("./gel-init.sh"))
         .or(path("dist")
             .and(path(plat))
-            .and(path("edgedb-cli"))
+            .and(path("gel-cli"))
             .and(warp::filters::path::end())
             .and(warp::fs::file(env!("CARGO_BIN_EXE_gel"))));
 
