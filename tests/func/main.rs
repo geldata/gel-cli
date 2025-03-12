@@ -118,6 +118,7 @@ impl ServerGuard {
         use rexpect::session::spawn_command;
 
         let mut cmd = process::Command::cargo_bin("gel").expect("binary found");
+        cmd.env("TERM", "dumb");
         cmd.arg("--no-cli-update-check");
         cmd.arg("--admin");
         cmd.arg("--unix-path").arg(&self.0.info.socket_dir);
@@ -133,12 +134,12 @@ impl ServerGuard {
         use rexpect::session::spawn_command;
 
         let mut cmd = process::Command::cargo_bin("gel").expect("binary found");
+        cmd.env("TERM", "dumb");
         cmd.arg("--no-cli-update-check");
         cmd.arg("--admin");
         cmd.arg("--unix-path").arg(&self.0.info.socket_dir);
         cmd.arg("--port").arg(self.0.info.port.to_string());
         cmd.arg("--tls-ca-file").arg(&self.0.info.tls_cert_file);
-        cmd.env("CLICOLOR", "0");
         f(&mut cmd);
         spawn_command(cmd, Some(10000)).expect("start interactive")
     }
