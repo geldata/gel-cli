@@ -112,16 +112,6 @@ impl ServerGuard {
         cmd
     }
 
-    pub fn admin_cmd_deprecated(&self) -> Command {
-        let mut cmd = edgedb_cli_cmd();
-        cmd.arg("--admin");
-        // test deprecated --host /unix/path
-        cmd.arg("--host").arg(&self.0.info.socket_dir);
-        cmd.arg("--port").arg(self.0.info.port.to_string());
-        cmd.env("CLICOLOR", "0");
-        cmd
-    }
-
     #[cfg(not(windows))]
     pub fn admin_interactive(&self) -> rexpect::session::PtySession {
         use assert_cmd::cargo::CommandCargoExt;
