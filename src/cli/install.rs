@@ -48,9 +48,9 @@ pub struct Command {
     /// Do not configure PATH environment variable
     #[arg(long)]
     pub no_modify_path: bool,
-    /// Indicate that edgedb-init should not issue a
+    /// Indicate that gel-init should not issue a
     /// "Press Enter to continue" prompt before exiting
-    /// on Windows. Used when edgedb-init is invoked
+    /// on Windows. Used when gel-init is invoked
     /// from an existing terminal session and not in
     /// a new window.
     #[arg(long)]
