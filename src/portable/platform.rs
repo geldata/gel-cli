@@ -67,7 +67,8 @@ pub fn is_musl() -> anyhow::Result<bool> {
     // This is what the rustup install script does so it is probably
     // good enough.
     let output = process::Command::new("ldd").arg("--version").output()?;
-    let output_string = String::from_utf8(output.stdout)?;
+    let full_output = [&output.stdout[..], &output.stderr[..]].concat();
+    let output_string = String::from_utf8(full_output)?;
     println!("looool {}", output_string);
 
     Ok(output_string.contains("musl"))
