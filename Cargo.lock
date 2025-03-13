@@ -1436,7 +1436,8 @@ dependencies = [
 [[package]]
 name = "gel-auth"
 version = "0.1.3"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "88768ad83c06b9d2b350b2e62b4000666ffccfe768275b47772dee218af3a8e8"
 dependencies = [
  "base64 0.22.1",
  "constant_time_eq",
@@ -1494,7 +1495,7 @@ dependencies = [
  "fs_extra",
  "futures-util",
  "gel-auth",
- "gel-derive 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gel-derive",
  "gel-dsn",
  "gel-errors",
  "gel-protocol",
@@ -1593,20 +1594,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "gel-derive"
-version = "0.7.0"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.100",
- "trybuild",
-]
-
-[[package]]
 name = "gel-dsn"
 version = "0.2.0"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65653315aa82ff89c805cd02276ae511b5929a1f7ffa466aeb9f4c874614240a"
 dependencies = [
  "base64 0.22.1",
  "crc16",
@@ -1631,7 +1622,8 @@ dependencies = [
 [[package]]
 name = "gel-errors"
 version = "0.5.0"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a34c9305d1e0dd0180d802ce457476dc1dea8a7aeab98bd803ae57e8d84be51"
 dependencies = [
  "bytes",
 ]
@@ -1639,7 +1631,8 @@ dependencies = [
 [[package]]
 name = "gel-protocol"
 version = "0.8.0"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e85ee2aeaf483be7f4fa95fee42bcfe96dab254456189d14af30ddfe3d0e04b7"
 dependencies = [
  "bigdecimal",
  "bitflags 2.9.0",
@@ -1657,7 +1650,8 @@ dependencies = [
 [[package]]
 name = "gel-stream"
 version = "0.2.1"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4fcc911cb4181fd08fbb408de3d07beb41ade357da220da8c72ffc32c5a05295"
 dependencies = [
  "derive_more",
  "futures",
@@ -1677,7 +1671,8 @@ dependencies = [
 [[package]]
 name = "gel-tokio"
 version = "0.10.1"
-source = "git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak#17f154b5858d140925a030c9b40a331b8aa9e2e5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3674b3bb31b7f5327e81a4d77352cbe158cb9489e126aa3ef8cb44e94e9174ea"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1689,7 +1684,7 @@ dependencies = [
  "dirs",
  "futures-util",
  "gel-auth",
- "gel-derive 0.7.0 (git+https://github.com/mmastrac/edgedb-rust.git?branch=unix_path_tweak)",
+ "gel-derive",
  "gel-dsn",
  "gel-errors",
  "gel-protocol",
@@ -1977,13 +1972,13 @@ dependencies = [
 
 [[package]]
 name = "hostname"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c731c3e10504cc8ed35cfe2f1db4c9274c3d35fa486e3b31df46f068ef3e867"
+checksum = "f9c7c7c8ac16c798734b8a24560c1362120597c40d5e1459f09498f8f6c8f2ba"
 dependencies = [
+ "cfg-if",
  "libc",
- "match_cfg",
- "winapi",
+ "windows",
 ]
 
 [[package]]
@@ -2660,12 +2655,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "match_cfg"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffbee8634e0d45d258acb448e7eaab3fce7a0a467395d4d9f228e3c1f01fb2e4"
-
-[[package]]
 name = "md5"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3276,12 +3265,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "quick-error"
-version = "1.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1d01941d82fa2ab50be1e79e6714289dd7cde78eba4c074bc5a4374f650dfe0"
-
-[[package]]
 name = "quinn"
 version = "0.11.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3582,12 +3565,11 @@ dependencies = [
 
 [[package]]
 name = "resolv-conf"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "52e44394d2086d010551b14b53b1f24e31647570cd1deb0379e2c21b329aba00"
+checksum = "48375394603e3dd4b2d64371f7148fd8c7baa2680e28741f2cb8d23b59e3d4c4"
 dependencies = [
  "hostname",
- "quick-error",
 ]
 
 [[package]]
@@ -4476,9 +4458,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.44.0"
+version = "1.44.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9975ea0f48b5aa3972bf2d888c238182458437cc2a19374b81b25cdf1023fb3a"
+checksum = "f382da615b842244d4b8738c82ed1275e6c5dd90c459a30941cd07080b06c91a"
 dependencies = [
  "backtrace",
  "bytes",
@@ -4536,9 +4518,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.13"
+version = "0.7.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7fcaa8d55a2bdd6b83ace262b016eca0d79ee02818c5c1bcdf0305114081078"
+checksum = "6b9590b93e6fcc1739458317cccd391ad3955e2bde8913edf6f95f9e65a8f034"
 dependencies = [
  "bytes",
  "futures-core",
@@ -5076,6 +5058,25 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "windows"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e48a53791691ab099e5e2ad123536d0fff50652600abaf43bbf952894110d0be"
+dependencies = [
+ "windows-core",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
+dependencies = [
+ "windows-targets 0.52.6",
+]
 
 [[package]]
 name = "windows-link"
