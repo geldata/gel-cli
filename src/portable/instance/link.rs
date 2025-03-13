@@ -1,26 +1,26 @@
 use std::fmt;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
+use gel_dsn::gel::DatabaseBranch;
 use gel_tokio::builder::CertCheck;
 use ring::digest;
 
 use gel_errors::{
     ClientConnectionFailedError, ClientNoCredentialsError, Error, ErrorKind, PasswordRequired,
 };
-use gel_tokio::credentials::TlsSecurity;
-use gel_tokio::Client;
+use gel_tokio::credentials::{AsCredentials, TlsSecurity};
 use gel_tokio::{Builder, Config};
 use rustyline::error::ReadlineError;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
+use crate::connect::Connection;
 use crate::credentials;
 use crate::hint::HintExt;
 use crate::options;
 use crate::options::CloudOptions;
 use crate::options::{ConnectionOptions, Options};
-use crate::portable::local::is_valid_local_instance_name;
 use crate::portable::options::InstanceName;
-use crate::portable::ver::Build;
 use crate::print::{self, Highlight};
 use crate::question;
 use crate::tty_password;
@@ -80,10 +80,9 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     let mut builder = options::prepare_conn_params(opts)?;
     // If the user doesn't specify a TLS CA, we need to accept all certs
     if cmd.conn.tls_ca_file.is_none() {
-        builder.tls_security(TlsSecurity::Insecure);
+        builder = builder.tls_security(TlsSecurity::Insecure);
     }
-    let mut config =
-        prompt_conn_params(&opts.conn_options, &mut builder, cmd, &mut has_branch).await?;
+    let mut config = prompt_conn_params(&opts.conn_options, builder, cmd, &mut has_branch).await?;
     let mut creds = config.as_credentials()?;
     let cert_holder: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
 
@@ -91,13 +90,17 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     let non_interactive = cmd.non_interactive;
     let trust_tls_cert = cmd.trust_tls_cert;
     let quiet = cmd.quiet;
-    if cmd.conn.tls_ca_file.is_none() {
-        config = config.with_cert_check(CertCheck::new_fn(move |cert| {
-            ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
-        }));
-    }
-
-    let mut connect_result = connect(&config).await;
+    let mut connect_result = if cmd.conn.tls_ca_file.is_none() {
+        gel_tokio::raw::Connection::connect_with_cert_check(
+            &config,
+            CertCheck::new_fn(move |cert| {
+                ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
+            }),
+        )
+        .await
+    } else {
+        gel_tokio::raw::Connection::connect(&config).await
+    };
 
     let new_cert = if let Some(cert) = cert_holder.lock().unwrap().take() {
         let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert));
@@ -125,36 +128,31 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
             config = config.with_password(&password);
             creds.password = Some(password);
+            #[allow(deprecated)]
             if let Some(pem) = &new_cert {
                 config = config.with_pem_certificates(pem)?;
             }
-            connect_result = Ok(connect(&config).await?);
+            connect_result = Ok(gel_tokio::raw::Connection::connect(&config).await?);
         } else {
             return Err(e.into());
         }
     }
-    let mut connection: Client = connect_result.unwrap();
-    let ver = get_server_version(&mut connection).await?;
+    let mut connection = Connection::from_raw(&config, connect_result.unwrap(), "link");
+    let ver = connection.get_version().await?.clone();
     if !has_branch && opts.conn_options.branch.is_none() && opts.conn_options.database.is_none() {
-        config = config.with_database(&get_current_branch(&mut connection).await?)?;
-
-        eprintln!(
-            "using the default {} '{}'",
-            if ver.specific().major >= 5 {
-                "branch"
-            } else {
-                "database"
-            },
-            config.database()
-        );
+        let branch = connection.get_current_branch().await?;
 
         if ver.specific().major >= 5 {
-            creds.branch = Some(config.database().to_string());
+            config = config.with_db(DatabaseBranch::Branch(branch.to_string()));
+            creds.branch = Some(branch.into());
             creds.database = None;
         } else {
-            creds.database = Some(config.database().to_string());
+            config = config.with_db(DatabaseBranch::Database(branch.to_string()));
+            creds.database = Some(branch.to_string());
             creds.branch = None;
         }
+
+        eprintln!("using the {}", config.db);
     }
 
     if let Some(pem) = &new_cert {
@@ -178,7 +176,10 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                             .default(&default)
                             .async_ask()
                             .await?;
-                    if !is_valid_local_instance_name(&name) {
+                    if matches!(
+                        InstanceName::from_str(&name),
+                        Err(_) | Ok(InstanceName::Cloud { .. })
+                    ) {
                         print::error!(
                             "Instance name must be a valid identifier, \
                              (regex: ^[a-zA-Z_0-9]+(-[a-zA-Z_0-9]+)*$)"
@@ -275,39 +276,9 @@ fn gen_default_instance_name(input: impl fmt::Display) -> String {
     name
 }
 
-async fn connect(cfg: &gel_tokio::Config) -> Result<Client, Error> {
-    //Connection::connect(cfg).await
-    let client = gel_tokio::Client::new(cfg);
-    client.ensure_connected().await?;
-
-    Ok(client)
-}
-
-async fn get_server_version(connection: &mut Client) -> anyhow::Result<Build> {
-    let ver: String = connection
-        .query_required_single("SELECT sys::get_version_as_str()", &())
-        .await?;
-    ver.parse()
-}
-
-async fn get_current_branch(connection: &mut Client) -> anyhow::Result<String> {
-    let branch = connection
-        .query_required_single::<String, _>("select sys::get_current_database()", &())
-        .await;
-
-    // for context why '?' isn't used, tokio swallows the error here and prints:
-    // "edgedb error: ClientConnectionError: A Tokio 1.x context was found, but it is being shutdown."
-    // whereas this ensures that the result is properly handled and the actual error is reported.
-    if let Ok(branch) = branch {
-        return Ok(branch);
-    }
-
-    anyhow::bail!(branch.unwrap_err());
-}
-
 async fn prompt_conn_params(
     options: &ConnectionOptions,
-    builder: &mut Builder,
+    mut builder: Builder,
     link: &Link,
     has_branch: &mut bool,
 ) -> anyhow::Result<Config> {
@@ -316,7 +287,7 @@ async fn prompt_conn_params(
     }
 
     if link.non_interactive {
-        let config = match builder.build_env().await {
+        let config = match builder.clone().build() {
             Ok(config) => config,
             Err(e) if e.is::<ClientNoCredentialsError>() => {
                 return Err(anyhow::anyhow!("no connection options are specified")).with_hint(
@@ -333,39 +304,47 @@ async fn prompt_conn_params(
         };
         if !link.quiet {
             eprintln!(
-                "Authenticating to edgedb://{}@{}/{}",
+                "Authenticating to gel://{}@{}/{}",
                 config.user(),
                 config.display_addr(),
-                config.database(),
+                config.db.name().unwrap_or_default(),
             );
         }
         Ok(config)
     } else if options.dsn.is_none() {
-        let (_, config, _) = builder.build_no_fail().await;
+        let (config, _) = builder.clone().compute()?;
+
         if options.host.is_none() {
-            builder.host(
+            let host = config
+                .host
+                .as_ref()
+                .map(|h| h.to_string())
+                .unwrap_or("localhost".to_string());
+            builder = builder.host_string(
                 &question::String::new("Specify server host")
-                    .default(config.host().as_deref().unwrap_or("localhost"))
+                    .default(&host)
                     .async_ask()
                     .await?,
-            )?;
+            );
         };
         if options.port.is_none() {
-            builder.port(
+            let port = config.port.unwrap_or(5656).to_string();
+            builder = builder.port(
                 question::String::new("Specify server port")
-                    .default(&config.port().unwrap_or(5656).to_string())
+                    .default(&port)
                     .async_ask()
                     .await?
-                    .parse()?,
-            )?;
+                    .parse::<u16>()?,
+            );
         }
         if options.user.is_none() {
-            builder.user(
+            let user = config.user.as_deref().unwrap_or("edgedb");
+            builder = builder.user(
                 &question::String::new("Specify database user")
-                    .default(config.user())
+                    .default(user)
                     .async_ask()
                     .await?,
-            )?;
+            );
         }
 
         if options.database.is_none() && options.branch.is_none() {
@@ -379,7 +358,7 @@ async fn prompt_conn_params(
                             eprintln!("No database/branch specified!");
                             continue;
                         }
-                        builder.database(&s)?.branch(&s)?;
+                        builder = builder.database(&s).branch(&s);
                         *has_branch = true;
                         break;
                     }
@@ -393,8 +372,8 @@ async fn prompt_conn_params(
             }
         }
 
-        Ok(builder.build_env().await?)
+        Ok(builder.build()?)
     } else {
-        Ok(builder.build_env().await?)
+        Ok(builder.build()?)
     }
 }

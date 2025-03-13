@@ -10,7 +10,8 @@ use std::time::SystemTime;
 use anyhow::Context;
 use fn_error_context::context;
 
-use gel_tokio::Builder;
+use gel_dsn::gel::UnixPath;
+use gel_tokio::{Builder, Config};
 
 use crate::branding::BRANDING;
 use crate::bug;
@@ -375,14 +376,16 @@ impl InstanceInfo {
         self.get_installation()?.extension_loader_path()
     }
 
-    pub fn admin_conn_params(&self) -> anyhow::Result<Builder> {
-        let mut builder = Builder::new();
-        builder.port(self.port)?;
-        builder.unix_path(&runstate_dir(&self.name)?);
-        builder.admin(true);
-        builder.user("edgedb")?;
-        builder.database("edgedb")?;
-        Ok(builder)
+    pub fn admin_conn_params(&self) -> anyhow::Result<Config> {
+        let config = Builder::new()
+            .port(self.port)
+            .unix_path(UnixPath::with_port_suffix(
+                runstate_dir(&self.name)?.join(".s.EDGEDB.admin."),
+            ))
+            .wait_until_available(std::time::Duration::from_secs(300))
+            .without_system()
+            .build()?;
+        Ok(config)
     }
 }
 
@@ -436,90 +439,6 @@ impl InstallInfo {
             )
         }
     }
-}
-
-pub fn is_valid_local_instance_name(name: &str) -> bool {
-    // For local instance names:
-    //  1. Allow only letters, numbers, underscores and single dashes
-    //  2. Must not start or end with a dash
-    // regex: ^[a-zA-Z_0-9]+(-[a-zA-Z_0-9]+)*$
-    let mut chars = name.chars();
-    match chars.next() {
-        Some(c) if c.is_ascii_alphanumeric() || c == '_' => {}
-        _ => return false,
-    }
-    let mut was_dash = false;
-    for c in chars {
-        if c == '-' {
-            if was_dash {
-                return false;
-            } else {
-                was_dash = true;
-            }
-        } else {
-            if !c.is_ascii_alphanumeric() && c != '_' {
-                return false;
-            }
-            was_dash = false;
-        }
-    }
-    !was_dash
-}
-
-pub fn is_valid_cloud_instance_name(name: &str) -> bool {
-    // For cloud instance name part:
-    //  1. Allow only letters, numbers and single dashes
-    //  2. Must not start or end with a dash
-    // regex: ^[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*$
-    let mut chars = name.chars();
-    match chars.next() {
-        Some(c) if c.is_ascii_alphanumeric() => {}
-        _ => return false,
-    }
-    let mut was_dash = false;
-    for c in chars {
-        if c == '-' {
-            if was_dash {
-                return false;
-            } else {
-                was_dash = true;
-            }
-        } else {
-            if !c.is_ascii_alphanumeric() {
-                return false;
-            }
-            was_dash = false;
-        }
-    }
-    !was_dash
-}
-
-pub fn is_valid_cloud_org_name(name: &str) -> bool {
-    // For cloud organization slug part:
-    //  1. Allow only letters, numbers, underscores and single dashes
-    //  2. Must not end with a dash
-    // regex: ^-?[a-zA-Z0-9_]+(-[a-zA-Z0-9]+)*$
-    let mut chars = name.chars();
-    match chars.next() {
-        Some(c) if c.is_ascii_alphanumeric() || c == '-' || c == '_' => {}
-        _ => return false,
-    }
-    let mut was_dash = false;
-    for c in chars {
-        if c == '-' {
-            if was_dash {
-                return false;
-            } else {
-                was_dash = true;
-            }
-        } else {
-            if !(c.is_ascii_alphanumeric() || c == '_') {
-                return false;
-            }
-            was_dash = false;
-        }
-    }
-    !was_dash
 }
 
 #[derive(Debug, thiserror::Error)]

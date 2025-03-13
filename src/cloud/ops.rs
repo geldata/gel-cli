@@ -4,8 +4,8 @@ use std::time::{Duration, Instant};
 
 use anyhow::Context;
 use const_format::concatcp;
-use gel_tokio::credentials::Credentials;
-use gel_tokio::Builder;
+use gel_tokio::credentials::{AsCredentials, Credentials};
+use gel_tokio::{Builder, CloudName};
 use indicatif::ProgressBar;
 use tokio::time::{sleep, timeout};
 
@@ -23,8 +23,7 @@ const SPINNER_TICK: Duration = Duration::from_millis(100);
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CloudInstance {
     pub id: String,
-    name: String,
-    org_slug: String,
+    name: CloudName,
     dsn: String,
     pub status: String,
     pub version: String,
@@ -49,9 +48,8 @@ impl CloudInstance {
     pub async fn as_credentials(&self, secret_key: &str) -> anyhow::Result<Credentials> {
         let config = Builder::new()
             .secret_key(secret_key)
-            .instance(&format!("{}/{}", self.org_slug, self.name))?
-            .build_env()
-            .await?;
+            .instance(self.name.clone())
+            .build()?;
         let mut creds = config.as_credentials()?;
         // TODO(tailhook) can this be emitted from as_credentials()?
         creds.tls_ca.clone_from(&self.tls_ca);
@@ -67,7 +65,7 @@ impl RemoteStatus {
         let secret_key = cloud_client.secret_key.clone().unwrap();
         let credentials = cloud_instance.as_credentials(&secret_key).await?;
         Ok(Self {
-            name: format!("{}/{}", cloud_instance.org_slug, cloud_instance.name),
+            name: cloud_instance.name.to_string(),
             type_: RemoteType::Cloud {
                 instance_id: cloud_instance.id.clone(),
             },
@@ -426,10 +424,7 @@ pub async fn list(
         match RemoteStatus::from_cloud_instance(&client, &cloud_instance).await {
             Ok(status) => rv.push(status),
             Err(e) => {
-                errors.add(e.context(format!(
-                    "probing {}/{}",
-                    cloud_instance.org_slug, cloud_instance.name
-                )));
+                errors.add(e.context(format!("probing {}", cloud_instance.name)));
             }
         }
     }

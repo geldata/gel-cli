@@ -5,7 +5,6 @@ use std::str::FromStr;
 use anyhow::Context;
 use clap::ValueHint;
 use const_format::concatcp;
-use gel_tokio::get_stash_path;
 use gel_tokio::PROJECT_FILES;
 use rand::{thread_rng, Rng};
 
@@ -29,7 +28,7 @@ use crate::portable::local::{allocate_port, InstanceInfo, Paths};
 use crate::portable::options::InstanceName;
 use crate::portable::options::{CloudInstanceBillables, CloudInstanceParams};
 use crate::portable::platform::optional_docker_check;
-use crate::portable::project;
+use crate::portable::project::{self, get_stash_path};
 use crate::portable::repository::{self, Channel, PackageInfo, Query};
 use crate::portable::server::install;
 use crate::portable::ver;
@@ -1158,8 +1157,8 @@ async fn create_database_async(inst: &project::Handle<'_>) -> anyhow::Result<()>
     let Some(name) = &inst.database else {
         return Ok(());
     };
-    let config = inst.get_default_builder()?.build_env().await?;
-    if name == config.database() {
+    let config = inst.get_default_builder()?.build()?;
+    if name == config.database().unwrap_or_default() {
         return Ok(());
     }
     let mut conn = Connection::connect(&config, QUERY_TAG).await?;
@@ -1252,7 +1251,7 @@ async fn migrate_async(inst: &project::Handle<'_>, ask_for_running: bool) -> any
         &Options {
             command_line: true,
             styler: None,
-            conn_params: Connector::new(inst.get_builder()?.build_env().await.map_err(Into::into)),
+            conn_params: Connector::new(inst.get_builder()?.build().map_err(Into::into)),
             instance_name: Some(InstanceName::Local(inst.name.clone())),
         },
     )

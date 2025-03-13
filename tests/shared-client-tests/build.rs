@@ -36,33 +36,25 @@ fn main() {
     ]);
     let error_mapping = HashMap::from([
         ("invalid_dsn", "(invalid DSN|Invalid DSN)"),
-        ("env_not_found", "is not set"),
+        ("env_not_found", "not set"),
         (
             "invalid_tls_security",
-            "((EDGEDB_CLIENT_TLS_SECURITY|tls_security).*(don't comply|Invalid value)|\
-            Unsupported TLS security|Insecure TLS configuration is not allowed in strict mode)",
+            "Invalid TLS security|Unsupported TLS security",
         ),
         (
             "file_not_found",
-            "(No such file or directory)|(cannot find the path)|\
-            (a value is required for)",
+            "File not found|but none was supplied",
         ),
-        ("invalid_host", "invalid host"),
+        ("invalid_host", "Invalid host"),
         (
             "invalid_port",
-            "(invalid value.*for.*port|invalid port|EDGEDB_PORT is invalid)",
+            "Invalid port|invalid digit found in string|cannot parse integer from empty string|is not in",
         ),
-        (
-            "invalid_dsn_or_instance_name",
-            "(invalid DSN|must be a valid identifier)",
-        ),
+        ("invalid_dsn_or_instance_name", "(Invalid instance name|Invalid DSN)"),
         ("invalid_instance_name", "invalid.*instance name"),
-        ("invalid_user", "invalid user"),
-        ("invalid_database", "invalid database"),
-        (
-            "invalid_credentials_file",
-            "(cannot read credentials file)|(a value is required for)",
-        ),
+        ("invalid_user", "Invalid user"),
+        ("invalid_database", "Invalid database"),
+        ("invalid_credentials_file", "Invalid credentials file|but none was supplied"),
         (
             "no_options_or_toml",
             "no .*toml.* found and no connection options are specified",
@@ -73,8 +65,7 @@ fn main() {
         ),
         (
             "multiple_compound_env",
-            "multiple compound env vars found|\
-             [A-Z]+\\s*conflicts\\s*with\\s*[A-Z]+",
+            "Multiple compound environment variables",
         ),
         (
             "exclusive_options",
@@ -82,11 +73,12 @@ fn main() {
         ),
         (
             "credentials_file_not_found",
-            "credentials file.*No such file",
+            "file not found",
         ),
         ("project_not_initialised", "not initialized"),
-        ("secret_key_not_found", "NoCloudConfigFound"),
-        ("invalid_secret_key", "Illegal JWT token"),
+        ("secret_key_not_found", "Secret key not found"),
+        ("invalid_secret_key", "Invalid secret key"),
+        ("unix_socket_unsupported", "Unix socket unsupported|must be a hostname"),
     ]);
 
     let out_dir = env::var_os("OUT_DIR").unwrap();
@@ -166,17 +158,7 @@ static MUTEX: Mutex<()> = Mutex::new(());
             if let Some(dsn) = opts.get("dsn") {
                 if let Some(dsn) = dsn.as_str() {
                     // servo/rust-url#424
-                    if dsn.contains("%25eth0")
-                        || dsn.starts_with("edgedbadmin://")
-                        || dsn.contains("host=/")
-                    {
-                        should_panic = true;
-                    }
-                }
-            }
-            if let Some(host) = opts.get("host") {
-                if let Some(host) = host.as_str() {
-                    if host.starts_with('/') {
+                    if dsn.contains("%25eth0") {
                         should_panic = true;
                     }
                 }
