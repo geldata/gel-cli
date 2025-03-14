@@ -1561,6 +1561,7 @@ dependencies = [
  "fs_extra",
  "futures-util",
  "gel-auth",
+ "gel-cli-instance",
  "gel-derive",
  "gel-dsn",
  "gel-errors",

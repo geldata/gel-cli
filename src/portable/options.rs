@@ -3,6 +3,8 @@ use std::str::FromStr;
 
 use edgedb_cli_derive::IntoArgs;
 use gel_tokio::CloudName;
+use gel_cli_instance::docker::{GelDockerInstances, GelDockerInstanceState};
+use log::warn;
 
 use crate::cloud::ops::CloudTier;
 use crate::commands::ExitCode;
@@ -86,11 +88,28 @@ pub fn instance_arg(
         }
     };
 
+    // infer a virtual docker instance if docker-compose.yaml is present
+    if let Some(instance) = find_docker()? {
+        return Ok(instance);
+    }
+
     msg!(
         "{} Instance name argument is required, use '-I name'",
         err_marker()
     );
     Err(ExitCode::new(2).into())
+}
+
+#[tokio::main]
+async fn find_docker() -> anyhow::Result<Option<InstanceName>> {
+    if let Some(instance) = GelDockerInstances::new().try_load().await? {
+        if matches!(instance.state, GelDockerInstanceState::Running(_)) {
+            return Ok(Some(InstanceName::Local("__docker__".to_string())));
+        } else {
+            warn!("`docker-compose.yaml` is present, but the instance is not running.");
+        }
+    }
+    return Ok(None);
 }
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]

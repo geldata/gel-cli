@@ -290,7 +290,7 @@ impl Drop for ProcessHandle {
     }
 }
 
-struct SystemProcessRunner;
+pub struct SystemProcessRunner;
 
 impl ProcessRunner for SystemProcessRunner {
     fn run_process(

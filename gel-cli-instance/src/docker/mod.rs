@@ -17,8 +17,8 @@ pub enum DockerError {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct GelDockerInstance {
-    name: String,
-    state: GelDockerInstanceState,
+    pub name: String,
+    pub state: GelDockerInstanceState,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -29,11 +29,11 @@ pub enum GelDockerInstanceState {
 
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct GelDockerInstanceData {
-    cmdline: String,
-    tls_key_file: Option<String>,
-    tls_cert_file: Option<String>,
-    jws_key_file: Option<String>,
-    external_ports: Vec<SocketAddr>,
+    pub cmdline: String,
+    pub tls_key_file: Option<String>,
+    pub tls_cert_file: Option<String>,
+    pub jws_key_file: Option<String>,
+    pub external_ports: Vec<SocketAddr>,
 }
 
 pub struct GelDockerInstances<P: ProcessRunner> {

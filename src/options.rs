@@ -10,6 +10,7 @@ use gel_errors::ClientNoCredentialsError;
 use gel_protocol::model;
 use gel_tokio::credentials::TlsSecurity;
 use gel_tokio::Builder;
+use gel_cli_instance::docker::{GelDockerInstances, GelDockerInstance, GelDockerInstanceState};
 use is_terminal::IsTerminal;
 use tokio::task::spawn_blocking as unblock;
 
@@ -881,6 +882,12 @@ impl Options {
                 .await?;
 
                 if e.is::<ClientNoCredentialsError>() {
+                    if let Some(instance) = GelDockerInstances::new().try_load().await? {
+                        if matches!(instance.state, GelDockerInstanceState::Running(_)) {
+                            let message = format!("found docker instance at {}, but it is not initialized and no connection options \
+                            are specified: {errors:?}", instance.name);
+                        }
+                    }
                     let project = project::find_project_async(None).await?;
                     let message = if let Some(project) = project {
                         format!(

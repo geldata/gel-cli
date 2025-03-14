@@ -44,6 +44,8 @@ gel-tokio = { version = "0.10", features=["admin_socket", "unstable"] }
 gel-dsn = { version = "0.2", features = ["unstable", "gel", "auto-log-trace", "auto-log-warning"] }
 gel-jwt = { version = "0.1" }
 
+gel-cli-instance = { path = "./gel-cli-instance" }
+
 snafu = "0.8.4"
 ansi-escapes = "0.2"
 anyhow = "1.0.23"
