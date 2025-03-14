@@ -2,6 +2,7 @@
 members = [
     ".",
     "edgedb-cli-derive",
+    "gel-cli-instance",
     "tests/shared-client-tests",
 ]
 
