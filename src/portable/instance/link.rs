@@ -4,7 +4,6 @@ use std::sync::{Arc, Mutex};
 
 use gel_dsn::gel::DatabaseBranch;
 use gel_tokio::builder::CertCheck;
-use ring::digest;
 
 use gel_errors::{
     ClientConnectionFailedError, ClientNoCredentialsError, Error, ErrorKind, PasswordRequired,
@@ -12,6 +11,7 @@ use gel_errors::{
 use gel_tokio::credentials::{AsCredentials, TlsSecurity};
 use gel_tokio::{Builder, Config};
 use rustyline::error::ReadlineError;
+use sha2::Digest;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::connect::Connection;
@@ -31,28 +31,29 @@ async fn ask_trust_cert(
     quiet: bool,
     cert: Vec<u8>,
 ) -> Result<(), Error> {
-    let fingerprint = digest::digest(&digest::SHA1_FOR_LEGACY_USE_ONLY, &cert);
+    let fingerprint = sha2::Sha256::digest(&cert);
+    let fingerprint = format!("sha256:{}", hex::encode(fingerprint));
     let (_, cert) = x509_parser::parse_x509_certificate(&cert).map_err(|e| {
         ClientConnectionFailedError::with_source(e).context("Failed to parse server certificate")
     })?;
     if trust_tls_cert {
         if !quiet {
-            print::warn!("Trusting unknown server certificate: {fingerprint:?}");
+            print::warn!("Trusting unknown server certificate: {fingerprint}");
         }
     } else if non_interactive {
         return Err(gel_errors::ClientConnectionFailedError::with_message(
-            format!("Unknown server certificate: {fingerprint:?}",),
+            format!("Unknown server certificate: {fingerprint}",),
         ));
     } else {
         let mut q = question::Confirm::new(format!(
-            "Unknown server certificate:\nFingerprint: {fingerprint:?}\nSubject: {}\nIssuer: {}\n\nTrust?",
+            "Unknown server certificate:\nFingerprint: {fingerprint}\nSubject: {}\nIssuer: {}\n\nTrust?",
             cert.subject(),
             cert.issuer(),
         ));
         q.default(false);
         if !q.async_ask().await? {
             return Err(gel_errors::ClientConnectionFailedError::with_message(
-                format!("Unknown server certificate: {fingerprint:?}",),
+                format!("Unknown server certificate: {fingerprint}",),
             ));
         }
     }

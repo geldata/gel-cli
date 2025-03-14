@@ -1580,7 +1580,6 @@ dependencies = [
  "reqwest-middleware",
  "reqwest-retry",
  "rexpect",
- "ring",
  "rpassword",
  "rustyline",
  "semver",

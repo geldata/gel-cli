@@ -100,7 +100,6 @@ sha2 = "0.10.2"
 base32 = "0.5.1"
 rand = "0.8.2"
 base64 = "0.22.1"
-ring = {version="0.17.7", features=["std"]}
 shell-escape = "0.1.5"
 indicatif = "0.17.0"
 url = { version = "2.1.1", features=["serde"] }
