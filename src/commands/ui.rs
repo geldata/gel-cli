@@ -141,9 +141,7 @@ fn _get_local_ui_secret_key(cfg: &gel_tokio::Config) -> anyhow::Result<Option<St
     if let Some(key) = cfg.secret_key() {
         Ok(Some(key.to_owned()))
     } else if let Some(instance) = local_info {
-        let ver = instance.get_version()?.specific();
-        let legacy = ver < "3.0-alpha.1".parse().unwrap();
-        let key = jwt::LocalJWT::new(instance.name, legacy)
+        let key = jwt::LocalJWT::new(instance.name)
             .generate()
             .map_err(|e| {
                 log::warn!("Cannot generate authToken: {:#}", e);
@@ -151,7 +149,7 @@ fn _get_local_ui_secret_key(cfg: &gel_tokio::Config) -> anyhow::Result<Option<St
             .ok();
         Ok(key)
     } else if matches!(local_inst, Some("_localdev")) {
-        let key = jwt::LocalJWT::new("_localdev", false)
+        let key = jwt::LocalJWT::new("_localdev")
             .generate()
             .map_err(|e| {
                 log::warn!("Cannot generate authToken: {:#}", e);
@@ -178,13 +176,11 @@ async fn open_url(url: &str) -> Result<reqwest::Response, reqwest::Error> {
 
 mod jwt {
 
-    use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-    use base64::Engine;
+    use std::collections::HashMap;
+    use std::iter::FromIterator;
 
     use fs_err as fs;
-    use ring::rand::SecureRandom;
-    use ring::signature::KeyPair;
-    use ring::{aead, agreement, digest, rand, signature};
+    use gel_jwt::{KeyRegistry, PrivateKey, SigningContext};
 
     use crate::platform::data_dir;
     use crate::portable::local::{instance_data_dir, NonLocalInstance};
@@ -195,22 +191,15 @@ mod jwt {
 
     pub struct LocalJWT {
         instance_name: String,
-        legacy: bool,
-        rng: rand::SystemRandom,
-        jws_key: Option<Vec<u8>>,
-        jwe_key: Option<Vec<u8>>,
+        jws_key: Option<KeyRegistry<PrivateKey>>,
     }
 
     impl LocalJWT {
-        pub fn new(instance_name: impl Into<String>, legacy: bool) -> Self {
+        pub fn new(instance_name: impl Into<String>) -> Self {
             let instance_name = instance_name.into();
-            let rng = rand::SystemRandom::new();
             Self {
                 instance_name,
-                legacy,
-                rng,
                 jws_key: None,
-                jwe_key: None,
             }
         }
 
@@ -226,8 +215,15 @@ mod jwt {
             }
             Ok(())
         }
-        #[cfg(not(windows))]
+
         fn read_keys(&mut self) -> anyhow::Result<()> {
+            #[cfg(windows)]
+            {
+                let key = windows::read_jws_key(&self.instance_name)?;
+                self.jws_key = Some(PrivateKey::from_pem(key.as_bytes())?);
+                return Ok(());
+            }
+
             use crate::cli::env::Env;
             let data_dir = if self.instance_name == "_localdev" {
                 match Env::server_dev_dir()? {
@@ -240,99 +236,33 @@ mod jwt {
             if !data_dir.exists() {
                 anyhow::bail!(NonLocalInstance);
             }
-            self.jws_key = Some(fs::read(data_dir.join("edbjwskeys.pem"))?);
-            if self.legacy {
-                self.jwe_key = Some(fs::read(data_dir.join("edbjwekeys.pem"))?);
+            let mut key_set = gel_jwt::KeyRegistry::default();
+            for keys in ["edbjwskeys.pem", "edbjwskeys.json"] {
+                if data_dir.join(keys).try_exists()? {
+                    let key_text = fs::read(data_dir.join(keys))?;
+                    key_set.add_from_any(&String::from_utf8_lossy(&key_text))?;
+                }
             }
+
+            self.jws_key = Some(key_set);
             Ok(())
         }
 
+        /// Generate a legacy-style token.
         pub fn generate(&mut self) -> anyhow::Result<String> {
             self.read_keys().map_err(ReadKeyError)?;
 
-            let token = self.generate_token()?;
-            if !self.legacy {
-                return Ok(format!("edbt_{token}"));
-            }
-
-            self.generate_legacy_token(token)
-        }
-
-        fn generate_token(&mut self) -> anyhow::Result<String> {
-            let jws_pem = pem::parse(self.jws_key.as_deref().expect("jws_key not set"))?;
-            let rand = ring::rand::SystemRandom::new();
-
-            let jws = signature::EcdsaKeyPair::from_pkcs8(
-                &signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-                jws_pem.contents(),
-                &rand,
-            )?;
-            let message = format!(
-                "{}.{}",
-                URL_SAFE_NO_PAD.encode(b"{\"typ\":\"JWT\",\"alg\":\"ES256\"}"),
-                URL_SAFE_NO_PAD.encode(b"{\"edgedb.server.any_role\":true}"),
-            );
-            let signature = jws.sign(&self.rng, message.as_bytes())?;
-            Ok(format!("{}.{}", message, URL_SAFE_NO_PAD.encode(signature),))
-        }
-
-        fn generate_legacy_token(&self, signed_token: String) -> anyhow::Result<String> {
-            // Replace this ES256/ECDH-ES implementation using raw ring
-            // with biscuit when the algorithms are supported in biscuit
-            let jwe_pem = pem::parse(self.jwe_key.as_deref().expect("jwe_key not set"))?;
-            let rand = ring::rand::SystemRandom::new();
-
-            let jwe = signature::EcdsaKeyPair::from_pkcs8(
-                &signature::ECDSA_P256_SHA256_FIXED_SIGNING,
-                jwe_pem.contents(),
-                &rand,
+            let key = self
+                .jws_key
+                .as_ref()
+                .ok_or_else(|| anyhow::anyhow!("jws_key not set"))?;
+            let ctx = SigningContext::default();
+            let token = key.sign(
+                HashMap::from_iter([("edgedb.server.any_role".to_string(), true.into())]),
+                &ctx,
             )?;
 
-            let priv_key =
-                agreement::EphemeralPrivateKey::generate(&agreement::ECDH_P256, &self.rng)?;
-            let pub_key =
-                agreement::UnparsedPublicKey::new(&agreement::ECDH_P256, jwe.public_key().as_ref());
-            let epk = priv_key.compute_public_key()?.as_ref().to_vec();
-            let cek = agreement::agree_ephemeral(priv_key, &pub_key, |key_material| {
-                let mut ctx = digest::Context::new(&digest::SHA256);
-                ctx.update(&[0, 0, 0, 1]);
-                ctx.update(key_material);
-                ctx.update(&[0, 0, 0, 7]); // AlgorithmID
-                ctx.update(b"A256GCM");
-                ctx.update(&[0, 0, 0, 0]); // PartyUInfo
-                ctx.update(&[0, 0, 0, 0]); // PartyVInfo
-                ctx.update(&[0, 0, 1, 0]); // SuppPubInfo (bitsize=256)
-                ctx.finish()
-            })
-            .map_err(|_| anyhow::anyhow!("Error occurred while deriving key for JWT"))?;
-            let enc_key =
-                aead::LessSafeKey::new(aead::UnboundKey::new(&aead::AES_256_GCM, cek.as_ref())?);
-            let x = URL_SAFE_NO_PAD.encode(&epk[1..33]);
-            let y = URL_SAFE_NO_PAD.encode(&epk[33..]);
-            let protected = format!(
-                "{{\
-                    \"alg\":\"ECDH-ES\",\"enc\":\"A256GCM\",\"epk\":{{\
-                        \"crv\":\"P-256\",\"kty\":\"EC\",\"x\":\"{x}\",\"y\":\"{y}\"\
-                    }}\
-                }}"
-            );
-            let protected = URL_SAFE_NO_PAD.encode(protected.as_bytes());
-            let mut nonce = vec![0; 96 / 8];
-            self.rng.fill(&mut nonce)?;
-            let mut in_out = signed_token.as_bytes().to_vec();
-            let tag = enc_key.seal_in_place_separate_tag(
-                aead::Nonce::try_assume_unique_for_key(&nonce)?,
-                aead::Aad::from(protected.clone()),
-                &mut in_out,
-            )?;
-
-            Ok(format!(
-                "{}..{}.{}.{}",
-                protected,
-                URL_SAFE_NO_PAD.encode(nonce),
-                URL_SAFE_NO_PAD.encode(in_out),
-                URL_SAFE_NO_PAD.encode(tag.as_ref()),
-            ))
+            return Ok(format!("edbt_{token}"));
         }
     }
 }
