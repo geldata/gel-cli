@@ -1527,7 +1527,6 @@ dependencies = [
  "assert_cmd",
  "async-fn-stream",
  "backtrace",
- "base32",
  "base64 0.22.1",
  "bigdecimal",
  "bitflags 2.9.0",
@@ -1611,7 +1610,6 @@ dependencies = [
  "strsim",
  "tar",
  "tempfile",
- "term 1.0.1",
  "termcolor",
  "termimad",
  "terminal-light",
@@ -1631,7 +1629,6 @@ dependencies = [
  "uuid",
  "warp",
  "which",
- "whoami",
  "winapi",
  "winreg 0.52.0",
  "wslapi",
@@ -3407,7 +3404,7 @@ dependencies = [
  "encode_unicode",
  "is-terminal",
  "lazy_static",
- "term 0.7.0",
+ "term",
  "unicode-width 0.1.14",
 ]
 
@@ -4511,16 +4508,6 @@ dependencies = [
  "dirs-next",
  "rustversion",
  "winapi",
-]
-
-[[package]]
-name = "term"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3bb6001afcea98122260987f8b7b5da969ecad46dbf0b5453702f776b491a41"
-dependencies = [
- "home",
- "windows-sys 0.52.0",
 ]
 
 [[package]]
