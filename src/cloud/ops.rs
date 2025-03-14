@@ -23,6 +23,7 @@ const SPINNER_TICK: Duration = Duration::from_millis(100);
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CloudInstance {
     pub id: String,
+    #[serde(flatten)]
     name: CloudName,
     dsn: String,
     pub status: String,
