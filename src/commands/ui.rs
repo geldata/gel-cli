@@ -203,24 +203,14 @@ mod jwt {
             }
         }
 
-        #[cfg(windows)]
         fn read_keys(&mut self) -> anyhow::Result<()> {
-            use crate::portable::windows;
-            if self.legacy {
-                let (jws_key, jwe_key) = windows::read_jose_keys_legacy(&self.instance_name)?;
-                self.jws_key = Some(jws_key);
-                self.jwe_key = Some(jwe_key);
-            } else {
-                self.jws_key = Some(windows::read_jws_key(&self.instance_name)?);
-            }
-            Ok(())
-        }
+            let mut key_set = gel_jwt::KeyRegistry::default();
 
-        fn read_keys(&mut self) -> anyhow::Result<()> {
             #[cfg(windows)]
             {
-                let key = windows::read_jws_key(&self.instance_name)?;
-                self.jws_key = Some(PrivateKey::from_pem(key.as_bytes())?);
+                let key_text = windows::read_jws_key(&self.instance_name)?;
+                key_set.add_from_any(&key_text)?;
+                self.jws_key = Some(key_set);
                 return Ok(());
             }
 
@@ -236,7 +226,6 @@ mod jwt {
             if !data_dir.exists() {
                 anyhow::bail!(NonLocalInstance);
             }
-            let mut key_set = gel_jwt::KeyRegistry::default();
             for keys in ["edbjwskeys.pem", "edbjwskeys.json"] {
                 if data_dir.join(keys).try_exists()? {
                     let key_text = fs::read(data_dir.join(keys))?;
