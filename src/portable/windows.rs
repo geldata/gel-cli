@@ -1067,22 +1067,15 @@ fn get_instance_data_dir(name: &str, wsl: &Wsl) -> anyhow::Result<PathBuf> {
     Ok(data_dir)
 }
 
-pub fn read_jws_key(name: &str) -> anyhow::Result<Vec<u8>> {
+pub fn read_jws_key(name: &str) -> anyhow::Result<String> {
     let wsl = try_get_wsl()?;
     let data_dir = get_instance_data_dir(name, wsl)?;
-    let rv = wsl.read_text_file(data_dir.join("edbjwskeys.pem"))?;
-    Ok(rv.into_bytes())
-}
-
-pub fn read_jose_keys_legacy(name: &str) -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
-    let wsl = try_get_wsl()?;
-    let data_dir = get_instance_data_dir(name, wsl)?;
-    Ok((
-        wsl.read_text_file(data_dir.join("edbjwskeys.pem"))?
-            .into_bytes(),
-        wsl.read_text_file(data_dir.join("edbjwekeys.pem"))?
-            .into_bytes(),
-    ))
+    for keys in ["edbjwskeys.pem", "edbjwskeys.json"] {
+        if wsl.check_path_exist(&data_dir.join(keys)) {
+            return Ok(wsl.read_text_file(data_dir.join(keys))?);
+        }
+    }
+    anyhow::bail!("No JWS keys found for instance {name}");
 }
 
 pub fn get_instance_info(name: &str) -> anyhow::Result<String> {
