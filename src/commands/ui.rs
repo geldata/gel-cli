@@ -208,7 +208,7 @@ mod jwt {
 
             #[cfg(windows)]
             {
-                let key_text = windows::read_jws_key(&self.instance_name)?;
+                let key_text = crate::portable::windows::read_jws_key(&self.instance_name)?;
                 key_set.add_from_any(&key_text)?;
                 self.jws_key = Some(key_set);
                 return Ok(());
