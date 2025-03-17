@@ -1687,29 +1687,25 @@ dependencies = [
 
 [[package]]
 name = "gel-jwt"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2566ce467eaeb682b4a766bdfb7f0250f76dae1e9efe64535ae628c07211951a"
+checksum = "2cc5e94b0f8161e18a586acef2e96ead1e18b31282b56a0bbe1cdfe33f96dfaf"
 dependencies = [
  "base64 0.22.1",
  "base64ct",
  "const-oid",
- "constant_time_eq",
  "der",
  "derive_more",
  "elliptic-curve",
  "hmac",
  "jsonwebtoken",
  "libc",
- "md5",
  "num-bigint-dig",
  "p256",
  "pem",
  "pkcs1",
  "pkcs8",
- "rand 0.8.5",
  "ring",
- "rsa",
  "rustls-pki-types",
  "sec1",
  "serde",
@@ -1717,8 +1713,6 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror 2.0.12",
- "tracing",
- "uuid",
  "zeroize",
 ]
 
@@ -2979,7 +2973,6 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "smallvec",
- "zeroize",
 ]
 
 [[package]]
@@ -3316,7 +3309,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8ffb9f10fa047879315e6625af03c164b16962a5368d724ed16323b68ace47f"
 dependencies = [
  "der",
- "pkcs8",
  "spki",
 ]
 
@@ -3844,26 +3836,6 @@ dependencies = [
  "libc",
  "rtoolbox",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "rsa"
-version = "0.9.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78928ac1ed176a5ca1d17e578a1825f3d81ca54cf41053a592584b020cfd691b"
-dependencies = [
- "const-oid",
- "digest",
- "num-bigint-dig",
- "num-integer",
- "num-traits",
- "pkcs1",
- "pkcs8",
- "rand_core 0.6.4",
- "signature",
- "spki",
- "subtle",
- "zeroize",
 ]
 
 [[package]]
