@@ -6,7 +6,7 @@ use edgedb_cli_derive::IntoArgs;
 use log::{debug, trace};
 use prettytable::{row, Table};
 
-use crate::branding::BRANDING_CLOUD;
+use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::hint::HintExt;
 use crate::options::Options;
 use crate::portable::local::InstanceInfo;
@@ -15,7 +15,8 @@ use crate::portable::platform::get_server;
 use crate::portable::repository::{get_platform_extension_packages, Channel};
 use crate::portable::server::install::download_package;
 use crate::portable::windows;
-use crate::table;
+use crate::print::Highlight;
+use crate::{print, table};
 
 pub fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> {
     use Subcommands::*;
@@ -191,9 +192,10 @@ fn install(cmd: &ExtensionInstall, _options: &Options) -> Result<(), anyhow::Err
 
     match package {
         Some(pkg) => {
-            println!(
+            print::msg!(
                 "Found extension package: {} version {}",
-                cmd.extension, pkg.version
+                cmd.extension,
+                pkg.version.to_string().emphasized()
             );
             let zip = download_package(pkg)?;
             let command = if cmd.reinstall {
@@ -202,7 +204,18 @@ fn install(cmd: &ExtensionInstall, _options: &Options) -> Result<(), anyhow::Err
                 None
             };
             run_extension_loader(&inst, command, Some(&zip))?;
-            println!("Extension '{}' installed successfully.", cmd.extension);
+            print::msg!(
+                "Extension '{}' installed successfully.",
+                cmd.extension.as_str().emphasized().success()
+            );
+            print::msg!(
+                "{}",
+                "Hint: before using the extension, the instance has to be restarted:".muted()
+            );
+            print::msg!(
+                "{}",
+                format!("  {BRANDING_CLI_CMD} instance restart -I {}", inst.name).muted()
+            );
         }
         None => {
             return Err(anyhow::anyhow!(
