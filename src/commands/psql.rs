@@ -1,5 +1,6 @@
 use std::env;
 use std::ffi::OsString;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::branding::BRANDING;
@@ -13,28 +14,21 @@ use crate::print;
 
 pub async fn psql<'x>(cli: &mut Connection, _options: &Options) -> Result<(), anyhow::Error> {
     let mut cmd = Command::new("psql");
-    let path = if cfg!(feature = "dev_mode") {
-        use std::iter;
-        use std::path::{Path, PathBuf};
-
-        if let Some(dir) = option_env!("PSQL_DEFAULT_PATH") {
-            let psql_path = Path::new(dir).join("psql");
-            if !psql_path.exists() {
-                eprintln!("WARNING: {} does not exist", psql_path.display());
-            }
-            let npath = if let Some(path) = env::var_os("PATH") {
-                env::join_paths(iter::once(PathBuf::from(dir)).chain(env::split_paths(&path)))
-                    .unwrap_or_else(|e| {
-                        eprintln!("PSQL_DEFAULT_PATH error: {e}");
-                        path
-                    })
-            } else {
-                dir.into()
-            };
-            Some(npath)
-        } else {
-            env::var_os("PATH")
+    let path = if let Some(dir) = option_env!("PSQL_DEFAULT_PATH") {
+        let psql_path = Path::new(dir).join("psql");
+        if !psql_path.exists() {
+            eprintln!("WARNING: {} does not exist", psql_path.display());
         }
+        let npath = if let Some(path) = env::var_os("PATH") {
+            env::join_paths(std::iter::once(PathBuf::from(dir)).chain(env::split_paths(&path)))
+                .unwrap_or_else(|e| {
+                    eprintln!("PSQL_DEFAULT_PATH error: {e}");
+                    path
+                })
+        } else {
+            dir.into()
+        };
+        Some(npath)
     } else {
         env::var_os("PATH")
     };
