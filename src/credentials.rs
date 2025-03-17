@@ -77,6 +77,8 @@ pub fn maybe_update_credentials_file(config: &Config, ask: bool) -> anyhow::Resu
                     &std::fs::read_to_string(&creds_path).unwrap_or_default(),
                 )?;
                 if new != old {
+                    log::debug!("old: {old}");
+                    log::debug!("new: {new}");
                     if !ask
                         || question::Confirm::new(format!(
                             "The format of the instance credential file at {} is outdated, \
@@ -85,7 +87,7 @@ pub fn maybe_update_credentials_file(config: &Config, ask: bool) -> anyhow::Resu
                         ))
                         .ask()?
                     {
-                        std::fs::write(&creds_path, &new.to_string())?;
+                        std::fs::write(&creds_path, new.to_string())?;
                     }
                 }
             }
