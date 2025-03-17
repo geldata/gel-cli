@@ -292,16 +292,13 @@ pub struct CloudOptions {
 #[derive(clap::Parser, Debug)]
 #[command(disable_version_flag = true)]
 pub struct RawOptions {
-    #[arg(long)]
-    #[cfg_attr(not(feature = "dev_mode"), arg(hide = true))]
+    #[arg(long, hide = true)]
     pub debug_print_frames: bool,
 
-    #[arg(long)]
-    #[cfg_attr(not(feature = "dev_mode"), arg(hide = true))]
+    #[arg(long, hide = true)]
     pub debug_print_descriptors: bool,
 
-    #[arg(long)]
-    #[cfg_attr(not(feature = "dev_mode"), arg(hide = true))]
+    #[arg(long, hide = true)]
     pub debug_print_codecs: bool,
 
     #[arg(long, hide = true)]

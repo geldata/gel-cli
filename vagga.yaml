@@ -125,19 +125,19 @@ commands:
   repl: !Command
     description: Run edgedb repl
     container: ubuntu
-    run: [cargo, run, --bin, edgedb, --features=dev_mode, '--', -I_localdev]
+    run: [cargo, run, --bin, edgedb, '--', -I_localdev]
     environ:
       #_EDGEDB_ANALYZE_DEBUG_PLAN: true
 
   repl-release: !Command
     description: Run edgedb repl
     container: ubuntu
-    run: [cargo, run, --release, --bin, edgedb, --features=dev_mode, '--']
+    run: [cargo, run, --release, --bin, edgedb, '--']
 
   repl-local: !Command
     description: Run edgedb repl to locally run edgdeb
     container: ubuntu
-    run: [cargo, run, --bin, edgedb, --features=dev_mode, '--']
+    run: [cargo, run, --bin, edgedb, '--']
 
   server: !Command
     description: Run edgedb server command
