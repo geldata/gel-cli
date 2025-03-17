@@ -41,20 +41,19 @@ gel-errors = { version = "0.5" }
 gel-auth = { version = "0.1" }
 gel-tokio = { version = "0.10", features=["admin_socket", "unstable"] }
 gel-dsn = { version = "0.2", features = ["unstable", "gel", "auto-log-trace", "auto-log-warning"] }
+gel-jwt = { version = "0.1" }
 
 snafu = "0.8.4"
 ansi-escapes = "0.2"
 anyhow = "1.0.23"
 bytes = "1.5.0"
 blake2b_simd = "1.0.0"
-blake3 = "1.1.0"
 rustyline = { version = "14.0.0" }
 clap = {workspace = true, features=["derive", "cargo", "deprecated", "wrap_help"]}
 clap_complete = "4.4.3"
 color-print = "0.3.5"
 const_format = "0.2.33"
 strsim = "0.11.0"
-whoami = "1.1"
 is-terminal = "0.4.4"
 rpassword = "7.3.1"
 colorful = "0.3.2"
@@ -64,7 +63,6 @@ num-bigint = "0.4.3"
 humantime = "2.0.0"
 humantime-serde = "1.0.0"
 once_cell = "1.3.1"
-chrono = {version="0.4.0", default-features=false}
 unicode-segmentation = "1.6.0"
 unicode-width = "0.1.10"
 serde = "1.0"
@@ -73,7 +71,7 @@ serde_path_to_error = "0.1.3"
 serde_millis = "0.1.1"
 dirs = "6.0"
 uuid = {version="1.1.2", features=["serde", "v4", "fast-rng"]}
-prettytable-rs = {version="0.10.0", default-features=false}
+prettytable = {version="0.10.0", default-features=false}
 tempfile = "3.1.0"
 codespan-reporting = "0.11"
 termcolor = "1.1.0"
@@ -90,19 +88,14 @@ tracing = "0.1.26"
 thiserror = "2.0.11"
 which = {version="6", default-features=false}
 indexmap = {workspace=true}
-term = "1.0"
 libc = "0.2.68"
 urlencoding = "2.1.0"
 fn-error-context = "0.2"
 combine = "4.2.1"
 sha2 = "0.10.2"
-base32 = "0.5.1"
 rand = "0.8.2"
-downcast-rs = "2.0.0"
 base64 = "0.22.1"
-ring = {version="0.17.7", features=["std"]}
 shell-escape = "0.1.5"
-wait-timeout = "0.2.0"
 indicatif = "0.17.0"
 url = { version = "2.1.1", features=["serde"] }
 immutable-chunkmap = "2.0.5"
@@ -158,7 +151,10 @@ tokio = {version="1.1.0", features=["rt-multi-thread"]}
 warp = {version="0.3.1", default-features=false, features=["tls"]}
 fs_extra = "1.3.0"
 test-utils = {git="https://github.com/edgedb/test-utils.git"}
-openssl = "0.10.71"
+openssl = "0.10"
+
+[target.'cfg(target_env="musl")'.dev-dependencies]
+openssl-sys = {version="0.9.104", features=["vendored"]}
 
 [build-dependencies]
 serde_json = "1.0"
@@ -174,10 +170,6 @@ wslapi = "0.1.3"
 
 [target.'cfg(unix)'.dev-dependencies]
 rexpect = {git="https://github.com/tailhook/rexpect", branch="default_terminal_size"}
-
-# Ensure that openssl-sys is vendored on musl
-[target.'cfg(target_env="musl")'.dependencies]
-openssl-sys = {version="0.9.104", features=["vendored"]}
 
 [profile.dev]
 opt-level = 0

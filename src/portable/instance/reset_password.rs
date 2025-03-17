@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 
-use base64::display::Base64Display;
 use edgedb_cli_derive::IntoArgs;
 use fn_error_context::context;
 use rand::{Rng, SeedableRng};
@@ -157,16 +156,9 @@ fn read_credentials(path: &Path) -> anyhow::Result<Credentials> {
     Ok(serde_json::from_slice(&data)?)
 }
 
-fn _b64(s: &[u8]) -> Base64Display<base64::engine::GeneralPurpose> {
-    Base64Display::new(s, &base64::engine::general_purpose::STANDARD)
-}
-
 pub fn password_hash(password: &str) -> String {
-    use ring::rand::SecureRandom;
     let mut salt = [0u8; SALT_LENGTH];
-    ring::rand::SystemRandom::new()
-        .fill(&mut salt)
-        .expect("random bytes");
+    rand::thread_rng().fill(&mut salt);
     gel_auth::scram::StoredKey::generate(password.as_bytes(), &salt[..], HASH_ITERATIONS)
         .to_string()
 }
