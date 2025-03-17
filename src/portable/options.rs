@@ -26,9 +26,9 @@ impl From<gel_tokio::InstanceName> for InstanceName {
     }
 }
 
-impl Into<gel_tokio::InstanceName> for InstanceName {
-    fn into(self) -> gel_tokio::InstanceName {
-        match self {
+impl From<InstanceName> for gel_tokio::InstanceName {
+    fn from(value: InstanceName) -> gel_tokio::InstanceName {
+        match value {
             InstanceName::Local(s) => gel_tokio::InstanceName::Local(s),
             InstanceName::Cloud { org_slug, name } => {
                 gel_tokio::InstanceName::Cloud(CloudName { org_slug, name })

@@ -85,7 +85,7 @@ pub fn maybe_update_credentials_file(config: &Config, ask: bool) -> anyhow::Resu
                         ))
                         .ask()?
                     {
-                        std::fs::write(&creds_path, &new.to_string())?;
+                        std::fs::write(&creds_path, new.to_string())?;
                     }
                 }
             }
