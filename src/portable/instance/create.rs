@@ -587,15 +587,13 @@ pub fn bootstrap(
     fs::rename(&tmp_data, &paths.data_dir)
         .with_context(|| format!("renaming {:?} -> {:?}", tmp_data, paths.data_dir))?;
 
-    let credentials = Credentials {
-        port: Some(info.port),
-        user: user.into(),
-        database: Some(database.to_string()),
-        password: Some(password),
-        tls_ca: Some(cert),
-        ..Credentials::default()
-    };
-    credentials::write(&paths.credentials, &credentials)?;
+    let mut creds = Credentials::default();
+    creds.port = Some(info.port);
+    creds.user = user.into();
+    creds.database = Some(database.to_string());
+    creds.password = Some(password);
+    creds.tls_ca = Some(cert);
+    credentials::write(&paths.credentials, &creds)?;
 
     Ok(())
 }
