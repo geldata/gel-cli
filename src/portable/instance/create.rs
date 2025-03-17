@@ -541,7 +541,7 @@ pub fn bootstrap(
     paths: &Paths,
     info: &InstanceInfo,
     user: &str,
-    database: &str,
+    branch: &str,
 ) -> anyhow::Result<()> {
     let server_path = info.server_path()?;
 
@@ -573,9 +573,9 @@ pub fn bootstrap(
     self_signed_arg(&mut cmd, info.get_version()?);
     cmd.arg("--bootstrap-command").arg(script);
     if info.get_version()?.specific().major >= 5 {
-        cmd.arg("--default-branch").arg(database);
+        cmd.arg("--default-branch").arg(branch);
     } else {
-        cmd.arg("--default-database").arg(database);
+        cmd.arg("--default-database").arg(branch);
     }
     cmd.run()?;
 
@@ -587,14 +587,18 @@ pub fn bootstrap(
     fs::rename(&tmp_data, &paths.data_dir)
         .with_context(|| format!("renaming {:?} -> {:?}", tmp_data, paths.data_dir))?;
 
-    let mut creds = Credentials::default();
-    creds.port = Some(info.port);
-    creds.user = user.into();
-    creds.database = Some(database.to_string());
-    creds.password = Some(password);
-    creds.tls_ca = Some(cert);
-    credentials::write(&paths.credentials, &creds)?;
-
+    let credentials = Credentials {
+        user: user.into(),
+        host: Some("localhost".to_string()),
+        port: Some(info.port),
+        database: Some(branch.to_string()),
+        branch: Some(branch.to_string()),
+        password: Some(password),
+        tls_ca: Some(cert),
+        tls_security: gel_dsn::gel::TlsSecurity::NoHostVerification,
+        ..Default::default()
+    };
+    credentials::write(&paths.credentials, &credentials)?;
     Ok(())
 }
 
