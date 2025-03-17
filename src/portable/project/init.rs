@@ -334,6 +334,7 @@ fn do_init(
         windows::create_instance(
             &create::Command {
                 name: Some(inst_name.clone()),
+                instance: None,
                 nightly: false,
                 channel: q.cli_channel(),
                 version: q.version,

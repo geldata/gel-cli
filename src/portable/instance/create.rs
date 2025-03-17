@@ -53,7 +53,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
     }
 
     let mut client = cloud::client::CloudClient::new(&opts.cloud_options)?;
-    let inst_name = if let Some(name) = &cmd.name {
+    let inst_name = if let Some(name) = cmd.name.as_ref().or(cmd.instance.as_ref()) {
         name.to_owned()
     } else if cmd.non_interactive {
         msg!(
@@ -189,6 +189,9 @@ pub struct Command {
     /// Name of instance to create. Asked interactively if not specified.
     #[arg(value_hint=clap::ValueHint::Other)]
     pub name: Option<InstanceName>,
+
+    #[arg(from_global)]
+    pub instance: Option<InstanceName>,
 
     /// Create instance using the latest nightly version.
     #[arg(long, conflicts_with_all=&["channel", "version"])]
