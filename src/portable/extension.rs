@@ -53,7 +53,7 @@ pub enum Subcommands {
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct ExtensionList {
-    #[arg(from_global)]
+    #[command(flatten)]
     pub instance_opts: InstanceOptions,
 }
 
