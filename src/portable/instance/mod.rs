@@ -14,7 +14,6 @@ pub mod upgrade;
 #[cfg(doc)]
 use crate::branding::BRANDING;
 use crate::options::{InstanceOptions, Options};
-use crate::portable::options::InstanceName;
 use crate::portable::windows;
 
 pub fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> {

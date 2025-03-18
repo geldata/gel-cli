@@ -6,7 +6,7 @@ use fs_err as fs;
 use crate::branding::{BRANDING, BRANDING_CLOUD};
 use crate::commands::ExitCode;
 use crate::format;
-use crate::options::{InstanceOptions, InstanceOptionsLegacy};
+use crate::options::InstanceOptionsLegacy;
 use crate::platform::tmp_file_path;
 use crate::portable::exit_codes;
 use crate::portable::instance::control;

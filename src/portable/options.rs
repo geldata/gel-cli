@@ -2,9 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use edgedb_cli_derive::IntoArgs;
-use gel_cli_instance::docker::{GelDockerInstanceState, GelDockerInstances};
 use gel_tokio::CloudName;
-use log::warn;
 
 use crate::cloud::ops::CloudTier;
 use crate::process::{self, IntoArg};
@@ -58,18 +56,6 @@ impl IntoArg for &InstanceName {
     fn add_arg(self, process: &mut process::Native) {
         process.arg(self.to_string());
     }
-}
-
-#[tokio::main]
-async fn find_docker() -> anyhow::Result<Option<InstanceName>> {
-    if let Some(instance) = GelDockerInstances::new().try_load().await? {
-        if matches!(instance.state, GelDockerInstanceState::Running(_)) {
-            return Ok(Some(InstanceName::Local("__docker__".to_string())));
-        } else {
-            warn!("`docker-compose.yaml` is present, but the instance is not running.");
-        }
-    }
-    return Ok(None);
 }
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]

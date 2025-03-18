@@ -61,8 +61,24 @@ impl<P: ProcessRunner> GelDockerInstances<P> {
         }
     }
 
+    /// Try to load from a `docker-compose.yaml` file.
     pub async fn try_load(&self) -> Result<Option<GelDockerInstance>, DockerError> {
         match self.try_load_inner().await {
+            Ok(instance) => Ok(instance),
+            Err(ProcessError {
+                kind: ProcessErrorType::Io(e),
+                ..
+            }) if e.kind() == std::io::ErrorKind::NotFound => Err(DockerError::NoDocker),
+            Err(e) => Err(DockerError::ProcessError(e)),
+        }
+    }
+
+    /// Try to load from a given named container.
+    pub async fn try_load_container(
+        &self,
+        name: &str,
+    ) -> Result<Option<GelDockerInstance>, DockerError> {
+        match self.try_load_container_inner(name).await {
             Ok(instance) => Ok(instance),
             Err(ProcessError {
                 kind: ProcessErrorType::Io(e),
@@ -87,97 +103,98 @@ impl<P: ProcessRunner> GelDockerInstances<P> {
                 }));
             }
 
-            let cmdline = self
-                .docker
-                .exec_cat(&instance.name, "/proc/1/cmdline")
-                .await?;
-            log::debug!(
-                "Docker command line: {}",
-                cmdline.split('\0').collect::<Vec<_>>().join(" ")
-            );
-            struct Args {
-                data_dir: Option<String>,
-                tls_key_file: Option<String>,
-                tls_cert_file: Option<String>,
-                jws_key_file: Option<String>,
-            }
-
-            let mut args = Args {
-                data_dir: None,
-                tls_key_file: None,
-                tls_cert_file: None,
-                jws_key_file: None,
-            };
-
-            for segment in cmdline.split('\0') {
-                if segment.starts_with("--tls-cert-file") {
-                    if let Some(cert_file) = segment.split('=').nth(1) {
-                        args.tls_cert_file = Some(cert_file.to_string());
-                    } else {
-                        log::warn!("Invalid argument: {}", segment);
-                    }
-                }
-                if segment.starts_with("--tls-key-file") {
-                    if let Some(key_file) = segment.split('=').nth(1) {
-                        args.tls_key_file = Some(key_file.to_string());
-                    } else {
-                        log::warn!("Invalid argument: {}", segment);
-                    }
-                }
-                if segment.starts_with("--jws-key-file") {
-                    if let Some(key_file) = segment.split('=').nth(1) {
-                        args.jws_key_file = Some(key_file.to_string());
-                    } else {
-                        log::warn!("Invalid argument: {}", segment);
-                    }
-                }
-                if segment.starts_with("--data-dir") {
-                    if let Some(data_dir) = segment.split('=').nth(1) {
-                        args.data_dir = Some(data_dir.to_string());
-                    } else {
-                        log::warn!("Invalid argument: {}", segment);
-                    }
-                }
-            }
-
-            let mut instance_data = GelDockerInstanceData::default();
-
-            if let Some(tls_key_file) = args.tls_key_file {
-                let key_file = self.docker.exec_cat(&instance.name, tls_key_file).await?;
-                instance_data.tls_key = Some(key_file);
-            };
-            if let Some(tls_cert_file) = args.tls_cert_file {
-                let cert_file = self.docker.exec_cat(&instance.name, tls_cert_file).await?;
-                instance_data.tls_cert = Some(cert_file);
-            };
-
-            if let Some(jws_key_file) = args.jws_key_file {
-                let key_file = self.docker.exec_cat(&instance.name, jws_key_file).await?;
-                instance_data.jws_key = Some(key_file);
-            } else if let Some(data_dir) = args.data_dir {
-                let key_file = self
-                    .docker
-                    .exec_cat(
-                        &instance.name,
-                        format!("{}/edbjwskeys.pem", data_dir).as_str(),
-                    )
-                    .await?;
-                instance_data.jws_key = Some(key_file);
-            }
-
-            let inspect = self.docker.inspect(&instance.name).await?;
-            if let Some(inspect) = inspect.first() {
-                let external_ports = inspect.port_mappings(5656, DockerProtocol::Tcp);
-                instance_data.external_ports = external_ports;
-            }
-
-            Ok(Some(GelDockerInstance {
-                name: instance.name.clone(),
-                state: GelDockerInstanceState::Running(instance_data),
-            }))
+            self.try_load_container_inner(&instance.name).await
         } else {
             Ok(None)
         }
+    }
+
+    async fn try_load_container_inner(
+        &self,
+        name: &str,
+    ) -> Result<Option<GelDockerInstance>, ProcessError> {
+        let inspect = self.docker.inspect(name).await?;
+        if let Some(inspect) = inspect.first() {
+            if inspect.state.status != "running" {
+                return Ok(Some(GelDockerInstance {
+                    name: name.to_string(),
+                    state: GelDockerInstanceState::Stopped,
+                }));
+            }
+        } else {
+            return Ok(Some(GelDockerInstance {
+                name: name.to_string(),
+                state: GelDockerInstanceState::Stopped,
+            }));
+        };
+
+        let cmdline = self.docker.exec_cat(name, "/proc/1/cmdline").await?;
+        log::debug!(
+            "Docker command line: {}",
+            cmdline.split('\0').collect::<Vec<_>>().join(" ")
+        );
+        struct Args {
+            data_dir: Option<String>,
+            tls_key_file: Option<String>,
+            tls_cert_file: Option<String>,
+            jws_key_file: Option<String>,
+        }
+
+        let mut args = Args {
+            data_dir: None,
+            tls_key_file: None,
+            tls_cert_file: None,
+            jws_key_file: None,
+        };
+
+        for segment in cmdline.split('\0') {
+            for (arg, target) in [
+                ("--tls-cert-file", &mut args.tls_cert_file),
+                ("--tls-key-file", &mut args.tls_key_file),
+                ("--jws-key-file", &mut args.jws_key_file),
+                ("--data-dir", &mut args.data_dir),
+            ] {
+                if segment.starts_with(arg) {
+                    if let Some(value) = segment.split('=').nth(1) {
+                        *target = Some(value.to_string());
+                    } else {
+                        log::warn!("Invalid argument: {}", segment);
+                    }
+                }
+            }
+        }
+
+        let mut instance_data = GelDockerInstanceData::default();
+
+        if let Some(tls_key_file) = args.tls_key_file {
+            let key_file = self.docker.exec_cat(name, tls_key_file).await?;
+            instance_data.tls_key = Some(key_file);
+        };
+        if let Some(tls_cert_file) = args.tls_cert_file {
+            let cert_file = self.docker.exec_cat(name, tls_cert_file).await?;
+            instance_data.tls_cert = Some(cert_file);
+        };
+
+        if let Some(jws_key_file) = args.jws_key_file {
+            let key_file = self.docker.exec_cat(name, jws_key_file).await?;
+            instance_data.jws_key = Some(key_file);
+        } else if let Some(data_dir) = args.data_dir {
+            let key_file = self
+                .docker
+                .exec_cat(name, format!("{}/edbjwskeys.pem", data_dir).as_str())
+                .await?;
+            instance_data.jws_key = Some(key_file);
+        }
+
+        if let Some(inspect) = inspect.first() {
+            let external_ports = inspect.port_mappings(5656, DockerProtocol::Tcp);
+            instance_data.external_ports = external_ports;
+        }
+
+        Ok(Some(GelDockerInstance {
+            name: name.to_string(),
+            state: GelDockerInstanceState::Running(instance_data),
+        }))
     }
 }
 

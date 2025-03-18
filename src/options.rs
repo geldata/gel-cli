@@ -1,25 +1,22 @@
-use std::collections::HashMap;
 use std::env;
 use std::io::stdin;
-use std::iter::FromIterator;
 use std::path::PathBuf;
 use std::time::Duration;
 
 use color_print::cformat;
 use const_format::concatcp;
-use gel_cli_instance::docker::{GelDockerInstanceState, GelDockerInstances};
 use gel_dsn::gel::UnixPath;
 use gel_errors::ClientNoCredentialsError;
-use gel_jwt::{KeyRegistry, PrivateKey, SigningContext};
 use gel_protocol::model;
 use gel_tokio::credentials::TlsSecurity;
 use gel_tokio::Builder;
 use is_terminal::IsTerminal;
-use log::{info, warn};
+use log::warn;
 use tokio::task::spawn_blocking as unblock;
 
 use edgedb_cli_derive::IntoArgs;
 
+use crate::docker::{has_docker_blocking, try_docker, try_docker_fallback, DockerMode};
 use crate::{cli, msg, watch};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, MANIFEST_FILE_DISPLAY_NAME};
@@ -324,19 +321,25 @@ impl InstanceOptions {
 
         {
             // infer instance from current project
-            let config = gel_tokio::Builder::new().build()?;
+            let config = gel_tokio::Builder::new().build();
+            if let Ok(config) = config {
+                let instance = config.instance_name().cloned();
 
-            let instance = config.instance_name().cloned();
-
-            if let Some(instance) = instance {
-                return Ok(instance.into());
+                if let Some(instance) = instance {
+                    return Ok(instance.into());
+                }
             }
         };
 
-        // infer a virtual docker instance if docker-compose.yaml is present
-        // if let Some(instance) = find_docker()? {
-        //     return Ok(instance);
-        // }
+        // if we have docker, suggest linking it for this command
+        if has_docker_blocking() {
+            msg!(
+                "{} Instance name argument is required, use '-I name'.",
+                err_marker()
+            );
+            msg!("{} `docker-compose.yaml` found. Use `{BRANDING_CLI_CMD} instance link --docker` to link it.", err_marker());
+            return Err(ExitCode::new(2).into());
+        }
 
         msg!(
             "{} Instance name argument is required, use '-I name'",
@@ -984,7 +987,7 @@ impl Options {
     }
 
     pub async fn create_connector(&self) -> anyhow::Result<Connector> {
-        let mut builder = prepare_conn_params(self)?;
+        let mut builder = prepare_conn_params(self).await?;
         if self.conn_options.password_from_stdin || self.conn_options.password {
             // Temporary set an empty password. It will be overriden by
             // `config.with_password()` but we need it here so that
@@ -1000,7 +1003,7 @@ impl Options {
                 Ok(Connector::new(Ok(config)))
             }
             Err(e) => {
-                let (mut cfg, errors) = builder.compute()?;
+                let (cfg, errors) = builder.clone().compute()?;
 
                 // ask password anyways, so input that fed as a password
                 // never goes to anywhere else
@@ -1011,48 +1014,12 @@ impl Options {
                 .await?;
 
                 if e.is::<ClientNoCredentialsError>() {
-                    if let Some(instance) = GelDockerInstances::new().try_load().await? {
-                        if let GelDockerInstanceState::Running(state) = instance.state {
-                            if let Some(jws_key) = state.jws_key {
-                                if let Some(host) = state.external_ports.first() {
-                                    let mut key_registry = KeyRegistry::<PrivateKey>::default();
-                                    key_registry.add_from_any(&jws_key)?;
-                                    let mut ctx = SigningContext::default();
-                                    let token = key_registry.sign(
-                                        HashMap::from_iter([(
-                                            "edgedb.server.any_role".to_string(),
-                                            true.into(),
-                                        )]),
-                                        &ctx,
-                                    )?;
-
-                                    let mut builder = prepare_conn_params(self)?;
-                                    builder = builder
-                                        .secret_key(format!("edbt_{token}"))
-                                        .host(host.ip())
-                                        .port(host.port())
-                                        .tls_security(TlsSecurity::Insecure);
-                                    match builder.clone().build() {
-                                        Ok(mut config) => {
-                                            // config.instance_name = Some(gel_tokio::InstanceName::Local("__docker__".to_string()));
-                                            eprintln!("Connecting to `docker compose` instance {} at {}...", instance.name, host);
-                                            return Ok(Connector::new(Ok(config)));
-                                        }
-                                        Err(e) => {}
-                                    }
-                                } else {
-                                    warn!("found docker instance at {}, but the host could not be found", instance.name);
-                                }
-                            } else {
-                                warn!("found docker instance at {}, but the JWS key could not be found", instance.name);
-                            }
-                        } else {
-                            warn!(
-                                "found docker instance at {}, but it is not running",
-                                instance.name
-                            );
-                        };
+                    if let Ok(builder) = try_docker_fallback(builder).await {
+                        if let Ok(config) = builder.build() {
+                            return Ok(Connector::new(Ok(config)));
+                        }
                     }
+
                     let project = project::find_project_async(None).await?;
                     let message = if let Some(project) = project {
                         format!(
@@ -1103,10 +1070,18 @@ async fn with_password(options: &ConnectionOptions, user: &str) -> anyhow::Resul
     }
 }
 
-pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
+pub async fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
     let tmp = &opts.conn_options;
     let mut bld = Builder::new();
     let instance = tmp.instance_opts.maybe_instance();
+
+    if opts.conn_options.instance_opts.docker {
+        if let Some(container) = &opts.conn_options.instance_opts.container {
+            bld = try_docker(bld, DockerMode::ExplicitInstance(container.clone())).await?;
+        } else {
+            bld = try_docker(bld, DockerMode::ExplicitAuto).await?;
+        }
+    }
 
     if tmp.admin {
         if tmp.unix_path.is_none() && instance.is_none() {

@@ -78,7 +78,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
     let mut has_branch: bool = false;
 
-    let mut builder = options::prepare_conn_params(opts)?;
+    let mut builder = options::prepare_conn_params(opts).await?;
     // If the user doesn't specify a TLS CA, we need to accept all certs
     if cmd.conn.tls_ca_file.is_none() {
         builder = builder.tls_security(TlsSecurity::Insecure);

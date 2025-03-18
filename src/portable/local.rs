@@ -345,7 +345,7 @@ impl InstanceInfo {
     pub fn read(name: &str) -> anyhow::Result<InstanceInfo> {
         if cfg!(windows) {
             let data = windows::get_instance_info(name)?;
-            let mut data: PartialInstanceInfo = serde_json::from_str(&data)?;
+            let data: PartialInstanceInfo = serde_json::from_str(&data)?;
             Ok(InstanceInfo {
                 name: name.into(),
                 instance_name: InstanceName::Local(name.to_string()),
@@ -360,7 +360,7 @@ impl InstanceInfo {
     #[context("error reading instance info: {:?}", path)]
     pub fn read_at(name: &str, path: &PathBuf) -> anyhow::Result<InstanceInfo> {
         let f = io::BufReader::new(fs::File::open(path)?);
-        let mut data: PartialInstanceInfo = serde_json::from_reader(f)?;
+        let data: PartialInstanceInfo = serde_json::from_reader(f)?;
         Ok(InstanceInfo {
             name: name.into(),
             instance_name: InstanceName::Local(name.to_string()),
