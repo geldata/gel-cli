@@ -74,7 +74,7 @@ pub fn main(options: &Options) -> Result<(), anyhow::Error> {
         Command::Cloud(c) => cloud_main(c, &options.cloud_options),
         Command::Watch(c) => watch::run(options, c),
         Command::HashPassword(cmd) => {
-            println!("{}", portable::password_hash(&cmd.password));
+            println!("{}", portable::password_hash(&cmd.password_to_hash));
             Ok(())
         }
     }

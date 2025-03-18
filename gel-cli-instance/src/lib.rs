@@ -412,12 +412,10 @@ impl ProcessRunner for MockProcessRunner {
             .get(&command_string)
             .unwrap_or_else(|| panic!("Command not found: {command_string}"))
         {
-            Ok((stdout, stderr, status)) => (
-                stdout.to_vec().into(),
-                stderr.to_vec().into(),
-                *status,
-            )
-                .run_process(command, output),
+            Ok((stdout, stderr, status)) => {
+                (stdout.to_vec().into(), stderr.to_vec().into(), *status)
+                    .run_process(command, output)
+            }
             Err(e) => Err(std::io::Error::new(
                 e.kind(),
                 format!("Command failed: {command_string}"),

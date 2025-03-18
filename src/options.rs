@@ -291,7 +291,7 @@ pub struct InstanceOptions {
 pub struct InstanceOptionsLegacy {
     /// Name of the instance
     #[arg(hide = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
+    #[arg(value_hint=clap::ValueHint::Other)]
     pub name: Option<InstanceName>,
 
     #[command(flatten)]
@@ -574,7 +574,7 @@ pub struct Info {
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct HashPasswordCommand {
-    pub password: String,
+    pub password_to_hash: String,
 }
 
 #[derive(Debug, Clone)]

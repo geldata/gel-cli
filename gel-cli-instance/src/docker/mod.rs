@@ -30,9 +30,9 @@ pub enum GelDockerInstanceState {
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct GelDockerInstanceData {
     pub cmdline: String,
-    pub tls_key_file: Option<String>,
-    pub tls_cert_file: Option<String>,
-    pub jws_key_file: Option<String>,
+    pub tls_key: Option<String>,
+    pub tls_cert: Option<String>,
+    pub jws_key: Option<String>,
     pub external_ports: Vec<SocketAddr>,
 }
 
@@ -144,16 +144,16 @@ impl<P: ProcessRunner> GelDockerInstances<P> {
 
             if let Some(tls_key_file) = args.tls_key_file {
                 let key_file = self.docker.exec_cat(&instance.name, tls_key_file).await?;
-                instance_data.tls_key_file = Some(key_file);
+                instance_data.tls_key = Some(key_file);
             };
             if let Some(tls_cert_file) = args.tls_cert_file {
                 let cert_file = self.docker.exec_cat(&instance.name, tls_cert_file).await?;
-                instance_data.tls_cert_file = Some(cert_file);
+                instance_data.tls_cert = Some(cert_file);
             };
 
             if let Some(jws_key_file) = args.jws_key_file {
                 let key_file = self.docker.exec_cat(&instance.name, jws_key_file).await?;
-                instance_data.jws_key_file = Some(key_file);
+                instance_data.jws_key = Some(key_file);
             } else if let Some(data_dir) = args.data_dir {
                 let key_file = self
                     .docker
@@ -162,7 +162,7 @@ impl<P: ProcessRunner> GelDockerInstances<P> {
                         format!("{}/edbjwskeys.pem", data_dir).as_str(),
                     )
                     .await?;
-                instance_data.jws_key_file = Some(key_file);
+                instance_data.jws_key = Some(key_file);
             }
 
             let inspect = self.docker.inspect(&instance.name).await?;
@@ -290,28 +290,28 @@ mod tests {
         };
 
         assert!(
-            data.tls_cert_file
+            data.tls_cert
                 .as_ref()
                 .unwrap()
                 .contains("-----BEGIN CERTIFICATE-----"),
             "{}",
-            data.tls_cert_file.as_ref().unwrap()
+            data.tls_cert.as_ref().unwrap()
         );
         assert!(
-            data.tls_key_file
+            data.tls_key
                 .as_ref()
                 .unwrap()
                 .contains("-----BEGIN RSA PRIVATE KEY-----"),
             "{}",
-            data.tls_key_file.as_ref().unwrap()
+            data.tls_key.as_ref().unwrap()
         );
         assert!(
-            data.jws_key_file
+            data.jws_key
                 .as_ref()
                 .unwrap()
                 .contains("-----BEGIN PRIVATE KEY-----"),
             "{}",
-            data.jws_key_file.as_ref().unwrap()
+            data.jws_key.as_ref().unwrap()
         );
         assert_eq!(
             data.external_ports,
