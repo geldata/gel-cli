@@ -12,7 +12,7 @@ use crate::portable::instance::control;
 use crate::portable::instance::destroy::InstanceNotFound;
 use crate::portable::instance::status;
 use crate::portable::local::{log_file, runstate_dir, InstanceInfo};
-use crate::portable::options::{instance_arg, InstanceName};
+use crate::portable::options::InstanceName;
 use crate::print;
 use crate::process;
 
@@ -422,7 +422,7 @@ pub fn external_status(inst: &InstanceInfo) -> anyhow::Result<()> {
 }
 
 pub fn logs(options: &control::Logs) -> anyhow::Result<()> {
-    let name = match instance_arg(&options.name, &options.instance)? {
+    let name = match options.instance_opts.instance()? {
         InstanceName::Local(name) => name,
         InstanceName::Cloud { .. } => {
             print::error!("This operation is not yet supported on {BRANDING_CLOUD} instances.");

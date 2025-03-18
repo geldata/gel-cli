@@ -5,18 +5,18 @@ use fs_err as fs;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::commands::ExitCode;
-use crate::options::{CloudOptions, Options};
+use crate::options::{CloudOptions, InstanceOptionsLegacy, Options};
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::local;
-use crate::portable::options::{instance_arg, InstanceName};
+use crate::portable::options::InstanceName;
 use crate::portable::project;
 use crate::portable::windows;
 use crate::print::{self, msg, Highlight};
 use crate::question;
 
 pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {
-    let name = instance_arg(&options.name, &options.instance)?;
+    let name = options.instance_opts.instance()?;
     let name_str = name.to_string();
     with_projects(&name_str, options.force, print_warning, || {
         if !options.force && !options.non_interactive {
@@ -51,13 +51,8 @@ pub struct Command {
     #[command(flatten)]
     pub cloud_opts: CloudOptions,
 
-    /// Name of instance to destroy.
-    #[arg(hide = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    pub name: Option<InstanceName>,
-
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptionsLegacy,
 
     /// Verbose output.
     #[arg(short = 'v', long, overrides_with = "quiet")]
@@ -200,8 +195,7 @@ fn do_destroy(options: &Command, opts: &Options, name: &InstanceName) -> anyhow:
 pub fn force_by_name(name: &InstanceName, options: &Options) -> anyhow::Result<()> {
     do_destroy(
         &Command {
-            name: None,
-            instance: Some(name.clone()),
+            instance_opts: name.clone().into(),
             verbose: false,
             force: true,
             quiet: false,

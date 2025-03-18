@@ -1,22 +1,26 @@
+use std::collections::HashMap;
 use std::env;
 use std::io::stdin;
+use std::iter::FromIterator;
 use std::path::PathBuf;
 use std::time::Duration;
 
 use color_print::cformat;
 use const_format::concatcp;
+use gel_cli_instance::docker::{GelDockerInstanceState, GelDockerInstances};
 use gel_dsn::gel::UnixPath;
 use gel_errors::ClientNoCredentialsError;
+use gel_jwt::{KeyRegistry, PrivateKey, SigningContext};
 use gel_protocol::model;
 use gel_tokio::credentials::TlsSecurity;
 use gel_tokio::Builder;
-use gel_cli_instance::docker::{GelDockerInstances, GelDockerInstance, GelDockerInstanceState};
 use is_terminal::IsTerminal;
+use log::{info, warn};
 use tokio::task::spawn_blocking as unblock;
 
 use edgedb_cli_derive::IntoArgs;
 
-use crate::{cli, watch};
+use crate::{cli, msg, watch};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, MANIFEST_FILE_DISPLAY_NAME};
 use crate::cloud::options::CloudCommand;
@@ -29,7 +33,7 @@ use crate::portable;
 use crate::portable::local::runstate_dir;
 use crate::portable::options::InstanceName;
 use crate::portable::project;
-use crate::print::{self, AsRelativeToCurrentDir, Highlight};
+use crate::print::{self, err_marker, AsRelativeToCurrentDir, Highlight};
 use crate::repl::{InputLanguage, OutputFormat};
 use crate::tty_password;
 
@@ -53,12 +57,8 @@ const CONNECTION_ARG_HINT: &str = concatcp!(
 #[derive(clap::Args, Clone, Debug)]
 #[group(id = "connopts")]
 pub struct ConnectionOptions {
-    /// Instance name (use [`BRANDING_CLI_CMD`] `instance list` to list local, remote and
-    /// [`BRANDING_CLOUD`] instances available to you).
-    #[arg(short='I', long, help_heading=Some(CONN_OPTIONS_GROUP))]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    #[arg(global = true)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptionsGlobal,
 
     /// DSN for [`BRANDING`] to connect to (overrides all other options
     /// except password)
@@ -242,6 +242,135 @@ pub struct ConnectionOptions {
     #[arg(hide = true)]
     #[arg(global = true)]
     pub connect_timeout: Option<Duration>,
+}
+
+#[derive(clap::Args, Clone, Debug)]
+pub struct InstanceOptionsGlobal {
+    /// Instance name (use [`BRANDING_CLI_CMD`] `instance list` to list local, remote and
+    /// [`BRANDING_CLOUD`] instances available to you).
+    #[arg(short='I', long, help_heading=Some(CONN_OPTIONS_GROUP))]
+    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
+    #[arg(global = true)]
+    pub instance: Option<InstanceName>,
+
+    /// Connect to a `docker` instance. If `docker-compose.yaml` is present,
+    /// the instance will be automatically detected. Otherwise, `--container`
+    /// must be specified.
+    #[arg(long, help_heading=Some(CONN_OPTIONS_GROUP))]
+    #[arg(conflicts_with_all=&["dsn", "credentials_file", "instance", "host", "unix_path"])]
+    #[arg(global = true)]
+    pub docker: bool,
+
+    /// Connect to a specific `docker` container.
+    #[arg(long, help_heading=Some(CONN_OPTIONS_GROUP))]
+    #[arg(conflicts_with_all=&["dsn", "credentials_file", "instance", "host", "unix_path"])]
+    #[arg(requires = "docker")]
+    #[arg(global = true)]
+    pub container: Option<String>,
+}
+
+impl InstanceOptionsGlobal {
+    pub fn maybe_instance(&self) -> Option<InstanceName> {
+        self.instance.clone()
+    }
+}
+
+#[derive(clap::Args, Clone, Default, Debug, IntoArgs)]
+pub struct InstanceOptions {
+    #[arg(from_global)]
+    pub instance: Option<InstanceName>,
+
+    #[arg(from_global)]
+    pub docker: bool,
+
+    #[arg(from_global)]
+    pub container: Option<String>,
+}
+
+#[derive(clap::Args, Clone, Default, Debug, IntoArgs)]
+pub struct InstanceOptionsLegacy {
+    /// Name of the instance
+    #[arg(hide = true)]
+    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
+    pub name: Option<InstanceName>,
+
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
+}
+
+impl From<InstanceName> for InstanceOptions {
+    fn from(value: InstanceName) -> Self {
+        InstanceOptions {
+            instance: value.into(),
+            ..Default::default()
+        }
+    }
+}
+
+impl From<InstanceName> for InstanceOptionsLegacy {
+    fn from(value: InstanceName) -> Self {
+        InstanceOptionsLegacy {
+            instance_opts: value.into(),
+            ..Default::default()
+        }
+    }
+}
+
+impl InstanceOptions {
+    pub fn instance(&self) -> anyhow::Result<InstanceName> {
+        if let Some(name) = &self.instance {
+            return Ok(name.clone());
+        }
+
+        {
+            // infer instance from current project
+            let config = gel_tokio::Builder::new().build()?;
+
+            let instance = config.instance_name().cloned();
+
+            if let Some(instance) = instance {
+                return Ok(instance.into());
+            }
+        };
+
+        // infer a virtual docker instance if docker-compose.yaml is present
+        // if let Some(instance) = find_docker()? {
+        //     return Ok(instance);
+        // }
+
+        msg!(
+            "{} Instance name argument is required, use '-I name'",
+            err_marker()
+        );
+        Err(ExitCode::new(2).into())
+    }
+
+    pub fn maybe_instance(&self) -> Option<InstanceName> {
+        self.instance.clone()
+    }
+}
+
+impl InstanceOptionsLegacy {
+    pub fn instance(&self) -> anyhow::Result<InstanceName> {
+        if let Some(name) = &self.name {
+            print::error!(
+                "Support for specifying an instance name as a positional argument has been removed. \
+                Use `-I {name}` instead."
+            );
+            return Err(ExitCode::new(1).into());
+        }
+
+        self.instance_opts.instance()
+    }
+
+    pub fn instance_allow_legacy(&self) -> anyhow::Result<InstanceName> {
+        if let Some(name) = &self.name {
+            warn!("Instance name as a positional argument is deprecated, use '-I {name}' instead");
+            return Ok(name.clone());
+        }
+
+        self.instance_opts.instance()
+    }
 }
 
 impl ConnectionOptions {
@@ -871,7 +1000,7 @@ impl Options {
                 Ok(Connector::new(Ok(config)))
             }
             Err(e) => {
-                let (cfg, errors) = builder.compute()?;
+                let (mut cfg, errors) = builder.compute()?;
 
                 // ask password anyways, so input that fed as a password
                 // never goes to anywhere else
@@ -883,10 +1012,46 @@ impl Options {
 
                 if e.is::<ClientNoCredentialsError>() {
                     if let Some(instance) = GelDockerInstances::new().try_load().await? {
-                        if matches!(instance.state, GelDockerInstanceState::Running(_)) {
-                            let message = format!("found docker instance at {}, but it is not initialized and no connection options \
-                            are specified: {errors:?}", instance.name);
-                        }
+                        if let GelDockerInstanceState::Running(state) = instance.state {
+                            if let Some(jws_key) = state.jws_key {
+                                if let Some(host) = state.external_ports.first() {
+                                    let mut key_registry = KeyRegistry::<PrivateKey>::default();
+                                    key_registry.add_from_any(&jws_key)?;
+                                    let mut ctx = SigningContext::default();
+                                    let token = key_registry.sign(
+                                        HashMap::from_iter([(
+                                            "edgedb.server.any_role".to_string(),
+                                            true.into(),
+                                        )]),
+                                        &ctx,
+                                    )?;
+
+                                    let mut builder = prepare_conn_params(self)?;
+                                    builder = builder
+                                        .secret_key(format!("edbt_{token}"))
+                                        .host(host.ip())
+                                        .port(host.port())
+                                        .tls_security(TlsSecurity::Insecure);
+                                    match builder.clone().build() {
+                                        Ok(mut config) => {
+                                            // config.instance_name = Some(gel_tokio::InstanceName::Local("__docker__".to_string()));
+                                            eprintln!("Connecting to `docker compose` instance {} at {}...", instance.name, host);
+                                            return Ok(Connector::new(Ok(config)));
+                                        }
+                                        Err(e) => {}
+                                    }
+                                } else {
+                                    warn!("found docker instance at {}, but the host could not be found", instance.name);
+                                }
+                            } else {
+                                warn!("found docker instance at {}, but the JWS key could not be found", instance.name);
+                            }
+                        } else {
+                            warn!(
+                                "found docker instance at {}, but it is not running",
+                                instance.name
+                            );
+                        };
                     }
                     let project = project::find_project_async(None).await?;
                     let message = if let Some(project) = project {
@@ -941,8 +1106,10 @@ async fn with_password(options: &ConnectionOptions, user: &str) -> anyhow::Resul
 pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
     let tmp = &opts.conn_options;
     let mut bld = Builder::new();
+    let instance = tmp.instance_opts.maybe_instance();
+
     if tmp.admin {
-        if tmp.unix_path.is_none() && tmp.instance.is_none() {
+        if tmp.unix_path.is_none() && instance.is_none() {
             anyhow::bail!("`--admin` requires `--unix-path` or `--instance`");
         }
         if let Some(unix_path) = &tmp.unix_path {
@@ -950,7 +1117,7 @@ pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
                 unix_path.join(".s.EDGEDB.admin."),
             ));
         }
-        if let Some(instance) = &tmp.instance {
+        if let Some(instance) = &instance {
             let InstanceName::Local(name) = &instance else {
                 anyhow::bail!("`--instance` must be a local instance name when using `--admin`");
             };
@@ -974,7 +1141,7 @@ pub fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
     if let Some(dsn) = &tmp.dsn {
         bld = bld.dsn(dsn);
     }
-    if let Some(instance) = &tmp.instance {
+    if let Some(instance) = &instance {
         bld = bld.instance(instance.clone());
     }
     if let Some(secret_key) = &tmp.secret_key {

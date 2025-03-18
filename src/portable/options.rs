@@ -2,13 +2,11 @@ use std::fmt;
 use std::str::FromStr;
 
 use edgedb_cli_derive::IntoArgs;
+use gel_cli_instance::docker::{GelDockerInstanceState, GelDockerInstances};
 use gel_tokio::CloudName;
-use gel_cli_instance::docker::{GelDockerInstances, GelDockerInstanceState};
 use log::warn;
 
 use crate::cloud::ops::CloudTier;
-use crate::commands::ExitCode;
-use crate::print::{self, err_marker, msg};
 use crate::process::{self, IntoArg};
 
 #[derive(Clone, Debug)]
@@ -60,44 +58,6 @@ impl IntoArg for &InstanceName {
     fn add_arg(self, process: &mut process::Native) {
         process.arg(self.to_string());
     }
-}
-
-pub fn instance_arg(
-    positional: &Option<InstanceName>,
-    named: &Option<InstanceName>,
-) -> anyhow::Result<InstanceName> {
-    if let Some(name) = positional {
-        print::error!(
-            "Specifying instance name as positional argument has been removed. \
-            Use `-I {name}` instead."
-        );
-        return Err(ExitCode::new(1).into());
-    }
-    if let Some(name) = named {
-        return Ok(name.clone());
-    }
-
-    {
-        // infer instance from current project
-        let config = gel_tokio::Builder::new().build()?;
-
-        let instance = config.instance_name().cloned();
-
-        if let Some(instance) = instance {
-            return Ok(instance.into());
-        }
-    };
-
-    // infer a virtual docker instance if docker-compose.yaml is present
-    if let Some(instance) = find_docker()? {
-        return Ok(instance);
-    }
-
-    msg!(
-        "{} Instance name argument is required, use '-I name'",
-        err_marker()
-    );
-    Err(ExitCode::new(2).into())
 }
 
 #[tokio::main]

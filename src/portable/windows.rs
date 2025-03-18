@@ -1089,40 +1089,24 @@ pub fn is_in_wsl() -> bool {
     *IS_IN_WSL
 }
 
-pub fn extension_install(
-    cmd: &extension::ExtensionInstall,
-    instance: String,
-) -> anyhow::Result<()> {
+pub fn extension_install(cmd: &extension::ExtensionInstall) -> anyhow::Result<()> {
     let wsl = try_get_wsl()?;
-
-    let options = extension::ExtensionInstall {
-        instance: Some(options::InstanceName::Local(instance)),
-        ..cmd.clone()
-    };
 
     wsl.edgedb()
         .arg("instance")
         .arg("install")
-        .args(&options)
+        .args(cmd)
         .run()?;
     Ok(())
 }
 
-pub fn extension_uninstall(
-    cmd: &extension::ExtensionUninstall,
-    instance: String,
-) -> anyhow::Result<()> {
+pub fn extension_uninstall(cmd: &extension::ExtensionUninstall) -> anyhow::Result<()> {
     let wsl = try_get_wsl()?;
-
-    let options = extension::ExtensionUninstall {
-        instance: Some(options::InstanceName::Local(instance)),
-        ..cmd.clone()
-    };
 
     wsl.edgedb()
         .arg("instance")
         .arg("uninstall")
-        .args(&options)
+        .args(cmd)
         .run()?;
     Ok(())
 }

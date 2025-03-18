@@ -18,6 +18,7 @@ use crate::bug;
 use crate::credentials;
 use crate::hint::HintExt;
 use crate::platform::{cache_dir, config_dir, data_dir, portable_dir};
+use crate::portable::options::InstanceName;
 use crate::portable::repository::PackageHash;
 use crate::portable::ver;
 use crate::portable::{linux, macos, windows};
@@ -35,10 +36,18 @@ pub struct Paths {
     pub runstate_dir: PathBuf,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct InstanceInfo {
     #[serde(skip)]
     pub name: String,
+    #[serde(skip)]
+    pub instance_name: InstanceName,
+    pub installation: Option<InstallInfo>,
+    pub port: u16,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct PartialInstanceInfo {
     pub installation: Option<InstallInfo>,
     pub port: u16,
 }
@@ -313,9 +322,13 @@ impl InstanceInfo {
                     return Ok(None);
                 }
             };
-            let mut data: InstanceInfo = serde_json::from_str(&data)?;
-            data.name = name.into();
-            Ok(Some(data))
+            let data: PartialInstanceInfo = serde_json::from_str(&data)?;
+            Ok(Some(InstanceInfo {
+                name: name.into(),
+                instance_name: InstanceName::Local(name.to_string()),
+                installation: data.installation,
+                port: data.port,
+            }))
         } else {
             let mut path = instance_data_dir(name)?;
             path.push("instance_info.json");
@@ -332,9 +345,13 @@ impl InstanceInfo {
     pub fn read(name: &str) -> anyhow::Result<InstanceInfo> {
         if cfg!(windows) {
             let data = windows::get_instance_info(name)?;
-            let mut data: InstanceInfo = serde_json::from_str(&data)?;
-            data.name = name.into();
-            Ok(data)
+            let mut data: PartialInstanceInfo = serde_json::from_str(&data)?;
+            Ok(InstanceInfo {
+                name: name.into(),
+                instance_name: InstanceName::Local(name.to_string()),
+                installation: data.installation,
+                port: data.port,
+            })
         } else {
             InstanceInfo::read_at(name, &instance_data_dir(name)?.join("instance_info.json"))
         }
@@ -343,9 +360,13 @@ impl InstanceInfo {
     #[context("error reading instance info: {:?}", path)]
     pub fn read_at(name: &str, path: &PathBuf) -> anyhow::Result<InstanceInfo> {
         let f = io::BufReader::new(fs::File::open(path)?);
-        let mut data: InstanceInfo = serde_json::from_reader(f)?;
-        data.name = name.into();
-        Ok(data)
+        let mut data: PartialInstanceInfo = serde_json::from_reader(f)?;
+        Ok(InstanceInfo {
+            name: name.into(),
+            instance_name: InstanceName::Local(name.to_string()),
+            installation: data.installation,
+            port: data.port,
+        })
     }
 
     pub fn data_dir(&self) -> anyhow::Result<PathBuf> {

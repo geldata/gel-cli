@@ -19,7 +19,7 @@ use tokio::join;
 use tokio::time::sleep;
 
 use crate::connect::Connection;
-use crate::options::CloudOptions;
+use crate::options::{CloudOptions, InstanceOptionsLegacy};
 use gel_tokio::{credentials::Credentials, Builder};
 
 use crate::branding::{BRANDING_CLOUD, QUERY_TAG};
@@ -35,7 +35,7 @@ use crate::portable::instance::control;
 use crate::portable::instance::upgrade::{BackupMeta, UpgradeMeta};
 use crate::portable::local::{lock_file, read_ports};
 use crate::portable::local::{InstanceInfo, Paths};
-use crate::portable::options::{instance_arg, InstanceName};
+use crate::portable::options::InstanceName;
 use crate::portable::{linux, macos, windows};
 use crate::print::{self, msg, Highlight};
 use crate::process;
@@ -75,13 +75,8 @@ pub struct Status {
     #[command(flatten)]
     pub cloud_opts: CloudOptions,
 
-    /// Name of the instance
-    #[arg(hide = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    pub name: Option<InstanceName>,
-
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptionsLegacy,
 
     /// Show current systems service info.
     #[arg(long, conflicts_with_all=&["debug", "json", "extended"])]
@@ -195,7 +190,7 @@ pub fn run(cmd: &Status, opts: &crate::options::Options) -> anyhow::Result<()> {
 }
 
 fn external_status(options: &Status) -> anyhow::Result<()> {
-    let name = match instance_arg(&options.name, &options.instance)? {
+    let name = match options.instance_opts.instance()? {
         InstanceName::Local(name) => name,
         InstanceName::Cloud { .. } => todo!(),
     };
@@ -294,7 +289,7 @@ pub fn instance_status(name: &str) -> anyhow::Result<FullStatus> {
 }
 
 fn normal_status(cmd: &Status, opts: &crate::options::Options) -> anyhow::Result<()> {
-    let name = match instance_arg(&cmd.name, &cmd.instance)? {
+    let name = match cmd.instance_opts.instance()? {
         InstanceName::Local(name) => name,
         InstanceName::Cloud {
             org_slug: org,
@@ -429,7 +424,7 @@ where
 }
 
 pub fn remote_status(options: &Status) -> anyhow::Result<()> {
-    let name = match instance_arg(&options.name, &options.instance)? {
+    let name = match options.instance_opts.instance()? {
         InstanceName::Local(name) => name,
         InstanceName::Cloud { .. } => unreachable!("remote_status got cloud instance"),
     };

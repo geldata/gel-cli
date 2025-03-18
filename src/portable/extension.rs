@@ -8,9 +8,9 @@ use prettytable::{row, Table};
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::hint::HintExt;
-use crate::options::Options;
+use crate::options::{InstanceOptions, InstanceOptionsGlobal, Options};
 use crate::portable::local::InstanceInfo;
-use crate::portable::options::{instance_arg, InstanceName};
+use crate::portable::options::InstanceName;
 use crate::portable::platform::get_server;
 use crate::portable::repository::{get_platform_extension_packages, Channel};
 use crate::portable::server::install::download_package;
@@ -35,10 +35,8 @@ pub struct Command {
     #[command(subcommand)]
     pub subcommand: Subcommands,
 
-    /// Name of the instance
-    #[arg(short = 'I', long)]
-    #[arg(global = true)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptionsGlobal,
 }
 
 #[derive(clap::Subcommand, Clone, Debug)]
@@ -56,7 +54,7 @@ pub enum Subcommands {
 #[derive(clap::Args, Debug, Clone)]
 pub struct ExtensionList {
     #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    pub instance_opts: InstanceOptions,
 }
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
@@ -68,14 +66,14 @@ pub struct ExtensionListAvailable {
     #[arg(long, hide = true)]
     pub slot: Option<String>,
 
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 }
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
 pub struct ExtensionInstall {
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 
     /// Name of the extension to install
     pub extension: String,
@@ -92,15 +90,15 @@ pub struct ExtensionInstall {
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
 pub struct ExtensionUninstall {
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 
     /// Name of the extension to uninstall
     pub extension: String,
 }
 
-fn get_local_instance(instance: &Option<InstanceName>) -> Result<InstanceInfo, anyhow::Error> {
-    let name = match instance_arg(&None, instance)? {
+fn get_local_instance(instance: InstanceName) -> Result<InstanceInfo, anyhow::Error> {
+    let name = match instance {
         InstanceName::Local(name) => name,
         inst_name => {
             return Err(anyhow::anyhow!(
@@ -159,10 +157,10 @@ fn list(_: &ExtensionList, options: &Options) -> Result<(), anyhow::Error> {
 }
 
 fn uninstall(cmd: &ExtensionUninstall, _options: &Options) -> Result<(), anyhow::Error> {
-    let inst = get_local_instance(&cmd.instance)?;
+    let inst = get_local_instance(cmd.instance_opts.instance()?)?;
 
     if cfg!(windows) {
-        return windows::extension_uninstall(cmd, inst.name);
+        return windows::extension_uninstall(cmd);
     }
 
     run_extension_loader(
@@ -174,10 +172,10 @@ fn uninstall(cmd: &ExtensionUninstall, _options: &Options) -> Result<(), anyhow:
 }
 
 fn install(cmd: &ExtensionInstall, _options: &Options) -> Result<(), anyhow::Error> {
-    let inst = get_local_instance(&cmd.instance)?;
+    let inst = get_local_instance(cmd.instance_opts.instance()?)?;
 
     if cfg!(windows) {
-        return windows::extension_install(cmd, inst.name);
+        return windows::extension_install(cmd);
     }
 
     let version = inst.get_version()?.specific();
@@ -265,7 +263,7 @@ fn run_extension_loader(
 }
 
 fn list_available(list: &ExtensionListAvailable, _options: &Options) -> Result<(), anyhow::Error> {
-    let inst = get_local_instance(&list.instance)?;
+    let inst = get_local_instance(list.instance_opts.instance()?)?;
 
     let version = inst.get_version()?.specific();
     let channel = list.channel.unwrap_or(Channel::Stable);

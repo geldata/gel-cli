@@ -118,6 +118,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
         windows::create_instance(cmd, &name, port, &paths)?;
         InstanceInfo {
             name: name.clone(),
+            instance_name: inst_name.into(),
             installation: None,
             port,
         }
@@ -136,6 +137,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
         let specific_version = &inst.version.specific();
         let info = InstanceInfo {
             name: name.clone(),
+            instance_name: inst_name.into(),
             installation: Some(inst),
             port,
         };
@@ -166,8 +168,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
                          Trying to start database in the background..."
             );
             control::start(&Start {
-                name: None,
-                instance: Some(inst_name),
+                instance_opts: info.instance_name.into(),
                 foreground: false,
                 auto_restart: false,
                 managed_by: None,

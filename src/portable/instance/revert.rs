@@ -6,13 +6,14 @@ use fs_err as fs;
 use crate::branding::{BRANDING, BRANDING_CLOUD};
 use crate::commands::ExitCode;
 use crate::format;
+use crate::options::{InstanceOptions, InstanceOptionsLegacy};
 use crate::platform::tmp_file_path;
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::instance::status::{instance_status, BackupStatus, DataDirectory};
 use crate::portable::local::Paths;
-use crate::portable::options::{instance_arg, InstanceName};
+use crate::portable::options::InstanceName;
 use crate::portable::server::install;
 use crate::print::{self, msg, Highlight};
 use crate::process;
@@ -21,7 +22,7 @@ use crate::question;
 pub fn run(options: &Command) -> anyhow::Result<()> {
     use BackupStatus::*;
 
-    let name = match instance_arg(&options.name, &options.instance)? {
+    let name = match options.instance_opts.instance()? {
         InstanceName::Local(name) => {
             if cfg!(windows) {
                 return crate::portable::windows::revert(options, &name);
@@ -127,13 +128,8 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
 pub struct Command {
-    /// Name of instance to revert.
-    #[arg(hide = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    pub name: Option<InstanceName>,
-
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptionsLegacy,
 
     /// Do not check if upgrade is in progress.
     #[arg(long)]
