@@ -231,6 +231,7 @@ pub fn create_instance(
 
     let inner_options = create::Command {
         name: Some(options::InstanceName::Local(name.to_string())),
+        instance: None,
         port: Some(port),
         ..options.clone()
     };
