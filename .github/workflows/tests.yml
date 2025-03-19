@@ -33,10 +33,10 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
+        uses: dtolnay/rust-toolchain@master
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.81'
+          toolchain: '1.85'
           override: true
 
       - name: Install EdgeDB
@@ -66,11 +66,11 @@ jobs:
         run: "sudo apt-get install musl-tools"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
+        uses: dtolnay/rust-toolchain@master
         with:
           components: "cargo,rustc,rust-std"
           target: "x86_64-unknown-linux-musl"
-          toolchain: '1.81'
+          toolchain: '1.85'
           override: true
 
       - run: |
@@ -103,10 +103,10 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
+        uses: dtolnay/rust-toolchain@master
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.81'
+          toolchain: '1.85'
           override: true
 
       - run: |
@@ -129,10 +129,10 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
+        uses: dtolnay/rust-toolchain@master
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.81'
+          toolchain: '1.85'
           override: true
 
       - run: |
@@ -166,10 +166,10 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
+        uses: dtolnay/rust-toolchain@master
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.81'
+          toolchain: '1.85'
           override: true
 
       - run: |
@@ -208,10 +208,10 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
+        uses: dtolnay/rust-toolchain@master
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.81'
+          toolchain: '1.85'
           override: true
 
       - run: |
@@ -229,10 +229,10 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@d0e72ca3bfdc51937a4f81431ccbed269ef9f2a2
+        uses: dtolnay/rust-toolchain@master
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.81'
+          toolchain: '1.85'
           override: true
 
       - run: |
