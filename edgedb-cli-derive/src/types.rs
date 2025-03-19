@@ -41,10 +41,7 @@ pub struct Subcommand {
 
 pub fn unwrap_type<'x>(ty: &'x syn::Type, name: &str) -> (bool, &'x syn::Type) {
     match ty {
-        syn::Type::Path(syn::TypePath {
-            qself: None,
-            path,
-        }) => {
+        syn::Type::Path(syn::TypePath { qself: None, path }) => {
             if path.leading_colon.is_none()
                 && path.segments.len() == 1
                 && path.segments[0].ident == name

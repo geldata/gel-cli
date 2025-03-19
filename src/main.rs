@@ -126,7 +126,9 @@ fn _main() -> anyhow::Result<()> {
     // If a crash happens we want the backtrace to be printed by default
     // to ease bug reporting and troubleshooting.
     // TODO: consider removing this once EdgeDB reaches 1.0 stable.
-    unsafe { env::set_var("RUST_BACKTRACE", "1"); }
+    unsafe {
+        env::set_var("RUST_BACKTRACE", "1");
+    }
     interrupt::init_signals();
 
     if let Some(arg0) = std::env::args_os().next() {

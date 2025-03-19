@@ -681,7 +681,6 @@ impl Native {
         );
         unsafe { libc::kill(pid as i32, SIGKILL) };
         wait_forever().await;
-        Ok(())
     }
 
     async fn try_stop_process(&self) -> Result<(), ()> {

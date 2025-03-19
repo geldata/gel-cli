@@ -93,7 +93,7 @@ impl<T: Clone + Send> Numeric<'static, T> {
 }
 
 impl<'a> String<'a> {
-    pub fn new(question: &'a str) -> String {
+    pub fn new(question: &'a str) -> String<'a> {
         String {
             question: question.into(),
             default: Cow::default(),

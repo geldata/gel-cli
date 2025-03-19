@@ -591,7 +591,7 @@ pub async fn execute(
             print!("{HELP}");
             Ok(Skip)
         }
-        Common(ref cmd) => {
+        Common(cmd) => {
             prompt.soft_reconnect().await?;
             let conn = prompt.connection.as_mut().expect("connection established");
             let result = execute::common(Some(conn), cmd, &options).await?;
@@ -606,15 +606,11 @@ pub async fn execute(
             list_settings(prompt);
             Ok(Skip)
         }
-        Set(SetCommand {
-            setting: Some(ref cmd),
-        }) if cmd.is_show() => {
+        Set(SetCommand { setting: Some(cmd) }) if cmd.is_show() => {
             println!("{}: {}", cmd.name(), get_setting(cmd, prompt));
             Ok(Skip)
         }
-        Set(SetCommand {
-            setting: Some(ref cmd),
-        }) => {
+        Set(SetCommand { setting: Some(cmd) }) => {
             match cmd {
                 InputMode(m) => {
                     prompt
