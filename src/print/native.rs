@@ -7,7 +7,7 @@ use crate::print::buffer::Result;
 use crate::print::formatter::Formatter;
 use crate::repl::VectorLimit;
 use gel_protocol::value::Value;
-use geozero::{wkb::Ewkb, ToWkt};
+use geozero::{ToWkt, wkb::Ewkb};
 
 pub trait FormatExt {
     fn format<F: Formatter>(&self, prn: &mut F) -> Result<F::Error>;

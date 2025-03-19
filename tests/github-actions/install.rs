@@ -1,10 +1,10 @@
 use std::fs;
 use std::io::Write;
 
-use assert_cmd::{assert::Assert, Command};
+use assert_cmd::{Command, assert::Assert};
 use tokio::sync::oneshot;
-use warp::filters::path::path;
 use warp::Filter;
+use warp::filters::path::path;
 
 #[path = "../common/util.rs"]
 mod util;

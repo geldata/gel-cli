@@ -3,8 +3,8 @@ use prettytable::{Cell, Row, Table};
 use gel_derive::Queryable;
 use is_terminal::IsTerminal;
 
-use crate::commands::filter;
 use crate::commands::Options;
+use crate::commands::filter;
 use crate::connect::Connection;
 use crate::table;
 

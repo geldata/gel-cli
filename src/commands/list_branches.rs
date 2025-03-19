@@ -1,6 +1,6 @@
 use crate::branding::BRANDING;
 use crate::commands::list_databases::get_databases;
-use crate::commands::{list, list_databases, Options};
+use crate::commands::{Options, list, list_databases};
 use crate::connect::Connection;
 use crate::print;
 
@@ -12,7 +12,9 @@ pub async fn list_branches(cli: &mut Connection, options: &Options) -> Result<()
     let version = cli.get_version().await?;
 
     if version.specific().major <= 4 {
-        print::warn!("Branches are not supported in {BRANDING} {version}, printing list of databases instead");
+        print::warn!(
+            "Branches are not supported in {BRANDING} {version}, printing list of databases instead"
+        );
         return list_databases(cli, options).await;
     }
 

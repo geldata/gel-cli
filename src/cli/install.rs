@@ -655,8 +655,10 @@ pub fn check_executables() {
 
     if exe_path.file_name().unwrap() == BRANDING_CLI_CMD_ALT_FILE {
         if new_executable.exists() {
-            log::warn!("`{exe_path:?}` is the old name for the `{BRANDING_CLI_CMD_FILE}` executable. \
-            Please update your scripts (and muscle memory) to use the new executable at `{new_executable:?}`.");
+            log::warn!(
+                "`{exe_path:?}` is the old name for the `{BRANDING_CLI_CMD_FILE}` executable. \
+            Please update your scripts (and muscle memory) to use the new executable at `{new_executable:?}`."
+            );
         } else {
             log::warn!(
                 "`{exe_path:?}` is the old name for the `{BRANDING_CLI_CMD_FILE}` executable, but \
@@ -724,8 +726,8 @@ pub fn string_from_winreg_value(val: &winreg::RegValue) -> Option<String> {
 // should not mess with it.
 fn get_windows_path_var() -> anyhow::Result<Option<String>> {
     use std::io;
-    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE};
     use winreg::RegKey;
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE};
 
     let root = RegKey::predef(HKEY_CURRENT_USER);
     let environment = root
@@ -738,8 +740,10 @@ fn get_windows_path_var() -> anyhow::Result<Option<String>> {
             if let Some(s) = string_from_winreg_value(&val) {
                 Ok(Some(s))
             } else {
-                log::warn!("the registry key HKEY_CURRENT_USER\\Environment\\PATH does not contain valid Unicode. \
-                       PATH variable will not be modified.");
+                log::warn!(
+                    "the registry key HKEY_CURRENT_USER\\Environment\\PATH does not contain valid Unicode. \
+                       PATH variable will not be modified."
+                );
                 return Ok(None);
             }
         }
@@ -766,7 +770,7 @@ pub fn windows_augment_path<F: FnOnce(&[PathBuf]) -> Option<std::ffi::OsString>>
     use winapi::shared::minwindef::*;
     use winapi::um::winuser::SendMessageTimeoutA;
     use winapi::um::winuser::{HWND_BROADCAST, SMTO_ABORTIFHUNG, WM_SETTINGCHANGE};
-    use winreg::enums::{RegType, HKEY_CURRENT_USER, KEY_READ, KEY_WRITE};
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE, RegType};
     use winreg::{RegKey, RegValue};
 
     let old_path: Vec<_> = if let Some(s) = get_windows_path_var()? {

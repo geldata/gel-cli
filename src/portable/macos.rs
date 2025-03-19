@@ -11,9 +11,9 @@ use crate::platform::{current_exe, detect_ipv6};
 use crate::platform::{data_dir, get_current_uid, home_dir};
 use crate::portable::instance::control;
 use crate::portable::instance::status::Service;
-use crate::portable::local::{log_file, runstate_dir, InstanceInfo};
+use crate::portable::local::{InstanceInfo, log_file, runstate_dir};
 use crate::portable::options::InstanceName;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::process;
 
 enum Status {
@@ -224,7 +224,7 @@ fn _service_status(name: &str) -> Status {
         Err(e) => {
             return Inactive {
                 error: format!("cannot determine service status: {e:#}"),
-            }
+            };
         }
     };
     if !output.status.success() {

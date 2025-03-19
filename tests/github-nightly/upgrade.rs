@@ -2,7 +2,7 @@ use test_case::test_case;
 
 use crate::common::{dock_debian, dock_ubuntu};
 use crate::docker::run_systemd;
-use crate::docker::{build_image, Context};
+use crate::docker::{Context, build_image};
 use crate::measure::Time;
 
 #[test_case("test_jammy", &dock_ubuntu("jammy"))]

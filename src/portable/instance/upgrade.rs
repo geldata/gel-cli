@@ -16,14 +16,14 @@ use crate::options::{CloudOptions, InstanceOptionsLegacy};
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
-use crate::portable::local::{write_json, InstallInfo, InstanceInfo, Paths};
+use crate::portable::local::{InstallInfo, InstanceInfo, Paths, write_json};
 use crate::portable::options::InstanceName;
 use crate::portable::project;
 use crate::portable::repository::{self, Channel, PackageInfo, Query, QueryOptions};
 use crate::portable::server::install;
 use crate::portable::ver;
 use crate::portable::windows;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::question;
 
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
@@ -145,7 +145,7 @@ pub fn print_project_upgrade_command(
             Channel::Nightly => "--to-nightly".into(),
             Channel::Testing => "--to-testing".into(),
         },
-        if current_project.as_ref().map_or(false, |p| p == project_dir) {
+        if current_project.as_ref().is_some_and(|p| p == project_dir) {
             "".into()
         } else {
             format!(" --project-dir '{}'", project_dir.display())

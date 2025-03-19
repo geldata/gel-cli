@@ -1,8 +1,8 @@
 use crate::commands::Options;
 use crate::connect::Connection;
+use crate::migrations::Context;
 use crate::migrations::migration::{file_num, read_file, read_names};
 use crate::migrations::options::MigrationUpgradeFormat;
-use crate::migrations::Context;
 use crate::print;
 use regex::Regex;
 use std::fs;
@@ -57,9 +57,9 @@ async fn upgrade_format_of_file(file: &PathBuf, num: u64) -> anyhow::Result<()> 
 
 #[cfg(test)]
 mod test {
+    use crate::migrations::Context;
     use crate::migrations::migration::{read_file, read_names};
     use crate::migrations::upgrade_format::_upgrade_format;
-    use crate::migrations::Context;
     use regex::Regex;
     use std::fs;
 

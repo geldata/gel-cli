@@ -1,5 +1,5 @@
-use proc_macro2::TokenStream;
 use proc_macro_error::abort;
+use proc_macro2::TokenStream;
 use quote::quote;
 
 use crate::attrib::ParserKind;

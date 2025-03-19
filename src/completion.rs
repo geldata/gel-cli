@@ -1,5 +1,5 @@
 use std::borrow::Borrow;
-use std::cmp::{min, Ordering};
+use std::cmp::{Ordering, min};
 use std::collections::BTreeMap;
 use std::ops::Bound;
 use std::str::FromStr;
@@ -169,8 +169,8 @@ pub fn complete(input: &str, cursor: usize) -> Option<(usize, Vec<Pair>)> {
         (_, Current::Empty) => None,
         (_, Current::EdgeQL { .. }) => None,
         (off, Current::Backslash { text: cmd }) => {
-            use backslash::Item::*;
             use BackslashFsm as Fsm;
+            use backslash::Item::*;
 
             let cursor = cursor.saturating_sub(off);
             let mut fsm = Fsm::Command;
@@ -234,7 +234,7 @@ fn add_cmd_info(output: &mut String, alias_of: Option<&[&str]>, cinfo: &backslas
 }
 
 fn hint_command(input: &str) -> Option<Hint> {
-    use backslash::{Command, CMD_CACHE};
+    use backslash::{CMD_CACHE, Command};
 
     let mut rng = CMD_CACHE
         .top_commands
@@ -464,8 +464,8 @@ pub fn hint(input: &str, pos: usize) -> Option<Hint> {
         (_, Current::Empty) => None,
         (_, Current::EdgeQL { .. }) => None,
         (off, Current::Backslash { text: cmd }) => {
-            use backslash::Item::*;
             use BackslashFsm as Fsm;
+            use backslash::Item::*;
 
             let pos = pos.saturating_sub(off);
             let mut fsm = Fsm::Command;
@@ -497,10 +497,10 @@ pub fn hint(input: &str, pos: usize) -> Option<Hint> {
 
 impl BackslashFsm {
     pub fn advance(self, token: backslash::Token) -> Self {
+        use BackslashFsm::*;
+        use backslash::CMD_CACHE;
         use backslash::Command;
         use backslash::Item as T;
-        use backslash::CMD_CACHE;
-        use BackslashFsm::*;
 
         match self {
             Command => match token.item {
@@ -568,9 +568,9 @@ impl BackslashFsm {
         }
     }
     pub fn validate(&self, token: &backslash::Token) -> ValidationResult {
-        use backslash::Item as T;
-        use backslash::CMD_CACHE;
         use BackslashFsm::*;
+        use backslash::CMD_CACHE;
+        use backslash::Item as T;
 
         match (self, &token.item) {
             (Command, T::Command(cmd)) => {

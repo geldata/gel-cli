@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::future::{pending, Future};
+use std::future::{Future, pending};
 use std::mem;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -14,6 +14,7 @@ use tokio_stream::Stream;
 
 use gel_errors::{ClientError, NoDataError, ProtocolEncodingError};
 use gel_errors::{Error, ErrorKind, ResultExt};
+use gel_protocol::QueryResult;
 use gel_protocol::annotations::Warning;
 use gel_protocol::client_message::{CompilationOptions, State};
 use gel_protocol::common::{Capabilities, Cardinality, IoFormat};
@@ -26,10 +27,9 @@ use gel_protocol::server_message::CommandDataDescription1;
 use gel_protocol::server_message::RawPacket;
 use gel_protocol::server_message::TransactionState;
 use gel_protocol::value::Value;
-use gel_protocol::QueryResult;
+use gel_tokio::Config;
 use gel_tokio::raw::{self, PoolState, Response};
 use gel_tokio::server_params::ServerParam;
-use gel_tokio::Config;
 
 use crate::branding::{BRANDING, BRANDING_CLOUD, QUERY_TAG, REPL_QUERY_TAG};
 use crate::hint::ArcError;
@@ -81,7 +81,7 @@ fn update_state<T>(state: &mut State, resp: &raw::Response<T>) -> Result<(), Err
     Ok(())
 }
 
-impl<'a, T: QueryResult> ResponseStream<'a, T>
+impl<T: QueryResult> ResponseStream<'_, T>
 where
     T::State: Unpin,
 {
@@ -104,7 +104,7 @@ where
     }
 }
 
-impl<'a, T: QueryResult> Stream for ResponseStream<'a, T>
+impl<T: QueryResult> Stream for ResponseStream<'_, T>
 where
     T::State: Unpin,
 {

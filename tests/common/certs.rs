@@ -7,7 +7,7 @@ use openssl::rsa::Rsa;
 use openssl::x509::extension::SubjectKeyIdentifier;
 use openssl::x509::extension::{AuthorityKeyIdentifier, BasicConstraints};
 use openssl::x509::extension::{KeyUsage, SubjectAlternativeName};
-use openssl::x509::{X509NameBuilder, X509Ref, X509Req, X509ReqBuilder, X509};
+use openssl::x509::{X509, X509NameBuilder, X509Ref, X509Req, X509ReqBuilder};
 
 #[derive(Clone)]
 pub struct Certs {

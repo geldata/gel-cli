@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use edgedb_cli_derive::IntoArgs;
 
 use crate::portable::local::{self, InstallInfo};
-use crate::portable::repository::{get_server_packages, Channel, PackageInfo};
+use crate::portable::repository::{Channel, PackageInfo, get_server_packages};
 use crate::portable::ver;
 use crate::table::{self, Cell, Row, Table};
 

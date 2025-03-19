@@ -379,7 +379,9 @@ pub async fn ensure_ctx(override_dir: Option<&Path>) -> anyhow::Result<Context> 
 
 pub async fn ensure_ctx_async(override_dir: Option<&Path>) -> anyhow::Result<Context> {
     let Some(ctx) = load_ctx(override_dir).await? else {
-        return Err(anyhow::anyhow!("`{MANIFEST_FILE_DISPLAY_NAME}` not found, unable to perform this action without an initialized project."));
+        return Err(anyhow::anyhow!(
+            "`{MANIFEST_FILE_DISPLAY_NAME}` not found, unable to perform this action without an initialized project."
+        ));
     };
 
     Ok(ctx)

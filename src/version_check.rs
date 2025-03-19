@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 
 use anyhow::Context as _;
 use fn_error_context::context;
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 use serde::{Deserialize, Serialize};
 
 use crate::branding::BRANDING_CLI_CMD;

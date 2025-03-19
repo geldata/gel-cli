@@ -8,7 +8,7 @@ pub(in crate::print) trait Output {
     fn write(&mut self, data: &str) -> Result<(), Self::Error>;
 }
 
-impl<'a> Output for &'a mut String {
+impl Output for &mut String {
     type Error = Infallible;
     fn write(&mut self, data: &str) -> Result<(), Infallible> {
         self.push_str(data);

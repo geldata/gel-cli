@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 
-use proc_macro2::Span;
 use proc_macro_error::emit_error;
+use proc_macro2::Span;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::Paren;
@@ -468,8 +468,8 @@ impl Parse for ParserKind {
 /// This function is provided by proc_macro_error via From train, but only syn 1, but not syn 2.
 /// When proc_macro_error is provides it for syn 2, this function can be removed.
 fn syn_error_to_proc_macro_diagnostic_to_error(err: syn::Error) -> proc_macro_error::Diagnostic {
-    use proc_macro2::{Delimiter, TokenTree};
     use proc_macro_error::{Diagnostic, DiagnosticExt, Level, SpanRange};
+    use proc_macro2::{Delimiter, TokenTree};
 
     fn gut_error(ts: &mut impl Iterator<Item = TokenTree>) -> Option<(SpanRange, String)> {
         let first = match ts.next() {

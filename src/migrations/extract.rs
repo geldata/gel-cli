@@ -7,7 +7,7 @@ use crate::connect::Connection;
 use crate::migrations::create::{MigrationKey, MigrationToText};
 use crate::migrations::db_migration;
 use crate::migrations::options::ExtractMigrations;
-use crate::migrations::{create, migration, Context};
+use crate::migrations::{Context, create, migration};
 use crate::portable::exit_codes;
 use crate::print::AsRelativeToCurrentDir;
 use crate::{print, question};

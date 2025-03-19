@@ -11,7 +11,7 @@ use crate::portable::exit_codes;
 
 use crate::table::{self, Cell, Row, Table};
 
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::question;
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]

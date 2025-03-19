@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Display;
 use std::fs;
-use std::future::{pending, Future};
+use std::future::{Future, pending};
 use std::io;
 use std::path::{Path, PathBuf};
 use std::process::exit;
@@ -20,7 +20,7 @@ use tokio::time::sleep;
 
 use crate::connect::Connection;
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
-use gel_tokio::{credentials::Credentials, Builder};
+use gel_tokio::{Builder, credentials::Credentials};
 
 use crate::branding::{BRANDING_CLOUD, QUERY_TAG};
 use crate::cloud;
@@ -33,11 +33,11 @@ use crate::platform::data_dir;
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::upgrade::{BackupMeta, UpgradeMeta};
-use crate::portable::local::{lock_file, read_ports};
 use crate::portable::local::{InstanceInfo, Paths};
+use crate::portable::local::{lock_file, read_ports};
 use crate::portable::options::InstanceName;
 use crate::portable::{linux, macos, windows};
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::process;
 use crate::table::{self, Cell, Row, Table};
 

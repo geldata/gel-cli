@@ -4,9 +4,9 @@ use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fs;
-use std::future::{pending, Future};
+use std::future::{Future, pending};
 use std::path::{Path, PathBuf};
-use std::process::{exit, ExitStatus, Output, Stdio};
+use std::process::{ExitStatus, Output, Stdio, exit};
 
 use anyhow::Context;
 use once_cell::sync::Lazy;
@@ -681,7 +681,6 @@ impl Native {
         );
         unsafe { libc::kill(pid as i32, SIGKILL) };
         wait_forever().await;
-        Ok(())
     }
 
     async fn try_stop_process(&self) -> Result<(), ()> {

@@ -1,4 +1,4 @@
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 
 use anyhow::Context;
 use gel_tokio::{CloudName, InstanceName};
@@ -183,7 +183,7 @@ mod jwt {
     use gel_jwt::{KeyRegistry, PrivateKey, SigningContext};
 
     use crate::platform::data_dir;
-    use crate::portable::local::{instance_data_dir, NonLocalInstance};
+    use crate::portable::local::{NonLocalInstance, instance_data_dir};
 
     #[derive(Debug, thiserror::Error)]
     #[error("Cannot read JOSE key file(s)")]
@@ -251,7 +251,7 @@ mod jwt {
                 &ctx,
             )?;
 
-            return Ok(format!("edbt_{token}"));
+            Ok(format!("edbt_{token}"))
         }
     }
 }

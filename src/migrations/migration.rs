@@ -10,9 +10,9 @@ use regex::Regex;
 use tokio::fs;
 use tokio::io;
 
+use crate::migrations::NULL_MIGRATION;
 use crate::migrations::context::Context;
 use crate::migrations::grammar::parse_migration;
-use crate::migrations::NULL_MIGRATION;
 use crate::print;
 
 #[derive(Debug)]
@@ -141,7 +141,9 @@ async fn _read_names(dir: &Path) -> anyhow::Result<Vec<PathBuf>> {
     }
 
     if has_old_filename {
-        print::warn!("Legacy migration file names detected, consider running 'edgedb migration upgrade-format'")
+        print::warn!(
+            "Legacy migration file names detected, consider running 'edgedb migration upgrade-format'"
+        )
     }
 
     Ok(result)
@@ -278,8 +280,8 @@ pub async fn read_fixups(
 
 #[cfg(test)]
 mod test {
-    use super::{parse_migration, sort_revisions, validate_text};
     use super::{Migration, MigrationFile};
+    use super::{parse_migration, sort_revisions, validate_text};
     use crate::migrations::NULL_MIGRATION;
     use std::collections::HashMap;
 

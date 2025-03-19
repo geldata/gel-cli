@@ -10,7 +10,7 @@ use crate::portable::local;
 use crate::portable::local::InstanceInfo;
 use crate::portable::repository::{Channel, Query};
 use crate::portable::ver;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 
 pub fn run(options: &Command) -> anyhow::Result<()> {
     let mut candidates = local::get_installed()?;

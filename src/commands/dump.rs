@@ -11,9 +11,9 @@ use tokio_stream::StreamExt;
 
 use gel_errors::{UnknownDatabaseError, UnsupportedFeatureError};
 
+use crate::commands::Options;
 use crate::commands::list_databases::get_databases;
 use crate::commands::parser::{Dump as DumpOptions, DumpFormat};
-use crate::commands::Options;
 use crate::connect::Connection;
 use crate::hint::HintExt;
 use crate::platform::tmp_file_name;

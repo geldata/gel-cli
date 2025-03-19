@@ -1,6 +1,6 @@
+use crate::commands::Options;
 use crate::commands::filter;
 use crate::commands::list;
-use crate::commands::Options;
 use crate::connect::Connection;
 
 pub async fn list_modules(

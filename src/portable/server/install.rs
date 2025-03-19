@@ -15,14 +15,14 @@ use crate::branding::BRANDING_CLI_CMD;
 use crate::commands::ExitCode;
 use crate::platform;
 use crate::portable::exit_codes;
-use crate::portable::local::{write_json, InstallInfo};
+use crate::portable::local::{InstallInfo, write_json};
 use crate::portable::platform::optional_docker_check;
 use crate::portable::repository::Channel;
 use crate::portable::repository::QueryOptions;
-use crate::portable::repository::{download, PackageHash, PackageInfo, Query};
+use crate::portable::repository::{PackageHash, PackageInfo, Query, download};
 use crate::portable::repository::{get_server_package, get_specific_package};
 use crate::portable::ver::{self, Build};
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 
 static INSTALLED_VERSIONS: Lazy<Mutex<BTreeSet<Build>>> = Lazy::new(|| Mutex::new(BTreeSet::new()));
 

@@ -4,9 +4,9 @@ use combine::easy::{self, Errors, Info};
 use combine::error::{StreamError, Tracked};
 use combine::parser::combinator::no_partial;
 use combine::stream::ResetStream;
+use combine::{ParseResult, Parser, Positioned, StreamOnce, position};
 use combine::{between, choice, eof, many, opaque, satisfy, skip_many};
-use combine::{position, ParseResult, Parser, Positioned, StreamOnce};
-use edgeql_parser::helpers::{unquote_string, UnquoteError};
+use edgeql_parser::helpers::{UnquoteError, unquote_string};
 use edgeql_parser::keywords::Keyword;
 use edgeql_parser::position::Pos;
 use edgeql_parser::tokenizer::{Checkpoint, Kind, Token, Tokenizer};
@@ -71,13 +71,13 @@ impl<'a> StreamOnce for TokenStream<'a> {
     }
 }
 
-impl<'a> Positioned for TokenStream<'a> {
+impl Positioned for TokenStream<'_> {
     fn position(&self) -> Self::Position {
         self.0.current_pos()
     }
 }
 
-impl<'a> ResetStream for TokenStream<'a> {
+impl ResetStream for TokenStream<'_> {
     type Checkpoint = Checkpoint;
     fn checkpoint(&self) -> Self::Checkpoint {
         self.0.checkpoint()

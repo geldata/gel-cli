@@ -2,10 +2,10 @@ use prettytable::{Cell, Row, Table};
 
 use gel_derive::Queryable;
 use is_terminal::IsTerminal;
-use terminal_size::{terminal_size, Width};
+use terminal_size::{Width, terminal_size};
 
-use crate::commands::filter;
 use crate::commands::Options;
+use crate::commands::filter;
 use crate::connect::Connection;
 use crate::table;
 

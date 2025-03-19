@@ -1,4 +1,4 @@
-use std::path::{PathBuf, MAIN_SEPARATOR};
+use std::path::{MAIN_SEPARATOR, PathBuf};
 
 use prettytable::{Cell, Row, Table};
 

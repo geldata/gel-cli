@@ -17,7 +17,7 @@ use crate::portable::project::manifest;
 use crate::portable::repository::{self, Channel, Query};
 use crate::portable::ver;
 use crate::portable::windows;
-use crate::print::{self, msg, AsRelativeToCurrentDir, Highlight};
+use crate::print::{self, AsRelativeToCurrentDir, Highlight, msg};
 use crate::question;
 
 use super::get_stash_path;

@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::io::{stdin, BufRead};
+use std::io::{BufRead, stdin};
 
 use anyhow::Context;
 use rustyline::{Config, DefaultEditor};
@@ -93,7 +93,7 @@ impl<T: Clone + Send> Numeric<'static, T> {
 }
 
 impl<'a> String<'a> {
-    pub fn new(question: &'a str) -> String {
+    pub fn new(question: &'a str) -> String<'a> {
         String {
             question: question.into(),
             default: Cow::default(),

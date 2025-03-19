@@ -10,7 +10,7 @@ use tokio::time::sleep;
 use crate::branding::BRANDING_CLOUD;
 use crate::browser::open_link;
 use crate::cloud::client::{
-    cloud_config_dir, cloud_config_file, CloudClient, CloudConfig, ErrorResponse,
+    CloudClient, CloudConfig, ErrorResponse, cloud_config_dir, cloud_config_file,
 };
 use crate::cloud::options;
 use crate::cloud::secret_keys::{CreateSecretKeyInput, SecretKey};
@@ -171,13 +171,8 @@ pub fn logout(c: &options::Logout, options: &CloudOptions) -> anyhow::Result<()>
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
             Err(e) => anyhow::bail!(e),
         };
-        let mut projects = find_project_dirs(|_| true).or_else(|e| {
-            if c.force {
-                Ok(HashMap::new())
-            } else {
-                Err(e)
-            }
-        })?;
+        let mut projects = find_project_dirs(|_| true)
+            .or_else(|e| if c.force { Ok(HashMap::new()) } else { Err(e) })?;
         for item in dir_entries {
             let item = item?;
             let sub_dir = item.path();

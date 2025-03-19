@@ -3,8 +3,8 @@ use std::time::Instant;
 
 use anyhow::Context;
 use is_terminal::IsTerminal;
-use terminal_size::{terminal_size, Width};
-use tokio::io::{stdout, AsyncWriteExt};
+use terminal_size::{Width, terminal_size};
+use tokio::io::{AsyncWriteExt, stdout};
 use tokio::sync::mpsc::channel;
 use tokio_stream::StreamExt;
 
@@ -22,7 +22,7 @@ use gel_tokio::raw::Description;
 use crate::analyze;
 use crate::classify;
 use crate::cli::logo::print_logo;
-use crate::commands::{backslash, ExitCode};
+use crate::commands::{ExitCode, backslash};
 use crate::config::Config;
 use crate::credentials;
 use crate::error_display::print_query_error;
@@ -30,7 +30,7 @@ use crate::interrupt::{Interrupt, InterruptError};
 use crate::options::Options;
 use crate::outputs::tab_separated;
 use crate::print::Highlight;
-use crate::print::{self, msg, PrintError};
+use crate::print::{self, PrintError, msg};
 use crate::prompt;
 use crate::repl::{self, VectorLimit};
 use crate::variables::input_variables;
@@ -466,7 +466,7 @@ async fn execute_query(
                     _ => {
                         return Err(anyhow::anyhow!(
                             "the server returned a non-string value in JSON mode"
-                        ))
+                        ));
                     }
                 };
 
@@ -501,7 +501,7 @@ async fn execute_query(
                     _ => {
                         return Err(anyhow::anyhow!(
                             "server returned a non-string value in JSON mode"
-                        ))
+                        ));
                     }
                 };
 

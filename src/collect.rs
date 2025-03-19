@@ -22,7 +22,7 @@ impl<T> Collector<T> {
             .expect("can always send in an unbounded channel")
     }
     pub fn list(self) -> Vec<T> {
-        return self.receiver.try_iter().collect();
+        self.receiver.try_iter().collect()
     }
 }
 

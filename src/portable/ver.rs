@@ -10,7 +10,7 @@ use regex::Regex;
 use crate::branding::BRANDING_CLI_CMD;
 use crate::connect::Connection;
 use crate::portable::repository::Query;
-use crate::print::{msg, Highlight};
+use crate::print::{Highlight, msg};
 use crate::process::{self, IntoArg};
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -454,27 +454,39 @@ fn filter() {
 
 #[test]
 fn is_compatible() {
-    assert!(Specific::from_str("6.0-rc.3")
-        .unwrap()
-        .is_compatible(&Specific::from_str("6.0").unwrap()));
+    assert!(
+        Specific::from_str("6.0-rc.3")
+            .unwrap()
+            .is_compatible(&Specific::from_str("6.0").unwrap())
+    );
 
-    assert!(Specific::from_str("6.0-rc.3")
-        .unwrap()
-        .is_compatible(&Specific::from_str("6.0-rc.2").unwrap()));
+    assert!(
+        Specific::from_str("6.0-rc.3")
+            .unwrap()
+            .is_compatible(&Specific::from_str("6.0-rc.2").unwrap())
+    );
 
-    assert!(Specific::from_str("6.0-rc.2")
-        .unwrap()
-        .is_compatible(&Specific::from_str("6.0-rc.3").unwrap()));
+    assert!(
+        Specific::from_str("6.0-rc.2")
+            .unwrap()
+            .is_compatible(&Specific::from_str("6.0-rc.3").unwrap())
+    );
 
-    assert!(!Specific::from_str("5.0-rc.2")
-        .unwrap()
-        .is_compatible(&Specific::from_str("6.0-rc.3").unwrap()));
+    assert!(
+        !Specific::from_str("5.0-rc.2")
+            .unwrap()
+            .is_compatible(&Specific::from_str("6.0-rc.3").unwrap())
+    );
 
-    assert!(Specific::from_str("6.0")
-        .unwrap()
-        .is_compatible(&Specific::from_str("6.1").unwrap()));
+    assert!(
+        Specific::from_str("6.0")
+            .unwrap()
+            .is_compatible(&Specific::from_str("6.1").unwrap())
+    );
 
-    assert!(Specific::from_str("6.2")
-        .unwrap()
-        .is_compatible(&Specific::from_str("6.1").unwrap()));
+    assert!(
+        Specific::from_str("6.2")
+            .unwrap()
+            .is_compatible(&Specific::from_str("6.1").unwrap())
+    );
 }

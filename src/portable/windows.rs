@@ -31,13 +31,13 @@ use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::instance::destroy;
 use crate::portable::instance::status;
-use crate::portable::local::{write_json, InstanceInfo, NonLocalInstance, Paths};
+use crate::portable::local::{InstanceInfo, NonLocalInstance, Paths, write_json};
 use crate::portable::options;
 use crate::portable::project;
-use crate::portable::repository::{self, download, PackageHash, PackageInfo};
+use crate::portable::repository::{self, PackageHash, PackageInfo, download};
 use crate::portable::server;
 use crate::portable::ver;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::process;
 
 use super::extension;
@@ -422,7 +422,7 @@ fn wsl_simple_cmd(wsl: &wslapi::Library, distro: &str, cmd: &str) -> anyhow::Res
 }
 
 fn utf16_contains(bytes: &[u8], needle: &str) -> bool {
-    use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
+    use std::char::{REPLACEMENT_CHARACTER, decode_utf16};
     decode_utf16(
         bytes
             .chunks_exact(2)
@@ -1072,8 +1072,8 @@ pub fn read_jws_key(name: &str) -> anyhow::Result<String> {
     let wsl = try_get_wsl()?;
     let data_dir = get_instance_data_dir(name, wsl)?;
     for keys in ["edbjwskeys.pem", "edbjwskeys.json"] {
-        if wsl.check_path_exist(&data_dir.join(keys)) {
-            return Ok(wsl.read_text_file(data_dir.join(keys))?);
+        if wsl.check_path_exist(data_dir.join(keys)) {
+            return wsl.read_text_file(data_dir.join(keys));
         }
     }
     anyhow::bail!("No JWS keys found for instance {name}");

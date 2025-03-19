@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{stdout, BufWriter, Write};
+use std::io::{BufWriter, Write, stdout};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 

@@ -6,12 +6,12 @@ use std::io;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 
 use anyhow::Context;
 use log::warn;
-use reqwest::{header, StatusCode};
+use reqwest::{StatusCode, header};
 
 use crate::branding::BRANDING_CLI_CMD;
 use crate::cli::env::Env;
@@ -90,7 +90,9 @@ impl CloudClient {
         let secret_key = if let Some(secret_key) = options_secret_key {
             Some(secret_key.into())
         } else if let Some(secret_key) = Env::cloud_secret_key()? {
-            warn!("Using deprecated cloud secret key from environment variable: Use GEL_SECRET_KEY instead");
+            warn!(
+                "Using deprecated cloud secret key from environment variable: Use GEL_SECRET_KEY instead"
+            );
             Some(secret_key)
         } else if let Some(secret_key) = Env::secret_key()? {
             Some(secret_key)
@@ -237,19 +239,21 @@ impl CloudClient {
         } else {
             let code = resp.status();
             let full = resp.text().await?;
-            Err(anyhow::anyhow!(serde_json::from_str(&full)
-                .map(|mut e: ErrorResponse| {
-                    e.code = code;
-                    e
-                })
-                .unwrap_or_else(|e| {
-                    log::debug!("Response body: {}", full);
-                    ErrorResponse {
-                        code,
-                        status: format!("error decoding response body: {e:#}"),
-                        error: Some(full),
-                    }
-                })))
+            Err(anyhow::anyhow!(
+                serde_json::from_str(&full)
+                    .map(|mut e: ErrorResponse| {
+                        e.code = code;
+                        e
+                    })
+                    .unwrap_or_else(|e| {
+                        log::debug!("Response body: {}", full);
+                        ErrorResponse {
+                            code,
+                            status: format!("error decoding response body: {e:#}"),
+                            error: Some(full),
+                        }
+                    })
+            ))
         }
     }
 

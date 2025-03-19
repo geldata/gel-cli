@@ -2,10 +2,10 @@ use fs_err as fs;
 use indexmap::IndexMap;
 
 use crate::connect::Connection;
-use crate::migrations::create::{write_migration, MigrationKey, MigrationToText};
-use crate::migrations::db_migration::{read_all, DBMigration};
+use crate::migrations::create::{MigrationKey, MigrationToText, write_migration};
+use crate::migrations::db_migration::{DBMigration, read_all};
 use crate::migrations::migration::MigrationFile;
-use crate::migrations::{apply, migration, Context};
+use crate::migrations::{Context, apply, migration};
 
 pub struct MergeMigrations {
     pub base_migrations: IndexMap<String, MergeMigration>,
@@ -105,7 +105,11 @@ pub async fn get_merge_migrations(
 
         eprintln!();
 
-        anyhow::bail!("Cannot complete fast-forward merge, the histories of {0} and {1} are incompatible. Try rebasing {1} onto {0}", base.database(), target.database())
+        anyhow::bail!(
+            "Cannot complete fast-forward merge, the histories of {0} and {1} are incompatible. Try rebasing {1} onto {0}",
+            base.database(),
+            target.database()
+        )
     }
 
     let mut target_merge_migrations: IndexMap<String, MergeMigration> = IndexMap::new();

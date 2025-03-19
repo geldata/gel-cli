@@ -260,9 +260,9 @@ impl<'a> MigrationToText<'a, Iter<'a, String>> for FutureMigration {
 
     fn id(&self) -> anyhow::Result<&str> {
         let FutureMigration {
-            ref parent,
-            ref statements,
-            ref id,
+            parent,
+            statements,
+            id,
             ..
         } = self;
         id.get_or_try_init(|| {

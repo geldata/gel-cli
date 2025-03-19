@@ -2,7 +2,7 @@ use test_case::test_matrix;
 
 use crate::common::Distro;
 use crate::docker::run_systemd;
-use crate::docker::{build_image, Context};
+use crate::docker::{Context, build_image};
 use crate::measure::Time;
 
 #[test_matrix(

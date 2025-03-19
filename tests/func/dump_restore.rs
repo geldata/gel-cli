@@ -1,6 +1,6 @@
 use test_utils::server::ServerInstance;
 
-use crate::{ServerGuard, SERVER};
+use crate::{SERVER, ServerGuard};
 
 #[test]
 fn dump_restore_cycle() {
@@ -97,7 +97,7 @@ fn dump_restore_all() {
             .arg("dump")
             .arg("--all")
             .arg("--format=dir")
-            .arg(&tempdir.path())
+            .arg(tempdir.path())
             .ok();
         if r.is_err() && retry < 5 {
             retry += 1;
@@ -112,7 +112,7 @@ fn dump_restore_all() {
         .admin_cmd()
         .arg("restore")
         .arg("--all")
-        .arg(&tempdir.path())
+        .arg(tempdir.path())
         .assert()
         .success();
 
