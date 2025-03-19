@@ -1,6 +1,6 @@
 use gel_dsn::gel::DEFAULT_PORT;
 use gel_tokio::credentials::AsCredentials;
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 use url::Url;
 
 use crate::options::{ConnectionOptions, Options};

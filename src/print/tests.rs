@@ -10,7 +10,7 @@ use tokio_stream::Stream;
 
 use crate::print::native::FormatExt;
 use crate::print::style::Styler;
-use crate::print::{self, Config, _native_format};
+use crate::print::{self, _native_format, Config};
 use crate::repl::VectorLimit;
 use gel_protocol::codec::{ObjectShape, ShapeElement};
 use gel_protocol::model::Datetime;

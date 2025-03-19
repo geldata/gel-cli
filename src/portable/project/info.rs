@@ -8,7 +8,7 @@ use crate::branding::BRANDING_CLI_CMD;
 use crate::branding::BRANDING_CLOUD;
 use crate::commands::ExitCode;
 use crate::portable::project;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::table;
 
 use super::get_stash_path;

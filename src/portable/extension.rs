@@ -4,7 +4,7 @@ use std::path::Path;
 use anyhow::Context;
 use edgedb_cli_derive::IntoArgs;
 use log::{debug, trace};
-use prettytable::{row, Table};
+use prettytable::{Table, row};
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::hint::HintExt;
@@ -12,7 +12,7 @@ use crate::options::{InstanceOptions, InstanceOptionsGlobal, Options};
 use crate::portable::local::InstanceInfo;
 use crate::portable::options::InstanceName;
 use crate::portable::platform::get_server;
-use crate::portable::repository::{get_platform_extension_packages, Channel};
+use crate::portable::repository::{Channel, get_platform_extension_packages};
 use crate::portable::server::install::download_package;
 use crate::portable::windows;
 use crate::print::Highlight;

@@ -213,7 +213,7 @@ fn slice<'x, M>(
         .and_then(|m| migrations.get_index_of(m))
         .map(|idx| idx + 1)
         .unwrap_or(0); // this zero is for start=None, get_index_of returning
-                       // None should never happen as we switch for `fixup`
+    // None should never happen as we switch for `fixup`
     let end_index = end
         .and_then(|m| migrations.get_index_of(m))
         .map(|idx| idx + 1)
@@ -651,8 +651,8 @@ async fn disable_ddl(cli: &mut Connection) -> Result<(), anyhow::Error> {
 mod test {
     use super::PathElem;
     use crate::migrations::migration::{Migration, MigrationFile};
-    use indexmap::{indexmap, IndexMap};
     use PathMock::*;
+    use indexmap::{IndexMap, indexmap};
 
     #[derive(Debug)]
     pub enum PathMock {

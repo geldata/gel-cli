@@ -9,15 +9,15 @@ use once_cell::sync::Lazy;
 use prettytable::{Cell, Row, Table};
 use regex::Regex;
 
-use gel_errors::display::display_error_verbose;
 use gel_errors::Error;
+use gel_errors::display::display_error_verbose;
 use gel_protocol::model::Duration;
 
 use crate::analyze;
 use crate::branding::BRANDING;
+use crate::commands::Options;
 use crate::commands::execute;
 use crate::commands::parser::{Backslash, BackslashCmd, Setting, StateParam};
-use crate::commands::Options;
 use crate::print;
 use crate::print::style::Styler;
 use crate::prompt;
@@ -195,7 +195,7 @@ impl<'a> Parser<'a> {
                                         },
                                     },
                                     span: (offset + idx, offset + end),
-                                })
+                                });
                             }
                             Some((_, _)) => {}
                             None => {
@@ -218,7 +218,7 @@ impl<'a> Parser<'a> {
                                         },
                                     },
                                     span: (offset, self.data.len()),
-                                })
+                                });
                             }
                         }
                     }
@@ -456,14 +456,14 @@ pub fn parse(s: &str) -> Result<Backslash, ParseError> {
                     help: false,
                     message: message.to_string(),
                     span: Some(token.span),
-                })
+                });
             }
             Error { message } => {
                 return Err(ParseError {
                     help: false,
                     message: message.to_string(),
                     span: Some(token.span),
-                })
+                });
             }
         }
     }

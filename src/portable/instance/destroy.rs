@@ -12,7 +12,7 @@ use crate::portable::local;
 use crate::portable::options::InstanceName;
 use crate::portable::project;
 use crate::portable::windows;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::question;
 
 pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {

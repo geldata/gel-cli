@@ -1,13 +1,13 @@
 use std::fmt::Write;
 
-use colorful::core::color_string::CString;
 use colorful::core::StrMarker;
+use colorful::core::color_string::CString;
 use snafu::{Error, ErrorCompat, IntoError};
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::print::Printer;
 use crate::print::color::Highlight;
 use crate::print::stream::Output;
-use crate::print::Printer;
 
 use Delim::*;
 

@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 use std::fmt::{self, Write};
 
-use terminal_size::{terminal_size, Width};
+use terminal_size::{Width, terminal_size};
 use unicode_width::UnicodeWidthChar;
 
 use crate::print::Highlight;

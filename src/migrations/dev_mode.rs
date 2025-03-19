@@ -13,10 +13,10 @@ use crate::commands::Options;
 use crate::migrations::apply::{apply_migrations, apply_migrations_inner};
 use crate::migrations::context::Context;
 use crate::migrations::create;
+use crate::migrations::create::{CurrentMigration, FutureMigration};
+use crate::migrations::create::{MigrationKey, write_migration};
 use crate::migrations::create::{execute_start_migration, unsafe_populate};
 use crate::migrations::create::{first_migration, normal_migration};
-use crate::migrations::create::{write_migration, MigrationKey};
-use crate::migrations::create::{CurrentMigration, FutureMigration};
 use crate::migrations::edb::{execute, execute_if_connected, query_row};
 use crate::migrations::migration::{self, MigrationFile};
 use crate::migrations::timeout;
@@ -79,7 +79,7 @@ static MINIMUM_VERSION: Lazy<ver::Build> = Lazy::new(|| "3.0-alpha.1+05474ea".pa
 
 mod ddl {
     // Just for nice log filter
-    use super::{execute, Connection};
+    use super::{Connection, execute};
 
     pub async fn apply_statements(cli: &mut Connection, items: &[String]) -> anyhow::Result<()> {
         execute(

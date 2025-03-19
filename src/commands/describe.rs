@@ -1,5 +1,5 @@
-use crate::commands::helpers::quote_namespaced;
 use crate::commands::Options;
+use crate::commands::helpers::quote_namespaced;
 use crate::connect::Connection;
 use crate::highlight;
 

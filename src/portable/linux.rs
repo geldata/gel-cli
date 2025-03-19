@@ -11,7 +11,7 @@ use crate::platform::{current_exe, detect_ipv6, home_dir};
 use crate::portable::instance::control;
 use crate::portable::instance::destroy::InstanceNotFound;
 use crate::portable::instance::status;
-use crate::portable::local::{log_file, runstate_dir, InstanceInfo};
+use crate::portable::local::{InstanceInfo, log_file, runstate_dir};
 use crate::portable::options::InstanceName;
 use crate::print;
 use crate::process;
@@ -380,7 +380,7 @@ pub fn service_status(name: &str) -> status::Service {
         Err(e) => {
             return status::Service::Inactive {
                 error: format!("cannot determine service status: {e:#}"),
-            }
+            };
         }
     };
     let mut pid = None;

@@ -4,9 +4,9 @@ use fs_err as fs;
 
 use crate::connect::Connection;
 use crate::migrations::create::{MigrationKey, MigrationToText};
-use crate::migrations::db_migration::{read_all, DBMigration};
+use crate::migrations::db_migration::{DBMigration, read_all};
 use crate::migrations::migration::MigrationFile;
-use crate::migrations::{apply, create, migration, Context};
+use crate::migrations::{Context, apply, create, migration};
 use crate::print::{self, Highlight};
 use anyhow::Context as _;
 use indexmap::IndexMap;
@@ -71,11 +71,7 @@ impl RebaseMigrations {
             .success();
 
         let format_migration_on_length = |c: usize| {
-            if c > 1 {
-                "migrations"
-            } else {
-                "migration"
-            }
+            if c > 1 { "migrations" } else { "migration" }
         };
 
         eprintln!("Last common migration is {last_common}");

@@ -12,14 +12,14 @@ use crate::commands::{ExitCode, Options};
 use crate::connect::Connection;
 use crate::migrations::context::Context;
 use crate::migrations::create;
+use crate::migrations::create::{CurrentMigration, FutureMigration, MigrationKey, MigrationToText};
 use crate::migrations::create::{execute_start_migration, write_migration};
 use crate::migrations::create::{first_migration, normal_migration};
-use crate::migrations::create::{CurrentMigration, FutureMigration, MigrationKey, MigrationToText};
 use crate::migrations::edb::{execute, execute_if_connected};
 use crate::migrations::migration;
 use crate::migrations::status::migrations_applied;
 use crate::migrations::timeout;
-use crate::print::{msg, Highlight};
+use crate::print::{Highlight, msg};
 use crate::question::Confirm;
 
 pub async fn run(

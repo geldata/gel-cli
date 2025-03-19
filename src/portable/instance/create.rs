@@ -22,8 +22,8 @@ use crate::platform;
 use crate::portable::instance::control::Start;
 use crate::portable::instance::control::{self, ensure_runstate_dir, self_signed_arg};
 use crate::portable::instance::reset_password::{generate_password, password_hash};
-use crate::portable::local::{allocate_port, write_json};
 use crate::portable::local::{InstanceInfo, Paths};
+use crate::portable::local::{allocate_port, write_json};
 use crate::portable::options::{CloudInstanceParams, InstanceName};
 use crate::portable::platform::optional_docker_check;
 use crate::portable::repository::{Channel, Query, QueryOptions};
@@ -31,7 +31,7 @@ use crate::portable::server::install;
 use crate::portable::ver::Specific;
 use crate::portable::{exit_codes, ver};
 use crate::portable::{linux, macos, windows};
-use crate::print::{self, err_marker, msg, Highlight};
+use crate::print::{self, Highlight, err_marker, msg};
 use crate::process::{self, IntoArg};
 use crate::question;
 
@@ -79,7 +79,9 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
     if cp.region.is_some() {
         Err(opts.error(
             clap::error::ErrorKind::ArgumentConflict,
-            cformat!("The <bold>--region</bold> option is only applicable to {BRANDING_CLOUD} instances."),
+            cformat!(
+                "The <bold>--region</bold> option is only applicable to {BRANDING_CLOUD} instances."
+            ),
         ))?;
     }
 

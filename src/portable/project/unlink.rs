@@ -10,7 +10,7 @@ use crate::options::CloudOptions;
 use crate::portable::exit_codes;
 use crate::portable::instance::destroy;
 use crate::portable::project;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::question;
 
 use super::get_stash_path;

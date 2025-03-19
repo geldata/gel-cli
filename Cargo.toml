@@ -6,12 +6,17 @@ members = [
     "tests/shared-client-tests",
 ]
 
+[workspace.package]
+edition = "2024"
+rust-version = "1.85"
+
 [package]
 name = "gel-cli"
 license = "MIT/Apache-2.0"
 version = "7.2.0-dev"
 authors = ["Gel Data Inc. <yo@geldata.com>"]
-edition = "2018"
+edition.workspace = true
+rust-version.workspace = true
 
 [[bin]]
 name = "gel"

@@ -1,7 +1,7 @@
 use crate::table::{self, Cell, Row, Table};
 
 use crate::cloud::client::{CloudClient, ErrorResponse};
-use crate::cloud::ops::{wait_for_operation, CloudOperation};
+use crate::cloud::ops::{CloudOperation, wait_for_operation};
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Backup {

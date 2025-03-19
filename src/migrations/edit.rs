@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use dissimilar::{diff, Chunk};
+use dissimilar::{Chunk, diff};
 use tokio::fs;
 use tokio::task::spawn_blocking as unblock;
 
@@ -13,7 +13,7 @@ use crate::migrations::grammar::parse_migration;
 use crate::migrations::migration::{file_num, read_names};
 use crate::migrations::options::MigrationEdit;
 use crate::platform::{spawn_editor, tmp_file_path};
-use crate::print::{err_marker, msg, Highlight};
+use crate::print::{Highlight, err_marker, msg};
 use crate::question::Choice;
 
 #[derive(Copy, Clone)]

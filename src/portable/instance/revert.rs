@@ -11,11 +11,11 @@ use crate::platform::tmp_file_path;
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
-use crate::portable::instance::status::{instance_status, BackupStatus, DataDirectory};
+use crate::portable::instance::status::{BackupStatus, DataDirectory, instance_status};
 use crate::portable::local::Paths;
 use crate::portable::options::InstanceName;
 use crate::portable::server::install;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::process;
 use crate::question;
 

@@ -16,15 +16,15 @@ use edgeql_parser::helpers::unquote_string;
 use gel_protocol::codec::NamedTupleShape;
 use gel_protocol::model;
 use gel_protocol::value::Value;
+use nom::Err::{Error, Failure, Incomplete};
 use nom::branch::alt;
 use nom::bytes::complete::{tag, tag_no_case, take_while_m_n};
 use nom::character::complete::{alphanumeric1, char, digit1, i16, i32, i64, multispace0};
 use nom::combinator::{cond, cut, flat_map, map, map_res, opt, recognize, success, value};
-use nom::error::{context, ContextError, ErrorKind, FromExternalError, ParseError};
+use nom::error::{ContextError, ErrorKind, FromExternalError, ParseError, context};
 use nom::multi::{many0_count, separated_list0};
 use nom::number::complete::{double, float, recognize_float_parts};
 use nom::sequence::{delimited, preceded, terminated, tuple};
-use nom::Err::{Error, Failure, Incomplete};
 use nom::{IResult, InputLength, Needed, Parser};
 use num_bigint::ToBigInt;
 use rustyline::completion::Completer;
@@ -420,7 +420,7 @@ impl VariableInput for Json {
                             error: e.into(),
                             kind: None,
                             description: "Failed to parse json token".to_string(),
-                        }))
+                        }));
                     }
                 },
                 None => return Err(Error(ParsingError::Incomplete { hint: None })),
@@ -550,20 +550,20 @@ impl VariableInput for NamedTuple {
                                                 tag("_"),
                                                 tag("-"),
                                             )))),
-                                            |ident| {
-                                                match self.element_types.get(ident) {
-                                                        Some(element_type) => Ok((ident, element_type)),
-                                                        None => Err(ParsingError::Mistake {
-                                                            kind: None,
-                                                            description: format!(
-                                                                "Expecting one of the following identifier(s): {}",
-                                                                self.shape.elements.iter()
-                                                                    .map(|v| v.name.clone())
-                                                                    .collect::<Vec<String>>()
-                                                                    .join(", ")
-                                                            )
-                                                        })
-                                                    }
+                                            |ident| match self.element_types.get(ident) {
+                                                Some(element_type) => Ok((ident, element_type)),
+                                                None => Err(ParsingError::Mistake {
+                                                    kind: None,
+                                                    description: format!(
+                                                        "Expecting one of the following identifier(s): {}",
+                                                        self.shape
+                                                            .elements
+                                                            .iter()
+                                                            .map(|v| v.name.clone())
+                                                            .collect::<Vec<String>>()
+                                                            .join(", ")
+                                                    ),
+                                                }),
                                             },
                                         )),
                                     ),

@@ -10,7 +10,7 @@ use fn_error_context::context;
 use indicatif::{ProgressBar, ProgressStyle};
 use is_terminal::IsTerminal;
 use once_cell::sync::OnceCell;
-use serde::{de, ser, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de, ser};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use url::Url;

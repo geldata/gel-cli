@@ -1,4 +1,4 @@
-use crate::{rm_migration_files, BRANDING_CLI_CMD, SERVER};
+use crate::{BRANDING_CLI_CMD, SERVER, rm_migration_files};
 use predicates::boolean::PredicateBooleanExt;
 use predicates::str::{contains, ends_with};
 use std::fs;

@@ -25,7 +25,9 @@ impl Context {
         } else {
             let default_dir: PathBuf = "./dbschema".into();
             if !default_dir.exists() {
-                anyhow::bail!("`dbschema` directory doesn't exist. Either create one, init a project or provide its path via --schema-dir.");
+                anyhow::bail!(
+                    "`dbschema` directory doesn't exist. Either create one, init a project or provide its path via --schema-dir."
+                );
             }
             default_dir
         };

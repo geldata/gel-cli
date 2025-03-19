@@ -8,12 +8,12 @@ use rustyline::highlight::Highlighter;
 use rustyline::hint::Hinter;
 use rustyline::history::FileHistory;
 use rustyline::validate::{ValidationContext, ValidationResult, Validator};
-use rustyline::{error::ReadlineError, Cmd, KeyEvent, Modifiers};
+use rustyline::{Cmd, KeyEvent, Modifiers, error::ReadlineError};
 use rustyline::{Config, Editor, Helper};
 
 use crate::highlight;
-use crate::print::style::Styler;
 use crate::print::Highlight;
+use crate::print::style::Styler;
 use crate::prompt::{load_history, save_history};
 
 pub struct ExpressionHelper {

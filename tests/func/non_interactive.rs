@@ -1,9 +1,9 @@
-use assert_cmd::assert::IntoOutputPredicate;
 use assert_cmd::Command;
+use assert_cmd::assert::IntoOutputPredicate;
 use predicates::boolean::PredicateBooleanExt;
 
-use crate::util::OutputExt;
 use crate::SERVER;
+use crate::util::OutputExt;
 
 #[test]
 fn with_comment() {

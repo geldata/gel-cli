@@ -10,7 +10,7 @@ use termcolor::{ColorChoice, StandardStream};
 use gel_errors::{Error, InternalServerError};
 
 use crate::branding::BRANDING_CLI_CMD;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 
 pub fn print_query_error(
     err: &Error,

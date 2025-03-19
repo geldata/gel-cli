@@ -1,5 +1,5 @@
-use crate::print::stream::Output;
 use crate::print::Printer;
+use crate::print::stream::Output;
 
 use crate::print::buffer::{Exception, Result};
 

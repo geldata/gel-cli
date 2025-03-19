@@ -1,6 +1,6 @@
 use test_utils::server::ServerInstance;
 
-use crate::{ServerGuard, SERVER};
+use crate::{SERVER, ServerGuard};
 
 #[test]
 fn dump_restore_cycle() {

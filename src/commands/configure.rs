@@ -1,7 +1,7 @@
 use std::fmt::Display;
 
-use crate::commands::parser::{AuthParameter, ConfigStr, ConfigStrs, Configure, ListenAddresses};
 use crate::commands::Options;
+use crate::commands::parser::{AuthParameter, ConfigStr, ConfigStrs, Configure, ListenAddresses};
 use crate::connect::Connection;
 use crate::print;
 use edgeql_parser::helpers::{quote_name, quote_string};

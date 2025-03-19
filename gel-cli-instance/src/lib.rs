@@ -5,7 +5,7 @@ use std::{
     pin::Pin,
     process::{Command, ExitStatus, Stdio},
     sync::Mutex,
-    task::{ready, Context, Poll},
+    task::{Context, Poll, ready},
 };
 
 use bytes::BytesMut;

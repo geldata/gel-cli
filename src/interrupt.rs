@@ -328,7 +328,7 @@ impl Trap {
     /// in list will be delivered asynchronously as always.
     #[cfg(unix)]
     pub fn new(signals: &[Signal]) -> Trap {
-        use nix::sys::signal::{sigaction, SaFlags, SigAction, SigHandler};
+        use nix::sys::signal::{SaFlags, SigAction, SigHandler, sigaction};
         use nix::sys::signal::{SigSet, SigmaskHow};
 
         extern "C" fn empty_handler(_: libc::c_int) {}

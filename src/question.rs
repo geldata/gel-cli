@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::io::{stdin, BufRead};
+use std::io::{BufRead, stdin};
 
 use anyhow::Context;
 use rustyline::{Config, DefaultEditor};

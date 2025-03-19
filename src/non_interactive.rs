@@ -1,12 +1,12 @@
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 use std::str;
 
 use anyhow::Context;
 use bytes::BytesMut;
 use is_terminal::IsTerminal;
-use terminal_size::{terminal_size, Width};
+use terminal_size::{Width, terminal_size};
 use tokio::fs::File as AsyncFile;
-use tokio::io::{stdin, AsyncRead};
+use tokio::io::{AsyncRead, stdin};
 
 use edgeql_parser::preparser;
 use gel_protocol::client_message::Cardinality;
@@ -25,7 +25,7 @@ use crate::options::Query;
 use crate::outputs::tab_separated;
 use crate::print::{self, PrintError};
 use crate::repl;
-use crate::statement::{read_statement, EndOfFile};
+use crate::statement::{EndOfFile, read_statement};
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn noninteractive_main(q: &Query, options: &Options) -> Result<(), anyhow::Error> {
@@ -235,7 +235,7 @@ async fn _run_query(
                         return Err(anyhow::anyhow!(
                             "the server returned \
                          a non-string value in JSON mode"
-                        ))
+                        ));
                     }
                 };
                 let value: serde_json::Value =
@@ -254,7 +254,7 @@ async fn _run_query(
                         return Err(anyhow::anyhow!(
                             "the server returned \
                          a non-string value in JSON mode"
-                        ))
+                        ));
                     }
                 };
                 // trying to make writes atomic if possible
@@ -270,7 +270,7 @@ async fn _run_query(
                         return Err(anyhow::anyhow!(
                             "the server returned \
                          a non-string value in JSON mode"
-                        ))
+                        ));
                     }
                 };
                 let items: serde_json::Value =

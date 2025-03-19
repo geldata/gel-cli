@@ -8,21 +8,21 @@ use const_format::concatcp;
 use gel_dsn::gel::UnixPath;
 use gel_errors::ClientNoCredentialsError;
 use gel_protocol::model;
-use gel_tokio::credentials::TlsSecurity;
 use gel_tokio::Builder;
+use gel_tokio::credentials::TlsSecurity;
 use is_terminal::IsTerminal;
 use log::warn;
 use tokio::task::spawn_blocking as unblock;
 
 use edgedb_cli_derive::IntoArgs;
 
-use crate::docker::{has_docker_blocking, try_docker, try_docker_fallback, DockerMode};
+use crate::docker::{DockerMode, has_docker_blocking, try_docker, try_docker_fallback};
 use crate::{cli, msg, watch};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, MANIFEST_FILE_DISPLAY_NAME};
 use crate::cloud::options::CloudCommand;
-use crate::commands::parser::Common;
 use crate::commands::ExitCode;
+use crate::commands::parser::Common;
 use crate::connect::Connector;
 use crate::hint::HintExt;
 use crate::markdown;
@@ -30,7 +30,7 @@ use crate::portable;
 use crate::portable::local::runstate_dir;
 use crate::portable::options::InstanceName;
 use crate::portable::project;
-use crate::print::{self, err_marker, AsRelativeToCurrentDir, Highlight};
+use crate::print::{self, AsRelativeToCurrentDir, Highlight, err_marker};
 use crate::repl::{InputLanguage, OutputFormat};
 use crate::tty_password;
 
@@ -337,7 +337,10 @@ impl InstanceOptions {
                 "{} Instance name argument is required, use '-I name'.",
                 err_marker()
             );
-            msg!("{} `docker-compose.yaml` found. Use `{BRANDING_CLI_CMD} instance link --docker` to link it.", err_marker());
+            msg!(
+                "{} `docker-compose.yaml` found. Use `{BRANDING_CLI_CMD} instance link --docker` to link it.",
+                err_marker()
+            );
             return Err(ExitCode::new(2).into());
         }
 

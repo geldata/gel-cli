@@ -1,5 +1,5 @@
 use std::io::IsTerminal;
-use std::io::{stdout, Write};
+use std::io::{Write, stdout};
 
 use crate::print;
 use anes::*;

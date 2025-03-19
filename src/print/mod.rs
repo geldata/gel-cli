@@ -23,7 +23,7 @@ use std::sync::OnceLock;
 use const_format::concatcp;
 use is_terminal::IsTerminal;
 use snafu::{AsErrorSource, ResultExt, Snafu};
-use terminal_size::{terminal_size, Width};
+use terminal_size::{Width, terminal_size};
 use tokio_stream::{Stream, StreamExt};
 
 use gel_errors::display::display_error;

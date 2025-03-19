@@ -24,7 +24,7 @@ use crate::branding::{BRANDING, REPL_QUERY_TAG};
 use crate::connect::Connection;
 use crate::connect::Connector;
 use crate::portable::ver;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::prompt::variable::VariableInput;
 use crate::prompt::{self, Control};
 
@@ -162,7 +162,9 @@ impl State {
                 conn.set_state(cur_state);
                 self.read_state();
             } else {
-                eprintln!("Discarding session configuration because server configuration layout has changed.");
+                eprintln!(
+                    "Discarding session configuration because server configuration layout has changed."
+                );
             }
         }
         Ok(())

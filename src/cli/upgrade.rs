@@ -9,9 +9,9 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::platform::{binary_path, current_exe, home_dir, tmp_file_path};
 use crate::portable::platform;
-use crate::portable::repository::{self, download, Channel};
+use crate::portable::repository::{self, Channel, download};
 use crate::portable::ver;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::process;
 
 const INDEX_TIMEOUT: Duration = Duration::new(60, 0);

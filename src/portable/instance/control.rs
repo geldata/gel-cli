@@ -13,7 +13,7 @@ use crate::credentials;
 use crate::hint::HintExt;
 use crate::options::{InstanceOptions, InstanceOptionsLegacy};
 use crate::platform::current_exe;
-use crate::portable::local::{lock_file, open_lock, runstate_dir, InstanceInfo};
+use crate::portable::local::{InstanceInfo, lock_file, open_lock, runstate_dir};
 use crate::portable::options::InstanceName;
 use crate::portable::ver;
 use crate::portable::{linux, macos, windows};
@@ -276,7 +276,7 @@ fn run_server_by_cli(_meta: &InstanceInfo) -> anyhow::Result<()> {
 
 #[cfg(unix)]
 fn set_inheritable(file: &impl std::os::unix::io::AsRawFd) -> anyhow::Result<()> {
-    use nix::fcntl::{fcntl, FcntlArg, FdFlag};
+    use nix::fcntl::{FcntlArg, FdFlag, fcntl};
 
     let flags = fcntl(file.as_raw_fd(), FcntlArg::F_GETFD).context("get FD flags")?;
     let flags = FdFlag::from_bits(flags).context("bad FD flags")?;
@@ -577,7 +577,7 @@ pub fn do_restart(inst: &InstanceInfo) -> anyhow::Result<()> {
                 // wait for unlock
                 let _ = lock.read()?;
             } // nothing to do
-              // todo(tailhook) optimize supervisor detection
+            // todo(tailhook) optimize supervisor detection
             if supervisor {
                 supervisor_start(inst)
             } else {
