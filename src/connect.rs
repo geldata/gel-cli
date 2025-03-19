@@ -81,7 +81,7 @@ fn update_state<T>(state: &mut State, resp: &raw::Response<T>) -> Result<(), Err
     Ok(())
 }
 
-impl<'a, T: QueryResult> ResponseStream<'a, T>
+impl<T: QueryResult> ResponseStream<'_, T>
 where
     T::State: Unpin,
 {
@@ -104,7 +104,7 @@ where
     }
 }
 
-impl<'a, T: QueryResult> Stream for ResponseStream<'a, T>
+impl<T: QueryResult> Stream for ResponseStream<'_, T>
 where
     T::State: Unpin,
 {

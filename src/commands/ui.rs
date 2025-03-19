@@ -251,7 +251,7 @@ mod jwt {
                 &ctx,
             )?;
 
-            return Ok(format!("edbt_{token}"));
+            Ok(format!("edbt_{token}"))
         }
     }
 }

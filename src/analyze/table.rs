@@ -374,7 +374,7 @@ impl Printer for HeightPrinter {
         self.column += space_width + item_width;
         // min_width is not enough, hard wrap things
         if self.column > self.width {
-            self.height += (self.column + self.width - 1) / self.width - 1;
+            self.height += self.column.div_ceil(self.width) - 1;
             self.column = self.width; // wrap on next word
         }
         Ok(())

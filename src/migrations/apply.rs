@@ -235,7 +235,7 @@ impl AsOperations for IndexMap<String, MigrationFile> {
     }
 }
 
-impl<'a> AsOperations for Vec<Operation<'a>> {
+impl AsOperations for Vec<Operation<'_>> {
     fn as_operations(&self) -> OperationIter<'_> {
         Box::new(self.iter().cloned())
     }

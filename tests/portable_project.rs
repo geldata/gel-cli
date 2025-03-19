@@ -380,7 +380,7 @@ struct ContainsHooks<'a> {
     expected: &'a [&'static str],
 }
 
-impl<'a> predicates::Predicate<str> for ContainsHooks<'a> {
+impl predicates::Predicate<str> for ContainsHooks<'_> {
     fn eval(&self, variable: &str) -> bool {
         let re = regex::RegexBuilder::new(r"^hook ([a-z.]+):")
             .multi_line(true)
@@ -395,7 +395,7 @@ impl<'a> predicates::Predicate<str> for ContainsHooks<'a> {
     }
 }
 
-impl<'a> predicates::reflection::PredicateReflection for ContainsHooks<'a> {
+impl predicates::reflection::PredicateReflection for ContainsHooks<'_> {
     fn parameters<'b>(
         &'b self,
     ) -> Box<dyn Iterator<Item = predicates::reflection::Parameter<'b>> + 'b> {
@@ -407,7 +407,7 @@ impl<'a> predicates::reflection::PredicateReflection for ContainsHooks<'a> {
     }
 }
 
-impl<'a> std::fmt::Display for ContainsHooks<'a> {
+impl std::fmt::Display for ContainsHooks<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Debug::fmt(&self, f)
     }

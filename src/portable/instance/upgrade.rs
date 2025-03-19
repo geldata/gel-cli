@@ -145,7 +145,7 @@ pub fn print_project_upgrade_command(
             Channel::Nightly => "--to-nightly".into(),
             Channel::Testing => "--to-testing".into(),
         },
-        if current_project.as_ref().map_or(false, |p| p == project_dir) {
+        if current_project.as_ref().is_some_and(|p| p == project_dir) {
             "".into()
         } else {
             format!(" --project-dir '{}'", project_dir.display())

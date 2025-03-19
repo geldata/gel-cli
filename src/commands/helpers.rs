@@ -13,6 +13,6 @@ pub fn quote_namespaced(name: &str) -> Cow<'_, str> {
         }
         buf.into()
     } else {
-        return quote_name(name);
+        quote_name(name)
     }
 }

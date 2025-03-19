@@ -120,7 +120,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
         windows::create_instance(cmd, &name, port, &paths)?;
         InstanceInfo {
             name: name.clone(),
-            instance_name: inst_name.into(),
+            instance_name: inst_name,
             installation: None,
             port,
         }
@@ -139,7 +139,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
         let specific_version = &inst.version.specific();
         let info = InstanceInfo {
             name: name.clone(),
-            instance_name: inst_name.into(),
+            instance_name: inst_name,
             installation: Some(inst),
             port,
         };

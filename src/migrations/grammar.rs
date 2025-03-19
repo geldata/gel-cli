@@ -71,13 +71,13 @@ impl<'a> StreamOnce for TokenStream<'a> {
     }
 }
 
-impl<'a> Positioned for TokenStream<'a> {
+impl Positioned for TokenStream<'_> {
     fn position(&self) -> Self::Position {
         self.0.current_pos()
     }
 }
 
-impl<'a> ResetStream for TokenStream<'a> {
+impl ResetStream for TokenStream<'_> {
     type Checkpoint = Checkpoint;
     fn checkpoint(&self) -> Self::Checkpoint {
         self.0.checkpoint()
