@@ -12,8 +12,9 @@ use crate::branding::{BRANDING_CLOUD, QUERY_TAG};
 use crate::commands::ExitCode;
 use crate::connect::Connection;
 use crate::credentials;
+use crate::options::InstanceOptionsLegacy;
 use crate::portable::local::InstanceInfo;
-use crate::portable::options::{instance_arg, InstanceName};
+use crate::portable::options::InstanceName;
 use crate::print;
 use crate::tty_password;
 
@@ -32,13 +33,8 @@ pub fn generate_password() -> String {
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
 pub struct Command {
-    /// Name of instance to reset.
-    #[arg(hide = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    pub name: Option<InstanceName>,
-
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptionsLegacy,
 
     /// User to change password for (default obtained from credentials file).
     #[arg(long)]
@@ -62,7 +58,7 @@ pub struct Command {
 }
 
 pub fn run(options: &Command) -> anyhow::Result<()> {
-    let name = match instance_arg(&options.name, &options.instance)? {
+    let name = match options.instance_opts.instance()? {
         InstanceName::Local(name) => {
             if cfg!(windows) {
                 return crate::portable::windows::reset_password(options, &name);

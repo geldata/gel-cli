@@ -13,8 +13,7 @@ pub mod upgrade;
 
 #[cfg(doc)]
 use crate::branding::BRANDING;
-use crate::options::Options;
-use crate::portable::options::InstanceName;
+use crate::options::{InstanceOptions, Options};
 use crate::portable::windows;
 
 pub fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> {
@@ -53,11 +52,8 @@ pub struct Command {
     #[command(subcommand)]
     pub subcommand: Subcommands,
 
-    /// Name of the instance
-    #[arg(short = 'I', long)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    #[arg(global = true)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 }
 
 #[derive(clap::Subcommand, Clone, Debug)]

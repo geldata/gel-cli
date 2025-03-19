@@ -12,12 +12,12 @@ use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
 use crate::cloud;
 use crate::commands::{self, ExitCode};
 use crate::connect::{Connection, Connector};
-use crate::options::CloudOptions;
+use crate::options::{CloudOptions, InstanceOptionsLegacy};
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::local::{write_json, InstallInfo, InstanceInfo, Paths};
-use crate::portable::options::{instance_arg, InstanceName};
+use crate::portable::options::InstanceName;
 use crate::portable::project;
 use crate::portable::repository::{self, Channel, PackageInfo, Query, QueryOptions};
 use crate::portable::server::install;
@@ -27,7 +27,7 @@ use crate::print::{self, msg, Highlight};
 use crate::question;
 
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
-    match instance_arg(&cmd.name, &cmd.instance)? {
+    match cmd.instance_opts.instance()? {
         InstanceName::Local(name) => upgrade_local_cmd(cmd, &name),
         InstanceName::Cloud {
             org_slug: org,
@@ -76,13 +76,8 @@ pub struct Command {
     ])]
     pub to_channel: Option<Channel>,
 
-    /// Instance to upgrade.
-    #[arg(hide = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    pub name: Option<InstanceName>,
-
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptionsLegacy,
 
     /// Verbose output.
     #[arg(short = 'v', long)]

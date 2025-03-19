@@ -11,9 +11,10 @@ use crate::bug;
 use crate::commands::ExitCode;
 use crate::credentials;
 use crate::hint::HintExt;
+use crate::options::{InstanceOptions, InstanceOptionsLegacy};
 use crate::platform::current_exe;
 use crate::portable::local::{lock_file, open_lock, runstate_dir, InstanceInfo};
-use crate::portable::options::{instance_arg, InstanceName};
+use crate::portable::options::InstanceName;
 use crate::portable::ver;
 use crate::portable::{linux, macos, windows};
 use crate::print;
@@ -21,13 +22,8 @@ use crate::process;
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
 pub struct Start {
-    /// Name of instance to start.
-    #[arg(hide = true)]
-    #[arg(value_hint=clap::ValueHint::Other)]
-    pub name: Option<InstanceName>,
-
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptionsLegacy,
 
     /// Start server in the foreground.
     #[arg(long)]
@@ -64,8 +60,8 @@ pub struct Stop {
     #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
     pub name: Option<InstanceName>,
 
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 }
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
@@ -75,19 +71,14 @@ pub struct Restart {
     #[arg(value_hint=clap::ValueHint::Other)]
     pub name: Option<InstanceName>,
 
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 }
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
 pub struct Logs {
-    /// Name of the instance
-    #[arg(hide = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    pub name: Option<InstanceName>,
-
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptionsLegacy,
 
     /// Number of lines to show.
     #[arg(short = 'n', long)]
@@ -301,8 +292,7 @@ pub fn start(options: &Start) -> anyhow::Result<()> {
     // Special case: instance name is allowed to be positional for start, because start
     // is used in systemd services and cannot be changed.
     // Maybe we should make "fixup" that updates those services?
-    let name = options.instance.clone().or_else(|| options.name.clone());
-    let name = match instance_arg(&None, &name)? {
+    let name = match options.instance_opts.instance_allow_legacy()? {
         InstanceName::Local(name) => {
             if cfg!(windows) {
                 return windows::start(options, &name);
@@ -488,7 +478,7 @@ pub fn do_stop(name: &str) -> anyhow::Result<()> {
 }
 
 pub fn stop(options: &Stop) -> anyhow::Result<()> {
-    let name = match instance_arg(&options.name, &options.instance)? {
+    let name = match options.instance_opts.instance()? {
         InstanceName::Local(name) => {
             if cfg!(windows) {
                 return windows::stop(options, &name);
@@ -598,7 +588,7 @@ pub fn do_restart(inst: &InstanceInfo) -> anyhow::Result<()> {
 }
 
 pub fn restart(cmd: &Restart, options: &crate::Options) -> anyhow::Result<()> {
-    match instance_arg(&cmd.name, &cmd.instance)? {
+    match cmd.instance_opts.instance()? {
         InstanceName::Local(name) => {
             let meta = InstanceInfo::read(&name)?;
             do_restart(&meta)

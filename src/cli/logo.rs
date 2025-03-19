@@ -124,6 +124,7 @@ pub fn print_logo(allow_animation: bool, small: bool) {
                 normal(char);
                 write_ansi!(char);
             }
+            write_ansi!(ResetAttributes);
             write_ansi!("\n");
         }
     } else {

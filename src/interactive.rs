@@ -95,6 +95,7 @@ impl<'a> Iterator for ToDo<'a> {
 }
 
 pub fn main(options: Options, cfg: Config) -> Result<(), anyhow::Error> {
+    print_logo(false, true);
     let (control_wr, control_rd) = channel(1);
     let conn = options.block_on_create_connector()?;
     let limit = cfg.shell.limit.unwrap_or(100);
@@ -147,7 +148,6 @@ pub fn main(options: Options, cfg: Config) -> Result<(), anyhow::Error> {
         edgeql_state: State::empty(),
         current_branch: None,
     };
-    print_logo(false, true);
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;

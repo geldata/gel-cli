@@ -78,7 +78,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
     let mut has_branch: bool = false;
 
-    let mut builder = options::prepare_conn_params(opts)?;
+    let mut builder = options::prepare_conn_params(opts).await?;
     // If the user doesn't specify a TLS CA, we need to accept all certs
     if cmd.conn.tls_ca_file.is_none() {
         builder = builder.tls_security(TlsSecurity::Insecure);
@@ -91,17 +91,18 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     let non_interactive = cmd.non_interactive;
     let trust_tls_cert = cmd.trust_tls_cert;
     let quiet = cmd.quiet;
-    let mut connect_result = if cmd.conn.tls_ca_file.is_none() {
-        gel_tokio::raw::Connection::connect_with_cert_check(
-            &config,
-            CertCheck::new_fn(move |cert| {
-                ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
-            }),
-        )
-        .await
-    } else {
-        gel_tokio::raw::Connection::connect(&config).await
-    };
+    let mut connect_result =
+        if config.tls_ca.is_none() && config.tls_security != TlsSecurity::Insecure {
+            gel_tokio::raw::Connection::connect_with_cert_check(
+                &config,
+                CertCheck::new_fn(move |cert| {
+                    ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
+                }),
+            )
+            .await
+        } else {
+            gel_tokio::raw::Connection::connect(&config).await
+        };
 
     let new_cert = if let Some(cert) = cert_holder.lock().unwrap().take() {
         let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert));

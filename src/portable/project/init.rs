@@ -363,6 +363,7 @@ fn do_init(
         )?;
         create::create_service(&InstanceInfo {
             name: name.into(),
+            instance_name: inst_name.clone(),
             installation: None,
             port,
         })?;
@@ -372,6 +373,7 @@ fn do_init(
         let version = inst.version.specific();
         let info = InstanceInfo {
             name: name.into(),
+            instance_name: inst_name.clone(),
             installation: Some(inst),
             port,
         };
@@ -390,8 +392,7 @@ fn do_init(
                              Trying to start database in the background..."
                 );
                 control::start(&control::Start {
-                    name: None,
-                    instance: Some(inst_name.clone()),
+                    instance_opts: inst_name.into(),
                     foreground: false,
                     auto_restart: false,
                     managed_by: None,

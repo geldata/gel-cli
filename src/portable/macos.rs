@@ -12,7 +12,7 @@ use crate::platform::{data_dir, get_current_uid, home_dir};
 use crate::portable::instance::control;
 use crate::portable::instance::status::Service;
 use crate::portable::local::{log_file, runstate_dir, InstanceInfo};
-use crate::portable::options::{instance_arg, InstanceName};
+use crate::portable::options::InstanceName;
 use crate::print::{self, msg, Highlight};
 use crate::process;
 
@@ -469,7 +469,7 @@ pub fn external_status(inst: &InstanceInfo) -> anyhow::Result<()> {
 }
 
 pub fn logs(options: &control::Logs) -> anyhow::Result<()> {
-    let name = match instance_arg(&options.name, &options.instance)? {
+    let name = match options.instance_opts.instance()? {
         InstanceName::Local(name) => name,
         InstanceName::Cloud { .. } => todo!(),
     };

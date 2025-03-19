@@ -1,0 +1,273 @@
+[
+  {
+    "Id": "36ebc10c8d0de180d9b1477737f4142a956d22f0fa8fdb75cf1de685ab52e49f",
+    "Created": "2025-03-13T22:20:56.673593041Z",
+    "Path": "docker-entrypoint.sh",
+    "Args": [
+      "server"
+    ],
+    "State": {
+      "Status": "running",
+      "Running": true,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 3365523,
+      "ExitCode": 0,
+      "Error": "",
+      "StartedAt": "2025-03-13T22:20:56.766678247Z",
+      "FinishedAt": "0001-01-01T00:00:00Z"
+    },
+    "Image": "sha256:a075f843abf7a4a88cc22b132bcc1bba524d76a328a2d0a28d34b2b311003937",
+    "ResolvConfPath": "/var/lib/docker/containers/36ebc10c8d0de180d9b1477737f4142a956d22f0fa8fdb75cf1de685ab52e49f/resolv.conf",
+    "HostnamePath": "/var/lib/docker/containers/36ebc10c8d0de180d9b1477737f4142a956d22f0fa8fdb75cf1de685ab52e49f/hostname",
+    "HostsPath": "/var/lib/docker/containers/36ebc10c8d0de180d9b1477737f4142a956d22f0fa8fdb75cf1de685ab52e49f/hosts",
+    "LogPath": "/var/lib/docker/containers/36ebc10c8d0de180d9b1477737f4142a956d22f0fa8fdb75cf1de685ab52e49f/36ebc10c8d0de180d9b1477737f4142a956d22f0fa8fdb75cf1de685ab52e49f-json.log",
+    "Name": "/edgedb-cli-gel-1",
+    "RestartCount": 0,
+    "Driver": "overlay2",
+    "Platform": "linux",
+    "MountLabel": "",
+    "ProcessLabel": "",
+    "AppArmorProfile": "docker-default",
+    "ExecIDs": [
+      "2e04ac120e83307caf40dddc371f8aac3000bc162ae12235c75d4386a75ca01e"
+    ],
+    "HostConfig": {
+      "Binds": [
+        "/devel/github/edgedb-cli/dbschema:/dbschema:rw"
+      ],
+      "ContainerIDFile": "",
+      "LogConfig": {
+        "Type": "json-file",
+        "Config": {}
+      },
+      "NetworkMode": "edgedb-cli_default",
+      "PortBindings": {
+        "5656/tcp": [
+          {
+            "HostIp": "",
+            "HostPort": "5656"
+          }
+        ]
+      },
+      "RestartPolicy": {
+        "Name": "no",
+        "MaximumRetryCount": 0
+      },
+      "AutoRemove": false,
+      "VolumeDriver": "",
+      "VolumesFrom": null,
+      "ConsoleSize": [
+        0,
+        0
+      ],
+      "CapAdd": null,
+      "CapDrop": null,
+      "CgroupnsMode": "private",
+      "Dns": null,
+      "DnsOptions": null,
+      "DnsSearch": null,
+      "ExtraHosts": [],
+      "GroupAdd": null,
+      "IpcMode": "private",
+      "Cgroup": "",
+      "Links": null,
+      "OomScoreAdj": 0,
+      "PidMode": "",
+      "Privileged": false,
+      "PublishAllPorts": false,
+      "ReadonlyRootfs": false,
+      "SecurityOpt": null,
+      "UTSMode": "",
+      "UsernsMode": "",
+      "ShmSize": 67108864,
+      "Runtime": "runc",
+      "Isolation": "",
+      "CpuShares": 0,
+      "Memory": 0,
+      "NanoCpus": 0,
+      "CgroupParent": "",
+      "BlkioWeight": 0,
+      "BlkioWeightDevice": null,
+      "BlkioDeviceReadBps": null,
+      "BlkioDeviceWriteBps": null,
+      "BlkioDeviceReadIOps": null,
+      "BlkioDeviceWriteIOps": null,
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpuRealtimePeriod": 0,
+      "CpuRealtimeRuntime": 0,
+      "CpusetCpus": "",
+      "CpusetMems": "",
+      "Devices": null,
+      "DeviceCgroupRules": null,
+      "DeviceRequests": null,
+      "MemoryReservation": 0,
+      "MemorySwap": 0,
+      "MemorySwappiness": null,
+      "OomKillDisable": null,
+      "PidsLimit": null,
+      "Ulimits": null,
+      "CpuCount": 0,
+      "CpuPercent": 0,
+      "IOMaximumIOps": 0,
+      "IOMaximumBandwidth": 0,
+      "MaskedPaths": [
+        "/proc/asound",
+        "/proc/acpi",
+        "/proc/kcore",
+        "/proc/keys",
+        "/proc/latency_stats",
+        "/proc/timer_list",
+        "/proc/timer_stats",
+        "/proc/sched_debug",
+        "/proc/scsi",
+        "/sys/firmware",
+        "/sys/devices/virtual/powercap"
+      ],
+      "ReadonlyPaths": [
+        "/proc/bus",
+        "/proc/fs",
+        "/proc/irq",
+        "/proc/sys",
+        "/proc/sysrq-trigger"
+      ]
+    },
+    "GraphDriver": {
+      "Data": {
+        "ID": "36ebc10c8d0de180d9b1477737f4142a956d22f0fa8fdb75cf1de685ab52e49f",
+        "LowerDir": "/var/lib/docker/overlay2/2a502ca9b220f2e24de35b42032594b56ddaf615e3f49829490f9550859a0090-init/diff:/var/lib/docker/overlay2/058bbdde46bc79e3c749a82f28d0885a0ab76d65c9482f06d8768753423ad864/diff:/var/lib/docker/overlay2/039a4deb9c43ac5e40d0eed9c025b8a34990b688f9998d320776cec779366842/diff:/var/lib/docker/overlay2/d80807a181314ae65fd4fd74b1a5f2e4e3d637963828f9c8ab09b5850feeb404/diff:/var/lib/docker/overlay2/9194214e20d5eb034a1374c8d11b68fe227c64903ea76248ef0868dd3fe259df/diff",
+        "MergedDir": "/var/lib/docker/overlay2/2a502ca9b220f2e24de35b42032594b56ddaf615e3f49829490f9550859a0090/merged",
+        "UpperDir": "/var/lib/docker/overlay2/2a502ca9b220f2e24de35b42032594b56ddaf615e3f49829490f9550859a0090/diff",
+        "WorkDir": "/var/lib/docker/overlay2/2a502ca9b220f2e24de35b42032594b56ddaf615e3f49829490f9550859a0090/work"
+      },
+      "Name": "overlay2"
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Source": "/devel/github/edgedb-cli/dbschema",
+        "Destination": "/dbschema",
+        "Mode": "rw",
+        "RW": true,
+        "Propagation": "rprivate"
+      },
+      {
+        "Type": "volume",
+        "Name": "d8375eb947bb0b6db11e5bc09240e5975e822c3154e82680d968f4124d42f2ba",
+        "Source": "/var/lib/docker/volumes/d8375eb947bb0b6db11e5bc09240e5975e822c3154e82680d968f4124d42f2ba/_data",
+        "Destination": "/var/lib/gel/data",
+        "Driver": "local",
+        "Mode": "",
+        "RW": true,
+        "Propagation": ""
+      }
+    ],
+    "Config": {
+      "Hostname": "36ebc10c8d0d",
+      "Domainname": "",
+      "User": "",
+      "AttachStdin": false,
+      "AttachStdout": true,
+      "AttachStderr": true,
+      "ExposedPorts": {
+        "5656/tcp": {}
+      },
+      "Tty": false,
+      "OpenStdin": false,
+      "StdinOnce": false,
+      "Env": [
+        "GEL_SERVER_ADMIN_UI=enabled",
+        "GEL_SERVER_SECURITY=insecure_dev_mode",
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "GOSU_VERSION=1.11",
+        "DEFAULT_OS_USER=gel",
+        "DEFAULT_SERVER_BINARY=gel-server-6",
+        "VERSION=6",
+        "LANG=en_US.utf8"
+      ],
+      "Cmd": [
+        "server"
+      ],
+      "Image": "geldata/gel",
+      "Volumes": {
+        "/var/lib/gel/data": {}
+      },
+      "WorkingDir": "",
+      "Entrypoint": [
+        "docker-entrypoint.sh"
+      ],
+      "OnBuild": null,
+      "Labels": {
+        "com.docker.compose.config-hash": "c1fdda4bfddb5e13fdda99709d2200de583ded545b311ba0b10b0f19c551bf4c",
+        "com.docker.compose.container-number": "1",
+        "com.docker.compose.depends_on": "",
+        "com.docker.compose.image": "sha256:a075f843abf7a4a88cc22b132bcc1bba524d76a328a2d0a28d34b2b311003937",
+        "com.docker.compose.oneoff": "False",
+        "com.docker.compose.project": "edgedb-cli",
+        "com.docker.compose.project.config_files": "/devel/github/edgedb-cli/docker-compose.yaml",
+        "com.docker.compose.project.working_dir": "/devel/github/edgedb-cli",
+        "com.docker.compose.service": "gel",
+        "com.docker.compose.version": "2.33.1"
+      }
+    },
+    "NetworkSettings": {
+      "Bridge": "",
+      "SandboxID": "ea1ecf9935ca6d8b71d5f499523c340b117c04f657925bf8a8963a6e16ca015f",
+      "SandboxKey": "/var/run/docker/netns/ea1ecf9935ca",
+      "Ports": {
+        "5656/tcp": [
+          {
+            "HostIp": "0.0.0.0",
+            "HostPort": "5656"
+          },
+          {
+            "HostIp": "::",
+            "HostPort": "5656"
+          }
+        ]
+      },
+      "HairpinMode": false,
+      "LinkLocalIPv6Address": "",
+      "LinkLocalIPv6PrefixLen": 0,
+      "SecondaryIPAddresses": null,
+      "SecondaryIPv6Addresses": null,
+      "EndpointID": "",
+      "Gateway": "",
+      "GlobalIPv6Address": "",
+      "GlobalIPv6PrefixLen": 0,
+      "IPAddress": "",
+      "IPPrefixLen": 0,
+      "IPv6Gateway": "",
+      "MacAddress": "",
+      "Networks": {
+        "edgedb-cli_default": {
+          "IPAMConfig": null,
+          "Links": null,
+          "Aliases": [
+            "edgedb-cli-gel-1",
+            "gel"
+          ],
+          "MacAddress": "0e:ce:56:a1:77:f1",
+          "DriverOpts": null,
+          "GwPriority": 0,
+          "NetworkID": "3cffea3317bf57bac32e6783bf63567613471baf587a9f98dfe6f4b050de8326",
+          "EndpointID": "bcd9f47cabc3c551fda54092eed88100ac7e1bbf4182fa0ae46af6d886dba73a",
+          "Gateway": "172.18.0.1",
+          "IPAddress": "172.18.0.2",
+          "IPPrefixLen": 16,
+          "IPv6Gateway": "",
+          "GlobalIPv6Address": "",
+          "GlobalIPv6PrefixLen": 0,
+          "DNSNames": [
+            "edgedb-cli-gel-1",
+            "gel",
+            "36ebc10c8d0d"
+          ]
+        }
+      }
+    }
+  }
+]

@@ -2,8 +2,7 @@ use std::path::PathBuf;
 
 use crate::branding::BRANDING_CLI_CMD;
 use crate::migrations::options::Migration;
-use crate::options::ConnectionOptions;
-use crate::portable::options::InstanceName;
+use crate::options::{ConnectionOptions, InstanceOptions};
 use crate::repl::{self, VectorLimit};
 use crate::{branch, migrations};
 
@@ -303,8 +302,8 @@ pub struct WipeDatabase {
     #[arg(long)]
     pub non_interactive: bool,
 
-    #[arg(from_global)]
-    pub instance: Option<InstanceName>,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 }
 
 #[derive(clap::Args, Clone, Debug)]

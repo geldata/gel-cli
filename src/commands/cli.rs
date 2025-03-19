@@ -74,7 +74,7 @@ pub fn main(options: &Options) -> Result<(), anyhow::Error> {
         Command::Cloud(c) => cloud_main(c, &options.cloud_options),
         Command::Watch(c) => watch::run(options, c),
         Command::HashPassword(cmd) => {
-            println!("{}", portable::password_hash(&cmd.password));
+            println!("{}", portable::password_hash(&cmd.password_to_hash));
             Ok(())
         }
     }
@@ -88,7 +88,7 @@ fn init_command_opts(options: &Options) -> Result<commands::Options, anyhow::Err
         } else {
             None
         },
-        instance_name: options.conn_options.instance.clone(),
+        instance_name: options.conn_options.instance_opts.maybe_instance(),
         conn_params: options.block_on_create_connector()?,
     })
 }
