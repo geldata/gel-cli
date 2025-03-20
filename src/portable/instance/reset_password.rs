@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::Path;
 
-use gel_cli_derive::IntoArgs;
 use fn_error_context::context;
+use gel_cli_derive::IntoArgs;
 use rand::{Rng, SeedableRng};
 
 use edgeql_parser::helpers::{quote_name, quote_string};

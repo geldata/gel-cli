@@ -1,5 +1,5 @@
-use gel_cli_derive::IntoArgs;
 use fs_err as fs;
+use gel_cli_derive::IntoArgs;
 use std::collections::BTreeMap;
 
 use crate::commands::ExitCode;

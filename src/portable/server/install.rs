@@ -6,8 +6,8 @@ use std::sync::Mutex;
 use std::time::SystemTime;
 
 use anyhow::Context;
-use gel_cli_derive::IntoArgs;
 use fn_error_context::context;
+use gel_cli_derive::IntoArgs;
 use indicatif::{ProgressBar, ProgressStyle};
 use once_cell::sync::Lazy;
 
