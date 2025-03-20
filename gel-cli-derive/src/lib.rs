@@ -1,7 +1,7 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-use proc_macro_error::abort;
+use proc_macro_error2::abort;
 use quote::quote;
 use syn::parse_macro_input;
 
@@ -11,7 +11,7 @@ mod into_args;
 mod kw;
 mod types;
 
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro_derive(EdbSettings)]
 pub fn edgedb_edb_settings(input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as syn::Item);
@@ -64,7 +64,7 @@ fn derive_edb_settings(item: syn::Item) -> proc_macro2::TokenStream {
     }
 }
 
-#[proc_macro_error::proc_macro_error]
+#[proc_macro_error2::proc_macro_error]
 #[proc_macro_derive(IntoArgs, attributes(arg, command))]
 pub fn edgedb_into_args(input: TokenStream) -> TokenStream {
     let inp = parse_macro_input!(input as syn::Item);
