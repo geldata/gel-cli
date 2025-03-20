@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::Path;
 
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 use fn_error_context::context;
 use rand::{Rng, SeedableRng};
 

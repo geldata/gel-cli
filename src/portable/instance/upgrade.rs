@@ -5,7 +5,7 @@ use std::time::SystemTime;
 
 use anyhow::Context;
 use const_format::concatcp;
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 use fn_error_context::context;
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};

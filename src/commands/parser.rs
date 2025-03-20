@@ -8,7 +8,7 @@ use crate::{branch, migrations};
 
 use const_format::concatcp;
 
-use edgedb_cli_derive::EdbSettings;
+use gel_cli_derive::EdbSettings;
 
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum Common {

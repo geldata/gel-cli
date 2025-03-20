@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use anyhow::Context;
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 use log::{debug, trace};
 use prettytable::{Table, row};
 

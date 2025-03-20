@@ -1,4 +1,4 @@
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 use fs_err as fs;
 use std::collections::BTreeMap;
 

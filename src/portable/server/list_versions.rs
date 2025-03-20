@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 
 use crate::portable::local::{self, InstallInfo};
 use crate::portable::repository::{Channel, PackageInfo, get_server_packages};

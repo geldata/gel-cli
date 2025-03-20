@@ -3,7 +3,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 use fn_error_context::context;
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD};

@@ -1,5 +1,5 @@
 use anyhow::Context;
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 
 use crate::portable::local;
 use crate::portable::repository::{Channel, Query, QueryOptions};

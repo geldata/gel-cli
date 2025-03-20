@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use const_format::concatcp;
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 use fn_error_context::context;
 
 use color_print::cformat;
