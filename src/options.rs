@@ -14,7 +14,7 @@ use is_terminal::IsTerminal;
 use log::warn;
 use tokio::task::spawn_blocking as unblock;
 
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 
 use crate::docker::{DockerMode, has_docker_blocking, try_docker, try_docker_fallback};
 use crate::{cli, msg, watch};

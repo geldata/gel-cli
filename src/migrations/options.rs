@@ -9,7 +9,7 @@ use crate::options::ConnectionOptions;
 use crate::portable::repository::Channel;
 use crate::portable::ver;
 
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 
 #[derive(clap::Args, Clone, Debug)]
 #[command(version = "help_expand")]

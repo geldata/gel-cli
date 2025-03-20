@@ -10,8 +10,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
-use edgedb_cli_derive::IntoArgs;
 use fn_error_context::context;
+use gel_cli_derive::IntoArgs;
 use gel_dsn::gel::DEFAULT_PORT;
 use humantime::format_duration;
 use is_terminal::IsTerminal;

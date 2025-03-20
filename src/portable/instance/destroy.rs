@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use edgedb_cli_derive::IntoArgs;
 use fs_err as fs;
+use gel_cli_derive::IntoArgs;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::commands::ExitCode;

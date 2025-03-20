@@ -1,7 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use edgedb_cli_derive::IntoArgs;
+use gel_cli_derive::IntoArgs;
 use gel_tokio::CloudName;
 
 use crate::cloud::ops::CloudTier;

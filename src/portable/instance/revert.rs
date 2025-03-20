@@ -1,7 +1,7 @@
 use anyhow::Context;
 use const_format::concatcp;
-use edgedb_cli_derive::IntoArgs;
 use fs_err as fs;
+use gel_cli_derive::IntoArgs;
 
 use crate::branding::{BRANDING, BRANDING_CLOUD};
 use crate::commands::ExitCode;

@@ -1,7 +1,7 @@
 [workspace]
 members = [
     ".",
-    "edgedb-cli-derive",
+    "gel-cli-derive",
     "gel-cli-instance",
     "tests/shared-client-tests",
 ]
@@ -50,6 +50,7 @@ gel-dsn = { version = "0.2", features = ["unstable", "gel", "auto-log-trace", "a
 gel-jwt = { version = "0.1" }
 
 gel-cli-instance = { path = "./gel-cli-instance" }
+gel-cli-derive = { path = "./gel-cli-derive" }
 
 snafu = "0.8.4"
 ansi-escapes = "0.2"
@@ -111,7 +112,6 @@ regex = "1.4.5"
 toml = "0.8.19"
 termimad = {workspace=true}
 minimad = "0.13.1"
-edgedb-cli-derive = { path="edgedb-cli-derive" }
 fs-err = "3.1.0"
 pem = "3.0.3"
 tokio-stream = "0.1.11"
