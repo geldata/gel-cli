@@ -6,6 +6,7 @@ use crate::cloud::options;
 use crate::cloud::options::SecretKeyCommand;
 use crate::commands::ExitCode;
 use crate::options::CloudOptions;
+use gel_cli_instance::cloud::{CreateSecretKeyInput, SecretKey};
 
 use crate::portable::exit_codes;
 
@@ -13,30 +14,6 @@ use crate::table::{self, Cell, Row, Table};
 
 use crate::print::{self, Highlight, msg};
 use crate::question;
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct SecretKey {
-    pub id: String,
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub scopes: Vec<String>,
-
-    #[serde(with = "humantime_serde")]
-    pub created_on: std::time::SystemTime,
-
-    #[serde(with = "humantime_serde")]
-    pub expires_on: Option<std::time::SystemTime>,
-
-    pub secret_key: Option<String>,
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct CreateSecretKeyInput {
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub scopes: Option<Vec<String>>,
-    pub ttl: Option<String>,
-}
 
 pub fn main(cmd: &SecretKeyCommand, options: &CloudOptions) -> anyhow::Result<()> {
     use crate::cloud::options::SecretKeySubCommand::*;
@@ -57,7 +34,7 @@ pub async fn do_list(c: &options::ListSecretKeys, client: &CloudClient) -> anyho
 }
 
 pub async fn _do_list(c: &options::ListSecretKeys, client: &CloudClient) -> anyhow::Result<()> {
-    let keys: Vec<SecretKey> = client.get("secretkeys/").await?;
+    let keys: Vec<SecretKey> = client.api.list_secret_keys().await?;
 
     if c.json {
         println!("{}", serde_json::to_string_pretty(&keys)?);
@@ -129,7 +106,7 @@ pub async fn _do_create(c: &options::CreateSecretKey, client: &CloudClient) -> a
         Some(s) => Some(s),
     };
 
-    let key: SecretKey = create_secret_key(client, &params).await?;
+    let key: SecretKey = create_secret_key(client, params).await?;
 
     if c.json {
         println!("{}", serde_json::to_string_pretty(&key)?);
@@ -157,9 +134,9 @@ pub async fn _do_create(c: &options::CreateSecretKey, client: &CloudClient) -> a
 
 pub async fn create_secret_key(
     client: &CloudClient,
-    params: &CreateSecretKeyInput,
+    params: CreateSecretKeyInput,
 ) -> anyhow::Result<SecretKey> {
-    client.post("secretkeys/", params).await
+    Ok(client.api.create_secret_key(params).await?)
 }
 
 pub fn revoke(c: &options::RevokeSecretKey, options: &CloudOptions) -> anyhow::Result<()> {
@@ -183,9 +160,7 @@ pub async fn _do_revoke(c: &options::RevokeSecretKey, client: &CloudClient) -> a
         }
     }
 
-    let key: SecretKey = client
-        .delete(format!("secretkeys/{}", c.secret_key_id))
-        .await?;
+    let key: SecretKey = client.api.delete_secret_key(&c.secret_key_id).await?;
 
     if c.json {
         println!("{}", serde_json::to_string_pretty(&key)?);

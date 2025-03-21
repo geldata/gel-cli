@@ -2,9 +2,9 @@ use std::fmt;
 use std::str::FromStr;
 
 use gel_cli_derive::IntoArgs;
+use gel_cli_instance::cloud::CloudTier;
 use gel_tokio::CloudName;
 
-use crate::cloud::ops::CloudTier;
 use crate::process::{self, IntoArg};
 
 #[derive(Clone, Debug)]

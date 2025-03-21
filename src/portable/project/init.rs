@@ -5,6 +5,7 @@ use std::str::FromStr;
 use anyhow::Context;
 use clap::ValueHint;
 use const_format::concatcp;
+use gel_cli_instance::cloud::CloudInstanceCreate;
 use gel_tokio::PROJECT_FILES;
 use rand::{Rng, thread_rng};
 
@@ -439,9 +440,8 @@ fn do_cloud_init(
     options: &Command,
     client: &CloudClient,
 ) -> anyhow::Result<project::ProjectInfo> {
-    let request = crate::cloud::ops::CloudInstanceCreate {
+    let request = CloudInstanceCreate {
         name: name.clone(),
-        org: org.clone(),
         version: version.to_string(),
         region: None,
         tier: None,
@@ -449,7 +449,7 @@ fn do_cloud_init(
         source_instance_id: None,
         source_backup_id: None,
     };
-    crate::cloud::ops::create_cloud_instance(client, &request)?;
+    crate::cloud::ops::create_cloud_instance(client, &org, request)?;
     let full_name = format!("{org}/{name}");
 
     let handle = project::Handle {

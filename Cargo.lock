@@ -1518,7 +1518,6 @@ dependencies = [
  "assert_cmd",
  "async-fn-stream",
  "backtrace",
- "base64 0.22.1",
  "bigdecimal",
  "bitflags 2.9.0",
  "bitvec",
@@ -1649,7 +1648,9 @@ name = "gel-cli-instance"
 version = "7.2.0-dev"
 dependencies = [
  "bytes",
+ "clap",
  "derive_more",
+ "humantime-serde",
  "log",
  "rstest",
  "scopeguard",
@@ -1734,6 +1735,8 @@ dependencies = [
  "serde_json",
  "sha2",
  "thiserror 2.0.12",
+ "tracing",
+ "uuid",
  "zeroize",
 ]
 

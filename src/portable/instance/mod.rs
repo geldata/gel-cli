@@ -36,7 +36,7 @@ pub fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> {
         Restart(c) if cfg!(windows) => windows::restart(c),
         Restart(c) => control::restart(c, options),
         Logs(c) if cfg!(windows) => windows::logs(c),
-        Logs(c) => control::logs(c),
+        Logs(c) => control::logs(c, options),
         Revert(c) => revert::run(c),
         Unlink(c) => unlink::run(c),
         Status(c) if cfg!(windows) => windows::status(c),

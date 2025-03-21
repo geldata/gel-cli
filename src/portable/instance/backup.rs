@@ -111,11 +111,7 @@ fn backup_cloud_cmd(
         return Ok(());
     }
 
-    let request = cloud::backups::CloudInstanceBackup {
-        name: name.to_string(),
-        org: org_slug.to_string(),
-    };
-    cloud::backups::backup_cloud_instance(&client, &request)?;
+    cloud::backups::backup_cloud_instance(&client, org_slug, name)?;
 
     msg!("Successfully created a backup for {BRANDING_CLOUD} instance {inst_name}");
     Ok(())
@@ -195,14 +191,14 @@ fn restore_cloud_cmd(
         return Ok(());
     }
 
-    let request = cloud::backups::CloudInstanceRestore {
-        name: name.to_string(),
-        org: org_slug.to_string(),
-        backup_id: backup.backup_id.clone(),
-        latest: backup.latest,
-        source_instance_id: source_inst.map(|i| i.id),
-    };
-    cloud::backups::restore_cloud_instance(&client, &request)?;
+    cloud::backups::restore_cloud_instance(
+        &client,
+        org_slug,
+        name,
+        backup.latest,
+        backup.backup_id.clone(),
+        source_inst.map(|i| i.id),
+    )?;
 
     msg!("{BRANDING_CLOUD} instance {inst_name} has been restored successfully.");
     msg!("To connect to the instance run:");

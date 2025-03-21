@@ -1,52 +1,17 @@
+use gel_cli_instance::cloud::{Backup, CloudInstanceRestore, CloudOperation};
+
 use crate::table::{self, Cell, Row, Table};
 
-use crate::cloud::client::{CloudClient, ErrorResponse};
-use crate::cloud::ops::{CloudOperation, wait_for_operation};
-
-#[derive(Debug, serde::Deserialize, serde::Serialize)]
-pub struct Backup {
-    pub id: String,
-
-    #[serde(with = "humantime_serde")]
-    pub created_on: std::time::SystemTime,
-
-    pub status: String,
-    pub r#type: String,
-    pub edgedb_version: String,
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct CloudInstanceBackup {
-    pub name: String,
-    pub org: String,
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct CloudInstanceRestore {
-    pub name: String,
-    pub org: String,
-    pub backup_id: Option<String>,
-    pub latest: bool,
-    pub source_instance_id: Option<String>,
-}
+use crate::cloud::client::CloudClient;
+use crate::cloud::ops::wait_for_operation;
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn backup_cloud_instance(
     client: &CloudClient,
-    request: &CloudInstanceBackup,
+    org: &str,
+    name: &str,
 ) -> anyhow::Result<()> {
-    let url = format!("orgs/{}/instances/{}/backups", request.org, request.name);
-    let operation: CloudOperation = client.post(url, request).await.or_else(|e| match e
-        .downcast_ref::<ErrorResponse>(
-    ) {
-        Some(ErrorResponse {
-            code: reqwest::StatusCode::NOT_FOUND,
-            ..
-        }) => {
-            anyhow::bail!("specified instance could not be found",);
-        }
-        _ => Err(e),
-    })?;
+    let operation = client.api.create_backup(org, name).await?;
     wait_for_operation(operation, client).await?;
     Ok(())
 }
@@ -54,20 +19,24 @@ pub async fn backup_cloud_instance(
 #[tokio::main(flavor = "current_thread")]
 pub async fn restore_cloud_instance(
     client: &CloudClient,
-    request: &CloudInstanceRestore,
+    org_slug: &str,
+    name: &str,
+    latest: bool,
+    backup_id: Option<String>,
+    source_instance_id: Option<String>,
 ) -> anyhow::Result<()> {
-    let url = format!("orgs/{}/instances/{}/restore", request.org, request.name);
-    let operation: CloudOperation = client.post(url, request).await.or_else(|e| match e
-        .downcast_ref::<ErrorResponse>(
-    ) {
-        Some(ErrorResponse {
-            code: reqwest::StatusCode::NOT_FOUND,
-            ..
-        }) => {
-            anyhow::bail!("specified instance or backup could not be found",);
-        }
-        _ => Err(e),
-    })?;
+    let operation: CloudOperation = client
+        .api
+        .restore_instance(
+            org_slug,
+            name,
+            CloudInstanceRestore {
+                backup_id,
+                latest,
+                source_instance_id,
+            },
+        )
+        .await?;
     wait_for_operation(operation, client).await?;
     Ok(())
 }
@@ -79,8 +48,7 @@ pub async fn list_cloud_instance_backups(
     name: &str,
     json: bool,
 ) -> anyhow::Result<()> {
-    let url = format!("orgs/{org_slug}/instances/{name}/backups");
-    let backups: Vec<Backup> = client.get(url).await?;
+    let backups: Vec<Backup> = client.api.list_backups(org_slug, name).await?;
 
     if json {
         println!("{}", serde_json::to_string_pretty(&backups)?);

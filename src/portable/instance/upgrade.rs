@@ -7,6 +7,7 @@ use anyhow::Context;
 use const_format::concatcp;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
+use gel_cli_instance::cloud::CloudInstanceUpgrade;
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
 use crate::cloud;
@@ -314,14 +315,12 @@ pub fn upgrade_cloud(
             available_upgrade: None,
         })
     } else {
-        let request = cloud::ops::CloudInstanceUpgrade {
-            org: org.to_string(),
-            name: name.to_string(),
+        let request = CloudInstanceUpgrade {
             version: target_ver.to_string(),
             force,
         };
 
-        cloud::ops::upgrade_cloud_instance(client, &request)?;
+        cloud::ops::upgrade_cloud_instance(client, org, name, request)?;
 
         Ok(UpgradeResult {
             action: UpgradeAction::Upgraded,

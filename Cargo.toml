@@ -47,7 +47,7 @@ gel-errors = { version = "0.5" }
 gel-auth = { version = "0.1" }
 gel-tokio = { version = "0.10", features=["admin_socket", "unstable"] }
 gel-dsn = { version = "0.2", features = ["unstable", "gel", "auto-log-trace", "auto-log-warning"] }
-gel-jwt = { version = "0.1" }
+gel-jwt = { version = "0.1", features = ["gel"] }
 
 gel-cli-instance = { path = "./gel-cli-instance" }
 gel-cli-derive = { path = "./gel-cli-derive" }
@@ -70,7 +70,7 @@ terminal_size = "0.4"
 bigdecimal = "0.4"
 num-bigint = "0.4.3"
 humantime = "2.0.0"
-humantime-serde = "1.0.0"
+humantime-serde = "1"
 once_cell = "1.3.1"
 unicode-segmentation = "1.6.0"
 unicode-width = "0.1.10"
@@ -103,7 +103,6 @@ fn-error-context = "0.2"
 combine = "4.2.1"
 sha2 = "0.10.2"
 rand = "0.8.2"
-base64 = "0.22.1"
 shell-escape = "0.1.5"
 indicatif = "0.17.0"
 url = { version = "2.1.1", features=["serde"] }
