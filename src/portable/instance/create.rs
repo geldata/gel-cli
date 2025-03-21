@@ -1,4 +1,5 @@
 use std::fs;
+use std::num::NonZero;
 use std::str::FromStr;
 
 use anyhow::Context;
@@ -8,6 +9,7 @@ use gel_cli_derive::IntoArgs;
 
 use color_print::cformat;
 use gel_cli_instance::cloud::{CloudInstanceCreate, CloudInstanceResourceRequest, CloudTier};
+use gel_dsn::gel::{CredentialsFile, DEFAULT_PORT};
 use serde::{Deserialize, Serialize};
 
 use crate::branding::{
@@ -35,8 +37,6 @@ use crate::portable::{linux, macos, windows};
 use crate::print::{self, Highlight, err_marker, msg};
 use crate::process::{self, IntoArg};
 use crate::question;
-
-use gel_tokio::credentials::Credentials;
 
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     if optional_docker_check()? {
@@ -593,17 +593,20 @@ pub fn bootstrap(
     fs::rename(&tmp_data, &paths.data_dir)
         .with_context(|| format!("renaming {:?} -> {:?}", tmp_data, paths.data_dir))?;
 
-    let credentials = Credentials {
-        user: user.into(),
-        host: Some("localhost".to_string()),
-        port: Some(info.port),
-        database: Some(branch.to_string()),
-        branch: Some(branch.to_string()),
-        password: Some(password),
-        tls_ca: Some(cert),
-        tls_security: gel_dsn::gel::TlsSecurity::NoHostVerification,
-        ..Default::default()
-    };
+    let mut credentials = CredentialsFile::default();
+    credentials.user = Some(user.into());
+    credentials.host = Some("localhost".to_string());
+    credentials.port = Some(
+        info.port
+            .try_into()
+            .unwrap_or(NonZero::new(DEFAULT_PORT).unwrap()),
+    );
+    credentials.database = Some(branch.to_string());
+    credentials.branch = Some(branch.to_string());
+    credentials.password = Some(password);
+    credentials.tls_ca = Some(cert);
+    credentials.tls_security = gel_dsn::gel::TlsSecurity::NoHostVerification;
+
     credentials::write(&paths.credentials, &credentials)?;
     Ok(())
 }

@@ -3,6 +3,7 @@ use std::fmt::Display;
 use std::fs;
 use std::future::{Future, pending};
 use std::io;
+use std::num::NonZero;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 use std::str::FromStr;
@@ -12,7 +13,7 @@ use std::time::Duration;
 use anyhow::Context;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
-use gel_dsn::gel::DEFAULT_PORT;
+use gel_dsn::gel::{CredentialsFile, DEFAULT_BRANCH, DEFAULT_PORT, DEFAULT_USER};
 use humantime::format_duration;
 use std::io::IsTerminal;
 use tokio::join;
@@ -20,7 +21,7 @@ use tokio::time::sleep;
 
 use crate::connect::Connection;
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
-use gel_tokio::{Builder, credentials::Credentials};
+use gel_tokio::Builder;
 
 use crate::branding::{BRANDING_CLOUD, QUERY_TAG};
 use crate::cloud;
@@ -158,7 +159,7 @@ pub enum RemoteType {
 pub struct RemoteStatus {
     pub name: String,
     pub type_: RemoteType,
-    pub credentials: Credentials,
+    pub credentials: CredentialsFile,
     pub version: Option<String>,
     pub connection: Option<ConnectionStatus>,
     pub instance_status: Option<String>,
@@ -340,7 +341,7 @@ fn cloud_status(
     }
 }
 
-async fn try_get_version(creds: &Credentials) -> anyhow::Result<String> {
+async fn try_get_version(creds: &CredentialsFile) -> anyhow::Result<String> {
     let config = Builder::new()
         .params(creds.clone())
         .without_system()
@@ -353,7 +354,7 @@ async fn try_get_version(creds: &Credentials) -> anyhow::Result<String> {
     Ok(ver)
 }
 
-pub async fn try_connect(creds: &Credentials) -> (Option<String>, ConnectionStatus) {
+pub async fn try_connect(creds: &CredentialsFile) -> (Option<String>, ConnectionStatus) {
     use tokio::time::timeout;
     match timeout(Duration::from_secs(2), try_get_version(creds)).await {
         Ok(Ok(ver)) => (Some(ver), ConnectionStatus::Connected),
@@ -393,7 +394,7 @@ async fn _remote_status(name: &str, quiet: bool) -> anyhow::Result<RemoteStatus>
     let location = format!(
         "{}:{}",
         credentials.host.as_deref().unwrap_or("localhost"),
-        credentials.port.unwrap_or(DEFAULT_PORT)
+        credentials.port.map(NonZero::get).unwrap_or(DEFAULT_PORT)
     );
     Ok(RemoteStatus {
         name: name.into(),
@@ -935,13 +936,19 @@ impl RemoteStatus {
             "  Host: {}",
             creds.host.as_ref().map_or("localhost", |x| &x[..])
         );
-        println!("  Port: {}", creds.port.unwrap_or(DEFAULT_PORT));
+        println!(
+            "  Port: {}",
+            creds.port.map(NonZero::get).unwrap_or(DEFAULT_PORT)
+        );
         if !is_cloud {
-            println!("  User: {}", creds.user);
-            println!(
-                "  Database: {}",
-                creds.database.as_ref().map_or("edgedb", |x| &x[..])
-            );
+            println!("  User: {}", creds.user.as_deref().unwrap_or(DEFAULT_USER));
+            if let Some(db) = creds.database.as_ref() {
+                println!("  Database: {db}");
+            } else if let Some(branch) = creds.branch.as_ref() {
+                println!("  Branch: {branch}");
+            } else {
+                println!("  Branch: {}", DEFAULT_BRANCH.branch().unwrap_or_default());
+            }
         }
         if let Some(ConnectionStatus::Error(e)) = &self.connection {
             println!("  Connection error: {e:#}");
@@ -956,7 +963,7 @@ impl RemoteStatus {
     pub fn json(&self) -> JsonStatus {
         JsonStatus {
             name: self.name.clone(),
-            port: self.credentials.port,
+            port: self.credentials.port.map(NonZero::get),
             version: self.version.clone(),
             service_status: None,
             remote_status: self.connection.as_ref().map(|s| s.as_str().to_string()),

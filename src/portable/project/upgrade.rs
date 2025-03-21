@@ -268,8 +268,7 @@ pub fn upgrade_instance(cmd: &Command, opts: &crate::options::Options) -> anyhow
                 );
                 msg!(
                     "To update `{}` and upgrade to this version, \
-                        run:\n    {} project upgrade --to-latest",
-                    BRANDING_CLI_CMD,
+                        run:\n    {BRANDING_CLI_CMD} project upgrade --to-latest",
                     project
                         .location
                         .manifest

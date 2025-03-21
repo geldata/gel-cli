@@ -8,8 +8,8 @@ use gel_tokio::builder::CertCheck;
 use gel_errors::{
     ClientConnectionFailedError, ClientNoCredentialsError, Error, ErrorKind, PasswordRequired,
 };
-use gel_tokio::credentials::{AsCredentials, TlsSecurity};
-use gel_tokio::{Builder, Config};
+use gel_tokio::{Builder, Config, TlsSecurity};
+use log::debug;
 use rustyline::error::ReadlineError;
 use sha2::Digest;
 
@@ -78,39 +78,50 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
     let mut has_branch: bool = false;
 
-    let mut builder = options::prepare_conn_params(opts).await?;
-    // If the user doesn't specify a TLS CA, we need to accept all certs
-    if cmd.conn.tls_ca_file.is_none() {
-        builder = builder.tls_security(TlsSecurity::Insecure);
-    }
+    let builder = options::prepare_conn_params(opts).await?;
     let mut config = prompt_conn_params(&opts.conn_options, builder, cmd, &mut has_branch).await?;
-    let mut creds = config.as_credentials()?;
     let cert_holder: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
 
     // When linking to a new server, we may need to trust the TLS certificate
     let non_interactive = cmd.non_interactive;
     let trust_tls_cert = cmd.trust_tls_cert;
     let quiet = cmd.quiet;
-    let mut connect_result =
-        if config.tls_ca.is_none() && config.tls_security != TlsSecurity::Insecure {
-            gel_tokio::raw::Connection::connect_with_cert_check(
-                &config,
-                CertCheck::new_fn(move |cert| {
-                    ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.to_vec())
-                }),
-            )
-            .await
-        } else {
-            gel_tokio::raw::Connection::connect(&config).await
-        };
-
-    let new_cert = if let Some(cert) = cert_holder.lock().unwrap().take() {
-        let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert));
-        Some(pem)
+    debug!("connecting with config: {:?}", config);
+    let mut connect_result = if config.tls_ca.is_none() {
+        let mut config = config.clone();
+        config.tls_security = TlsSecurity::Insecure;
+        let cert_holder = cert_holder.clone();
+        gel_tokio::raw::Connection::connect_with_cert_check(
+            &config,
+            CertCheck::new_fn(move |cert| {
+                let cert = cert.to_vec();
+                let cert_holder = cert_holder.clone();
+                async move {
+                    let res =
+                        ask_trust_cert(non_interactive, trust_tls_cert, quiet, cert.clone()).await;
+                    if res.is_ok() {
+                        cert_holder.lock().unwrap().replace(cert);
+                    }
+                    res
+                }
+            }),
+        )
+        .await
     } else {
-        None
+        gel_tokio::raw::Connection::connect(&config).await
     };
 
+    #[allow(deprecated)]
+    if let Some(cert) = cert_holder.lock().unwrap().take() {
+        eprintln!("Trusting certificate");
+        let pem = pem::encode(&pem::Pem::new("CERTIFICATE", cert));
+        config = config.with_pem_certificates(&pem)?;
+        if opts.conn_options.tls_security.is_none() {
+            config.tls_security = TlsSecurity::NoHostVerification;
+        }
+    };
+
+    // After the certificate is correct, check the password
     if let Err(e) = connect_result {
         eprintln!("Connection error: {e:?}");
         if e.is::<PasswordRequired>() {
@@ -129,16 +140,13 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
             }
 
             config = config.with_password(&password);
-            creds.password = Some(password);
-            #[allow(deprecated)]
-            if let Some(pem) = &new_cert {
-                config = config.with_pem_certificates(pem)?;
-            }
             connect_result = Ok(gel_tokio::raw::Connection::connect(&config).await?);
         } else {
             return Err(e.into());
         }
     }
+
+    // Finally, set the correct branch
     let mut connection = Connection::from_raw(&config, connect_result.unwrap(), "link");
     let ver = connection.get_version().await?.clone();
     if !has_branch && opts.conn_options.branch.is_none() && opts.conn_options.database.is_none() {
@@ -146,26 +154,23 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
         if ver.specific().major >= 5 {
             config = config.with_db(DatabaseBranch::Branch(branch.to_string()));
-            creds.branch = Some(branch.into());
-            creds.database = None;
         } else {
             config = config.with_db(DatabaseBranch::Database(branch.to_string()));
-            creds.database = Some(branch.to_string());
-            creds.branch = None;
         }
-
-        eprintln!("using the {}", config.db);
     }
 
-    if let Some(pem) = &new_cert {
-        creds.tls_ca = Some(pem.clone());
-    }
+    crate::table::settings(&super::credentials::credentials_table(&config));
+    let creds = config.as_credentials()?;
 
     let (cred_path, instance_name) = match &cmd.name {
         Some(InstanceName::Local(name)) => (credentials::path(name)?, name.clone()),
         Some(InstanceName::Cloud { .. }) => unreachable!(),
         None => {
-            let default = gen_default_instance_name(config.display_addr());
+            let default = if opts.conn_options.instance_opts.docker {
+                "docker".to_string()
+            } else {
+                gen_default_instance_name(config.display_addr())
+            };
             if cmd.non_interactive {
                 if !cmd.quiet {
                     eprintln!("Using generated instance name: {}", &default);

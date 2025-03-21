@@ -1,67 +1,62 @@
-use gel_dsn::gel::DEFAULT_PORT;
-use gel_tokio::credentials::AsCredentials;
+use gel_dsn::gel::{Authentication, DatabaseBranch};
+use gel_tokio::Config;
 use std::io::{Write, stdout};
-use url::Url;
 
 use crate::options::{ConnectionOptions, Options};
 
-pub fn show_credentials(options: &Options, c: &Command) -> anyhow::Result<()> {
-    use gel_tokio::credentials::TlsSecurity;
+/// Create a table of human-readable credentials for the given config.
+pub fn credentials_table(config: &Config) -> Vec<(&str, String)> {
+    let mut credentials = vec![];
 
+    let host = config
+        .host
+        .target_name()
+        .expect("Failed to get host target name");
+    if let Some(tcp) = host.tcp() {
+        credentials.push(("Host", tcp.0.to_string()));
+        credentials.push(("Port", tcp.1.to_string()));
+    } else if let Some(path) = host.path() {
+        credentials.push(("Path", path.to_string_lossy().to_string()));
+    } else {
+        credentials.push(("Target", "<unknown>".to_string()));
+    }
+
+    credentials.push(("User", config.user.to_string()));
+    match &config.db {
+        DatabaseBranch::Default => credentials.push(("Branch", "<default>".to_string())),
+        DatabaseBranch::Branch(branch) => credentials.push(("Branch", branch.to_string())),
+        DatabaseBranch::Database(db) => credentials.push(("Database", db.to_string())),
+        DatabaseBranch::Ambiguous(db) => credentials.push(("Database", db.to_string())),
+    }
+
+    match config.authentication {
+        Authentication::None => credentials.push(("Authentication", "<none>".to_string())),
+        Authentication::Password(_) => credentials.push(("Password", "<hidden>".to_string())),
+        Authentication::SecretKey(_) => credentials.push(("Secret Key", "<hidden>".to_string())),
+    }
+
+    credentials.push(("TLS Security", format!("{:?}", config.tls_security)));
+
+    if config.tls_ca.is_some() {
+        credentials.push(("TLS CA", "<specified>".to_string()));
+    }
+    if let Some(server_name) = &config.tls_server_name {
+        credentials.push(("TLS Server Name", server_name.clone()));
+    }
+
+    credentials
+}
+
+pub fn show_credentials(options: &Options, c: &Command) -> anyhow::Result<()> {
     let connector = options.block_on_create_connector()?;
     let creds = connector.get()?;
-    let creds = creds.as_credentials()?;
     if let Some(result) = if c.json {
+        let creds = creds.as_credentials()?;
         Some(serde_json::to_string_pretty(&creds)?)
     } else if c.insecure_dsn {
-        let mut url = Url::parse(&format!(
-            "edgedb://{}@{}:{}",
-            creds.user,
-            creds.host.unwrap_or("localhost".into()),
-            creds.port.unwrap_or(DEFAULT_PORT),
-        ))?;
-        url.set_password(creds.password.as_deref()).ok();
-        if let Some(database) = creds.database {
-            url = url.join(&database)?;
-        }
-        match creds.tls_security {
-            TlsSecurity::Strict => {
-                url.set_query(Some("tls_security=strict"));
-            }
-            TlsSecurity::Insecure => {
-                url.set_query(Some("tls_security=insecure"));
-            }
-            TlsSecurity::NoHostVerification => {
-                url.set_query(Some("tls_security=no_host_verification"));
-            }
-            _ => {}
-        }
-        Some(url.to_string())
+        creds.dsn_url()
     } else {
-        let mut settings = vec![
-            ("Host", creds.host.unwrap_or("localhost".to_string())),
-            ("Port", creds.port.unwrap_or(DEFAULT_PORT).to_string()),
-            ("User", creds.user.clone()),
-            (
-                "Password",
-                creds
-                    .password
-                    .as_ref()
-                    .map(|_| "<hidden>".to_string())
-                    .unwrap_or("<none>".to_string()),
-            ),
-            (
-                "Database",
-                creds.database.clone().unwrap_or("<default>".to_string()),
-            ),
-            ("TLS Security", format!("{:?}", creds.tls_security)),
-        ];
-
-        if let Some(server_name) = creds.tls_server_name {
-            settings.push(("TLS Server Name", server_name.clone()));
-        }
-
-        crate::table::settings(&settings);
+        crate::table::settings(&credentials_table(&creds));
         None
     } {
         stdout()

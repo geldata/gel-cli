@@ -7,7 +7,7 @@ use anyhow::Context;
 use fn_error_context::context;
 use fs_err as fs;
 
-use gel_tokio::credentials::Credentials;
+use gel_dsn::gel::CredentialsFile;
 use gel_tokio::{Config, InstanceName};
 
 use crate::platform::{config_dir, tmp_file_name};
@@ -44,13 +44,13 @@ pub fn all_instance_names() -> anyhow::Result<BTreeSet<String>> {
 
 #[tokio::main(flavor = "current_thread")]
 #[context("cannot write credentials file {}", path.display())]
-pub async fn write(path: &Path, credentials: &Credentials) -> anyhow::Result<()> {
+pub async fn write(path: &Path, credentials: &CredentialsFile) -> anyhow::Result<()> {
     write_async(path, credentials).await?;
     Ok(())
 }
 
 #[context("cannot write credentials file {}", path.display())]
-pub async fn write_async(path: &Path, credentials: &Credentials) -> anyhow::Result<()> {
+pub async fn write_async(path: &Path, credentials: &CredentialsFile) -> anyhow::Result<()> {
     use tokio::fs;
 
     fs::create_dir_all(path.parent().unwrap()).await?;
@@ -60,7 +60,7 @@ pub async fn write_async(path: &Path, credentials: &Credentials) -> anyhow::Resu
     Ok(())
 }
 
-pub async fn read(path: &Path) -> anyhow::Result<Credentials> {
+pub async fn read(path: &Path) -> anyhow::Result<CredentialsFile> {
     use tokio::fs;
 
     let text = fs::read_to_string(path).await?;
@@ -68,7 +68,6 @@ pub async fn read(path: &Path) -> anyhow::Result<Credentials> {
 }
 
 pub fn maybe_update_credentials_file(config: &Config, ask: bool) -> anyhow::Result<()> {
-    use gel_tokio::credentials::AsCredentials;
     if let Some(instance_name) = config.local_instance_name() {
         if let Ok(creds_path) = path(instance_name) {
             if let Ok(creds) = config.as_credentials() {

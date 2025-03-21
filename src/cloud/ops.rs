@@ -7,7 +7,7 @@ use gel_cli_instance::cloud::{
     CloudInstance, CloudInstanceCreate, CloudInstanceResize, CloudInstanceUpgrade, CloudOperation,
     OperationStatus, Org, Prices, Region, Version,
 };
-use gel_tokio::credentials::{AsCredentials, Credentials};
+use gel_dsn::gel::CredentialsFile;
 use gel_tokio::{Builder, CloudName, InstanceName};
 use indicatif::ProgressBar;
 use tokio::time::{sleep, timeout};
@@ -34,7 +34,7 @@ pub struct CloudInstanceResource {
 pub async fn as_credentials(
     cloud_instance: &CloudInstance,
     secret_key: &str,
-) -> anyhow::Result<Credentials> {
+) -> anyhow::Result<CredentialsFile> {
     let config = Builder::new()
         .secret_key(secret_key)
         .instance(InstanceName::from(CloudName {
@@ -56,7 +56,7 @@ impl RemoteStatus {
         let secret_key = cloud_client.secret_key.clone().unwrap();
         let credentials = as_credentials(cloud_instance, &secret_key).await?;
         Ok(Self {
-            name: cloud_instance.name.to_string(),
+            name: format!("{}/{}", cloud_instance.org_slug, cloud_instance.name),
             type_: RemoteType::Cloud {
                 instance_id: cloud_instance.id.clone(),
             },

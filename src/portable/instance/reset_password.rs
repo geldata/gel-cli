@@ -3,12 +3,12 @@ use std::path::Path;
 
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
+use gel_dsn::gel::{CredentialsFile, DEFAULT_USER};
 use rand::{Rng, SeedableRng};
 
 use edgeql_parser::helpers::{quote_name, quote_string};
-use gel_tokio::credentials::Credentials;
 
-use crate::branding::{BRANDING_CLOUD, QUERY_TAG};
+use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
 use crate::commands::ExitCode;
 use crate::connect::Connection;
 use crate::credentials;
@@ -74,7 +74,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     let credentials_file = credentials::path(&name)?;
     let (creds, save, user) = if credentials_file.exists() {
         let creds = read_credentials(&credentials_file)?;
-        let user = options.user.clone().unwrap_or_else(|| creds.user.clone());
+        let user = options.user.clone().or(creds.user.clone());
         if options.no_save_credentials {
             (Some(creds), false, user)
         } else {
@@ -82,18 +82,21 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
             (Some(creds), save, user)
         }
     } else {
-        let user = options.user.clone().unwrap_or_else(|| "edgedb".into());
+        let user = options.user.clone();
         (None, !options.no_save_credentials, user)
     };
+    let computed_user = user.clone().unwrap_or_else(|| DEFAULT_USER.into());
     let password = if options.password_from_stdin {
         tty_password::read_stdin()?
     } else if options.password {
         loop {
-            let password =
-                tty_password::read(format!("New password for '{}': ", user.escape_default()))?;
+            let password = tty_password::read(format!(
+                "New password for '{}': ",
+                computed_user.escape_default()
+            ))?;
             let confirm = tty_password::read(format!(
                 "Confirm password for '{}': ",
-                user.escape_default()
+                computed_user.escape_default()
             ))?;
             if password != confirm {
                 print::error!("Passwords do not match");
@@ -105,7 +108,11 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
         generate_password()
     };
 
-    let inst = InstanceInfo::read(&name)?;
+    let Ok(inst) = InstanceInfo::read(&name) else {
+        anyhow::bail!(
+            "Remote instances are not supported yet. Run `{BRANDING_CLI_CMD} -I {name}` in interactive mode and run `ALTER ROLE {computed_user} SET password := '...'`"
+        );
+    };
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?
@@ -118,7 +125,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
                     ALTER ROLE {name} {{
                         SET password := {password};
                     }}"###,
-                    name = quote_name(&user),
+                    name = quote_name(&computed_user),
                     password = quote_string(&password)
                 ),
                 &(),
@@ -147,7 +154,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
 }
 
 #[context("error reading credentials at {}", path.display())]
-fn read_credentials(path: &Path) -> anyhow::Result<Credentials> {
+fn read_credentials(path: &Path) -> anyhow::Result<CredentialsFile> {
     let data = fs::read(path)?;
     Ok(serde_json::from_slice(&data)?)
 }
