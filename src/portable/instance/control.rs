@@ -602,13 +602,15 @@ pub fn restart(cmd: &Restart, options: &crate::Options) -> anyhow::Result<()> {
     }
 }
 
-pub fn logs(options: &Logs) -> anyhow::Result<()> {
-    if cfg!(windows) {
-        windows::logs(options)
+pub fn logs(cmd: &Logs, options: &crate::Options) -> anyhow::Result<()> {
+    if let InstanceName::Cloud { org_slug, name } = cmd.instance_opts.instance()? {
+        crate::cloud::ops::logs_cloud_instance(&name, &org_slug, cmd.tail, &options.cloud_options)
+    } else if cfg!(windows) {
+        windows::logs(cmd)
     } else if cfg!(target_os = "macos") {
-        macos::logs(options)
+        macos::logs(cmd)
     } else if cfg!(target_os = "linux") {
-        linux::logs(options)
+        linux::logs(cmd)
     } else {
         anyhow::bail!("unsupported platform");
     }

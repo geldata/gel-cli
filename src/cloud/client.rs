@@ -1,17 +1,13 @@
-use std::error::Error;
-use std::fmt;
-use std::fmt::Formatter;
-use std::fs;
-use std::io;
-use std::path::PathBuf;
-use std::time::Duration;
+use std::{fmt::Debug, fs, io, path::PathBuf, time::Duration};
 
-use base64::Engine;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-
-use anyhow::Context;
+use gel_cli_instance::cloud::{CloudApi, CloudError, CloudHttp};
+use gel_jwt::GelPublicKeyRegistry;
+use gel_jwt::KeyRegistry;
+use log::debug;
 use log::warn;
-use reqwest::{StatusCode, header};
+use reqwest::header;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
 
 use crate::branding::BRANDING_CLI_CMD;
 use crate::cli::env::Env;
@@ -23,41 +19,137 @@ const EDGEDB_CLOUD_API_VERSION: &str = "v1/";
 const EDGEDB_CLOUD_API_TIMEOUT: u64 = 10;
 const REQUEST_RETRIES_COUNT: u32 = 10;
 const REQUEST_RETRIES_MIN_INTERVAL: Duration = Duration::from_secs(1);
-const REQUEST_RETRIES_MAX_INTERVAL: Duration = Duration::from_secs(30);
-
-#[derive(Debug, serde::Deserialize, thiserror::Error)]
-pub struct ErrorResponse {
-    #[serde(skip, default)]
-    pub code: StatusCode,
-    status: String,
-    error: Option<String>,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum HttpError {
-    #[error("HTTP error: {0}")]
-    ReqwestError(reqwest_middleware::Error),
-
-    #[error(
-        "HTTP permission error: {0}. This is usually caused by a firewall. Try disabling \
-        your OS's firewall or any other firewalls you have installed"
-    )]
-    PermissionError(reqwest_middleware::Error),
-}
+const REQUEST_RETRIES_MAX_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CloudConfig {
     pub secret_key: Option<String>,
 }
 
-#[derive(Debug, serde::Deserialize)]
-struct Claims {
-    #[serde(rename = "iss", skip_serializing_if = "Option::is_none")]
-    issuer: Option<String>,
+pub struct Http {
+    client: reqwest_middleware::ClientWithMiddleware,
+}
+
+impl Http {
+    fn map_error(err: impl std::error::Error + Send + Sync + 'static) -> CloudError {
+        let mut source_walker: &dyn std::error::Error = &err;
+        while let Some(source) = source_walker.source() {
+            if let Some(io_error) = source.downcast_ref::<std::io::Error>() {
+                if io_error.raw_os_error() == Some(1) {
+                    return CloudError::PermissionError;
+                }
+                return CloudError::OtherIo(io_error.kind(), io_error.to_string());
+            }
+            source_walker = source;
+        }
+        CloudError::CommunicationError(Box::new(err))
+    }
+
+    async fn map<T: DeserializeOwned + Debug>(
+        resource: impl std::fmt::Display,
+        req: reqwest_middleware::RequestBuilder,
+    ) -> Result<T, CloudError> {
+        let slow_task_warning = tokio::task::spawn(async {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            warn!("The server is taking a long time to respond.");
+            tokio::time::sleep(Duration::from_secs(20)).await;
+            warn!("The server is taking a very long time to respond.");
+        });
+        let resp = req.send().await;
+        slow_task_warning.abort();
+        let resp = resp.map_err(|e| Http::map_error(e))?;
+
+        let status = resp.status();
+        debug!("Got response: status: {:?}", status);
+        if status.is_success() {
+            let res = resp
+                .json()
+                .await
+                .map_err(|e| CloudError::DeserializationError(Box::new(e)))?;
+            debug!("Got response: body: {:?}", res);
+            Ok(res)
+        } else {
+            #[derive(Debug, serde::Deserialize)]
+            struct ErrorResponse {
+                error: Option<String>,
+            }
+
+            debug!("Got error: status: {:?}", resp.status());
+            let body = resp
+                .text()
+                .await
+                .map_err(|e| CloudError::DeserializationError(Box::new(e)))?;
+            debug!("Got error: body: {:?}", body);
+
+            let message = if let Ok(body) = serde_json::from_str::<ErrorResponse>(&body) {
+                body.error
+            } else {
+                if body.is_empty() { None } else { Some(body) }
+            };
+
+            match status {
+                reqwest::StatusCode::BAD_REQUEST => {
+                    Err(CloudError::BadRequest(message.unwrap_or_else(|| {
+                        "The client sent a malformed request".to_string()
+                    })))
+                }
+                reqwest::StatusCode::UNAUTHORIZED => Err(CloudError::Unauthorized),
+                reqwest::StatusCode::NOT_FOUND => {
+                    Err(CloudError::NotFound(message.unwrap_or_else(|| {
+                        format!("The requested {} was not found", resource)
+                    })))
+                }
+                _ => Err(CloudError::Other(
+                    status.as_u16(),
+                    message.unwrap_or_else(|| "An unknown error occurred".to_string()),
+                )),
+            }
+        }
+    }
+}
+
+impl CloudHttp for Http {
+    async fn get<T: DeserializeOwned + Debug>(
+        &self,
+        resource: impl std::fmt::Display,
+        url: &str,
+    ) -> Result<T, CloudError> {
+        debug!("GET {resource} {url}");
+        Self::map(resource, self.client.get(url)).await
+    }
+
+    async fn post<REQ: Serialize + Debug, RES: DeserializeOwned + Debug>(
+        &self,
+        resource: impl std::fmt::Display,
+        url: &str,
+        body: REQ,
+    ) -> Result<RES, CloudError> {
+        debug!("POST {resource} {url} {body:?}");
+        Self::map(resource, self.client.post(url).json(&body)).await
+    }
+
+    async fn put<REQ: Serialize + Debug, RES: DeserializeOwned + Debug>(
+        &self,
+        resource: impl std::fmt::Display,
+        url: &str,
+        body: REQ,
+    ) -> Result<RES, CloudError> {
+        debug!("PUT {resource} {url} {body:?}");
+        Self::map(resource, self.client.put(url).json(&body)).await
+    }
+
+    async fn delete<T: DeserializeOwned + Debug>(
+        &self,
+        resource: impl std::fmt::Display,
+        url: &str,
+    ) -> Result<T, CloudError> {
+        debug!("DELETE {resource} {url}");
+        Self::map(resource, self.client.delete(url)).await
+    }
 }
 
 pub struct CloudClient {
-    client: reqwest_middleware::ClientWithMiddleware,
+    pub api: CloudApi<Http>,
     pub is_logged_in: bool,
     pub api_endpoint: reqwest::Url,
     options_secret_key: Option<String>,
@@ -114,18 +206,11 @@ impl CloudClient {
         let is_logged_in;
         let dns_zone;
         if let Some(secret_key) = secret_key.clone() {
-            let claims_b64 = secret_key
-                .split('.')
-                .nth(1)
-                .context("malformed secret key: invalid JWT format")?;
-            let claims = URL_SAFE_NO_PAD
-                .decode(claims_b64)
-                .context("malformed secret key: invalid base64 data")?;
-            let claims: Claims = serde_json::from_slice(&claims)
-                .context("malformed secret key: invalid JSON data")?;
+            let claims = KeyRegistry::new().unsafely_decode_gel_token(&secret_key)?;
             dns_zone = claims
                 .issuer
-                .context("malformed secret key: missing `iss` claim")?;
+                .ok_or(anyhow::anyhow!("Missing issuer in secret key"))?;
+            debug!("Issuer: {dns_zone}");
 
             let mut headers = header::HeaderMap::new();
             let auth_str = format!("Bearer {secret_key}");
@@ -189,8 +274,13 @@ impl CloudClient {
             .with(retry_middleware)
             .build();
 
+        let http = Http { client };
+
         Ok(Self {
-            client,
+            api: CloudApi::new(
+                http,
+                api_endpoint.join(EDGEDB_CLOUD_API_VERSION)?.to_string(),
+            ),
             is_logged_in,
             api_endpoint: api_endpoint.join(EDGEDB_CLOUD_API_VERSION)?,
             options_secret_key: options_secret_key.clone(),
@@ -222,113 +312,6 @@ impl CloudClient {
             Ok(())
         } else {
             anyhow::bail!("Run `{BRANDING_CLI_CMD} cloud login` first.")
-        }
-    }
-
-    pub async fn request<T: serde::de::DeserializeOwned>(
-        &self,
-        req: reqwest_middleware::RequestBuilder,
-    ) -> anyhow::Result<T> {
-        let resp = req.send().await.map_err(Self::create_error)?;
-        if resp.status().is_success() {
-            let full = resp.text().await?;
-            serde_json::from_str(&full).with_context(|| {
-                log::debug!("Response body: {}", full);
-                "error decoding response body".to_string()
-            })
-        } else {
-            let code = resp.status();
-            let full = resp.text().await?;
-            Err(anyhow::anyhow!(
-                serde_json::from_str(&full)
-                    .map(|mut e: ErrorResponse| {
-                        e.code = code;
-                        e
-                    })
-                    .unwrap_or_else(|e| {
-                        log::debug!("Response body: {}", full);
-                        ErrorResponse {
-                            code,
-                            status: format!("error decoding response body: {e:#}"),
-                            error: Some(full),
-                        }
-                    })
-            ))
-        }
-    }
-
-    fn create_error(err: reqwest_middleware::Error) -> HttpError {
-        match err {
-            reqwest_middleware::Error::Middleware(_) => HttpError::ReqwestError(err),
-
-            reqwest_middleware::Error::Reqwest(ref reqwest_err) => {
-                if let Some(io_error) = reqwest_err
-                    .source()
-                    .and_then(|v| v.source())
-                    .and_then(|v| v.source())
-                    .and_then(|v| v.downcast_ref::<io::Error>())
-                    .and_then(|v| v.raw_os_error())
-                {
-                    // invalid permissions
-                    if io_error == 1 {
-                        return HttpError::PermissionError(err);
-                    }
-                }
-
-                HttpError::ReqwestError(err)
-            }
-        }
-    }
-
-    pub async fn get<T: serde::de::DeserializeOwned>(
-        &self,
-        uri: impl AsRef<str>,
-    ) -> anyhow::Result<T> {
-        self.request(self.client.get(self.api_endpoint.join(uri.as_ref())?))
-            .await
-    }
-
-    pub async fn post<T, J>(&self, uri: impl AsRef<str>, body: &J) -> anyhow::Result<T>
-    where
-        T: serde::de::DeserializeOwned,
-        J: serde::Serialize + ?Sized,
-    {
-        self.request(
-            self.client
-                .post(self.api_endpoint.join(uri.as_ref())?)
-                .json(body),
-        )
-        .await
-    }
-
-    pub async fn put<T, J>(&self, uri: impl AsRef<str>, body: &J) -> anyhow::Result<T>
-    where
-        T: serde::de::DeserializeOwned,
-        J: serde::Serialize + ?Sized,
-    {
-        self.request(
-            self.client
-                .put(self.api_endpoint.join(uri.as_ref())?)
-                .json(body),
-        )
-        .await
-    }
-
-    pub async fn delete<T: serde::de::DeserializeOwned>(
-        &self,
-        uri: impl AsRef<str>,
-    ) -> anyhow::Result<T> {
-        self.request(self.client.delete(self.api_endpoint.join(uri.as_ref())?))
-            .await
-    }
-}
-
-impl fmt::Display for ErrorResponse {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        if let Some(error) = &self.error {
-            write!(f, "{error}")
-        } else {
-            write!(f, "HTTP error: [{:?}] {}", self.code, self.status)
         }
     }
 }

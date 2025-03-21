@@ -7,6 +7,7 @@ use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 
 use color_print::cformat;
+use gel_cli_instance::cloud::{CloudInstanceCreate, CloudInstanceResourceRequest, CloudTier};
 use serde::{Deserialize, Serialize};
 
 use crate::branding::{
@@ -369,12 +370,12 @@ fn create_cloud(
         || storage_size.is_some()
         || org.preferred_payment_method.is_some()
     {
-        cloud::ops::CloudTier::Pro
+        CloudTier::Pro
     } else {
-        cloud::ops::CloudTier::Free
+        CloudTier::Free
     };
 
-    if tier == cloud::ops::CloudTier::Free {
+    if tier == CloudTier::Free {
         if compute_size.is_some() {
             Err(opts.error(
                 clap::error::ErrorKind::ArgumentConflict,
@@ -418,7 +419,7 @@ fn create_cloud(
         .clone()
         .context("could not find default value for storage")?;
 
-    let mut req_resources: Vec<cloud::ops::CloudInstanceResourceRequest> = vec![];
+    let mut req_resources: Vec<CloudInstanceResourceRequest> = vec![];
 
     let compute_size_v = match compute_size {
         None => default_compute,
@@ -431,14 +432,14 @@ fn create_cloud(
     };
 
     if compute_size.is_some() {
-        req_resources.push(cloud::ops::CloudInstanceResourceRequest {
+        req_resources.push(CloudInstanceResourceRequest {
             name: "compute".to_string(),
             value: compute_size_v.clone(),
         });
     }
 
     if storage_size.is_some() {
-        req_resources.push(cloud::ops::CloudInstanceResourceRequest {
+        req_resources.push(CloudInstanceResourceRequest {
             name: "storage".to_string(),
             value: storage_size_v.clone(),
         });
@@ -493,9 +494,8 @@ fn create_cloud(
         None => Ok(None),
     }?;
 
-    let request = cloud::ops::CloudInstanceCreate {
+    let request = CloudInstanceCreate {
         name: name.to_string(),
-        org: org_slug.to_string(),
         version: server_ver.to_string(),
         region: Some(region),
         requested_resources: Some(req_resources),
@@ -503,7 +503,7 @@ fn create_cloud(
         source_instance_id,
         source_backup_id: cmd.cloud_backup_source.from_backup_id.clone(),
     };
-    cloud::ops::create_cloud_instance(client, &request)?;
+    cloud::ops::create_cloud_instance(client, org_slug, request)?;
     msg!("{BRANDING_CLOUD} instance {inst_name} is up and running.");
     msg!("To connect to the instance run:");
     msg!("  {BRANDING_CLI_CMD} -I {inst_name}");

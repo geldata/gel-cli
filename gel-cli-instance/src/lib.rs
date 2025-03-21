@@ -13,6 +13,7 @@ use scopeguard::{self, ScopeGuard};
 use serde_json::de::SliceRead;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt};
 
+pub mod cloud;
 pub mod docker;
 
 #[derive(derive_more::Error, derive_more::Display, Debug)]

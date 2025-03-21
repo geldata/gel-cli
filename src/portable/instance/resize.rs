@@ -1,6 +1,7 @@
 use anyhow::Context;
 use color_print::cformat;
 use gel_cli_derive::IntoArgs;
+use gel_cli_instance::cloud::{CloudInstanceResize, CloudInstanceResourceRequest, CloudTier};
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::cloud;
@@ -87,7 +88,7 @@ fn resize_cloud_cmd(
             ))?;
         }
 
-        if tier == cloud::ops::CloudTier::Free {
+        if tier == CloudTier::Free {
             if compute_size.is_some() {
                 Err(opts.error(
                     clap::error::ErrorKind::ArgumentConflict,
@@ -146,10 +147,10 @@ fn resize_cloud_cmd(
         }
     }
 
-    let mut req_resources: Vec<cloud::ops::CloudInstanceResourceRequest> = vec![];
+    let mut req_resources = vec![];
 
     if let Some(compute_size) = compute_size {
-        req_resources.push(cloud::ops::CloudInstanceResourceRequest {
+        req_resources.push(CloudInstanceResourceRequest {
             name: "compute".to_string(),
             value: compute_size.clone(),
         });
@@ -161,7 +162,7 @@ fn resize_cloud_cmd(
     }
 
     if let Some(storage_size) = storage_size {
-        req_resources.push(cloud::ops::CloudInstanceResourceRequest {
+        req_resources.push(CloudInstanceResourceRequest {
             name: "storage".to_string(),
             value: storage_size.clone(),
         });
@@ -189,13 +190,11 @@ fn resize_cloud_cmd(
     }
 
     for res in req_resources {
-        let request = cloud::ops::CloudInstanceResize {
-            name: name.to_string(),
-            org: org_slug.to_string(),
+        let request = CloudInstanceResize {
             requested_resources: Some(vec![res]),
             tier: billables.tier,
         };
-        cloud::ops::resize_cloud_instance(&client, &request)?;
+        cloud::ops::resize_cloud_instance(&client, org_slug, name, request)?;
     }
     msg!("{BRANDING_CLOUD} instance {inst_name} has been resized successfuly.");
     msg!("To connect to the instance run:");

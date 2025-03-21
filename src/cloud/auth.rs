@@ -9,11 +9,8 @@ use tokio::time::sleep;
 
 use crate::branding::BRANDING_CLOUD;
 use crate::browser::open_link;
-use crate::cloud::client::{
-    CloudClient, CloudConfig, ErrorResponse, cloud_config_dir, cloud_config_file,
-};
+use crate::cloud::client::{CloudClient, CloudConfig, cloud_config_dir, cloud_config_file};
 use crate::cloud::options;
-use crate::cloud::secret_keys::{CreateSecretKeyInput, SecretKey};
 use crate::commands::ExitCode;
 use crate::options::CloudOptions;
 use crate::portable::exit_codes;
@@ -21,21 +18,12 @@ use crate::portable::local::write_json;
 use crate::portable::project::{find_project_stash_dirs, read_project_path};
 use crate::print;
 use crate::question;
+use gel_cli_instance::cloud::{
+    CloudError, CreateSecretKeyInput, SecretKey, User, UserSession, UserSessionCreated,
+};
 
 const AUTHENTICATION_WAIT_TIME: Duration = Duration::from_secs(10 * 60);
 const AUTHENTICATION_POLL_INTERVAL: Duration = Duration::from_secs(1);
-
-#[derive(Debug, serde::Deserialize)]
-struct UserSession {
-    id: String,
-    token: Option<String>,
-    auth_url: String,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct User {
-    name: String,
-}
 
 pub fn login(_c: &options::Login, options: &CloudOptions) -> anyhow::Result<()> {
     let mut client = CloudClient::new(options)?;
@@ -49,36 +37,20 @@ pub async fn do_login(client: &mut CloudClient) -> anyhow::Result<()> {
 
 pub async fn _do_login(client: &mut CloudClient) -> anyhow::Result<()> {
     // See if we're already logged in.
-    let user_resp: anyhow::Result<User> = client.get("user").await;
-
-    match user_resp {
+    match client.api.get_user().await {
         Ok(user) => {
             print::success!("Already logged in as {}.", user.name);
             return Ok(());
         }
-        Err(ref err)
-            if matches!(
-                err.downcast_ref::<ErrorResponse>(),
-                Some(ErrorResponse {
-                    code: reqwest::StatusCode::UNAUTHORIZED,
-                    ..
-                })
-            ) =>
-        {
+        Err(CloudError::Unauthorized) => {
             // Fallthrough.
         }
         Err(err) => {
-            return Err(err);
+            return Err(err.into());
         }
     }
 
-    let UserSession {
-        id,
-        auth_url,
-        token: _,
-    } = client
-        .post("auth/sessions/", &HashMap::from([("type", "CLI")]))
-        .await?;
+    let UserSessionCreated { id, auth_url } = client.api.create_session("CLI").await?;
     {
         let link = client.api_endpoint.join(&auth_url)?.to_string();
         let success_prompt = "Complete the authentication process now open in your browser";
@@ -87,7 +59,7 @@ pub async fn _do_login(client: &mut CloudClient) -> anyhow::Result<()> {
     }
     let deadline = Instant::now() + AUTHENTICATION_WAIT_TIME;
     while Instant::now() < deadline {
-        match client.get(format!("auth/sessions/{id}")).await {
+        match client.api.get_session(&id).await {
             Ok(UserSession {
                 id: _,
                 auth_url: _,
@@ -98,15 +70,13 @@ pub async fn _do_login(client: &mut CloudClient) -> anyhow::Result<()> {
                 client.set_secret_key(Some(&secret_key))?;
                 let hostname = gethostname::gethostname();
                 let key: SecretKey = client
-                    .post(
-                        "secretkeys/",
-                        &CreateSecretKeyInput {
-                            name: Some(format!("CLI @ {hostname:#?}")),
-                            description: None,
-                            scopes: None,
-                            ttl: None,
-                        },
-                    )
+                    .api
+                    .create_secret_key(CreateSecretKeyInput {
+                        name: Some(format!("CLI @ {hostname:#?}")),
+                        description: None,
+                        scopes: None,
+                        ttl: None,
+                    })
                     .await?;
 
                 write_json(
@@ -118,7 +88,7 @@ pub async fn _do_login(client: &mut CloudClient) -> anyhow::Result<()> {
                 )?;
                 client.set_secret_key(None)?;
 
-                let user: User = client.get("user").await?;
+                let user: User = client.api.get_user().await?;
                 print::success!(
                     "Successfully logged in to {BRANDING_CLOUD} as {}.",
                     user.name
