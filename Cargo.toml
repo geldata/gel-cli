@@ -124,7 +124,7 @@ tar = "0.4.37"
 zstd = "0.13"
 semver = {version="1.0.4", features=["serde"]}
 fd-lock = "4.0.2"
-zip = "2.2.0"
+zip = "2.5.0"
 libflate = "2.1.0"
 open = "5.3.0"
 tokio = {version="1.23.0",features=[
