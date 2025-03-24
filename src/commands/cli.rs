@@ -1,4 +1,4 @@
-use is_terminal::IsTerminal;
+use std::io::IsTerminal;
 
 use crate::cli;
 use crate::cli::directory_check;

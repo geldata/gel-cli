@@ -21,8 +21,8 @@ use std::io;
 use std::sync::OnceLock;
 
 use const_format::concatcp;
-use is_terminal::IsTerminal;
 use snafu::{AsErrorSource, ResultExt, Snafu};
+use std::io::IsTerminal;
 use terminal_size::{Width, terminal_size};
 use tokio_stream::{Stream, StreamExt};
 
