@@ -41,8 +41,8 @@ pub(crate) fn mk_setting_impl(e: &types::Enum) -> TokenStream {
                 }
             }
             pub fn all_items() -> &'static [#ident] {
-                static SETTINGS: ::once_cell::sync::OnceCell<Vec<#ident>>
-                    = ::once_cell::sync::OnceCell::new();
+                static SETTINGS: ::std::sync::OnceLock<Vec<#ident>>
+                    = ::std::sync::OnceLock::new();
                 return &SETTINGS.get_or_init(|| {
                     vec![#( #all_items ),*]
                 })[..];

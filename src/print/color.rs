@@ -1,3 +1,5 @@
+use std::sync::LazyLock;
+
 use colorful::core::color_string::CString;
 use colorful::{Color, Colorful};
 
@@ -51,7 +53,7 @@ pub trait Highlight: colorful::Colorful + colorful::core::StrMarker + Sized {
 
 impl<T: colorful::Colorful + colorful::core::StrMarker + Sized> Highlight for T {}
 
-pub static TERMINAL_LUMA: once_cell::sync::Lazy<Option<f32>> = once_cell::sync::Lazy::new(|| {
+pub static TERMINAL_LUMA: LazyLock<Option<f32>> = LazyLock::new(|| {
     if !concolor::get(concolor::Stream::Stdout).color() {
         return None;
     }
@@ -59,7 +61,7 @@ pub static TERMINAL_LUMA: once_cell::sync::Lazy<Option<f32>> = once_cell::sync::
     terminal_light::luma_with_timeout(std::time::Duration::from_millis(5000)).ok()
 });
 
-static THEME: once_cell::sync::Lazy<Option<Theme>> = once_cell::sync::Lazy::new(|| {
+static THEME: std::sync::LazyLock<Option<Theme>> = std::sync::LazyLock::new(|| {
     if !concolor::get(concolor::Stream::Stdout).color() {
         return None;
     }

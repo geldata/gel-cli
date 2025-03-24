@@ -4,7 +4,7 @@ use indexmap::IndexMap;
 use anyhow::Context as _;
 use gel_errors::QueryError;
 use indicatif::ProgressBar;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::async_try;
 use crate::branding::BRANDING;
@@ -75,7 +75,8 @@ enum Mode {
     Rebase,
 }
 
-static MINIMUM_VERSION: Lazy<ver::Build> = Lazy::new(|| "3.0-alpha.1+05474ea".parse().unwrap());
+static MINIMUM_VERSION: LazyLock<ver::Build> =
+    LazyLock::new(|| "3.0-alpha.1+05474ea".parse().unwrap());
 
 mod ddl {
     // Just for nice log filter

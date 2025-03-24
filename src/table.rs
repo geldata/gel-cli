@@ -1,9 +1,9 @@
-use once_cell::sync::Lazy;
 use prettytable::format::{Alignment, TableFormat};
 use prettytable::format::{FormatBuilder, LinePosition, LineSeparator};
 pub use prettytable::{Attr, Cell, Row, Table};
+use std::sync::LazyLock;
 
-pub static FORMAT: Lazy<TableFormat> = Lazy::new(|| {
+pub static FORMAT: LazyLock<TableFormat> = LazyLock::new(|| {
     FormatBuilder::new()
         .column_separator('│')
         .borders('│')

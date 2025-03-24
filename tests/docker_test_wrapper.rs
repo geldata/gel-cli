@@ -10,7 +10,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use assert_cmd::Command;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use test_case::test_case;
 
 #[path = "common/docker.rs"]
@@ -32,7 +32,7 @@ struct Target {
     test: bool,
 }
 
-static TEST_EXECUTABLES: Lazy<HashMap<String, PathBuf>> = Lazy::new(|| {
+static TEST_EXECUTABLES: LazyLock<HashMap<String, PathBuf>> = LazyLock::new(|| {
     let tests = std::process::Command::new("cargo")
         .arg("build")
         .arg("--workspace")

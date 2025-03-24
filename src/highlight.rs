@@ -2,13 +2,13 @@ use std::collections::HashSet;
 
 use edgeql_parser::keywords::{self, Keyword};
 use edgeql_parser::tokenizer::{Kind, Tokenizer};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::completion::{BackslashFsm, ValidationResult};
 use crate::print::style::{Style, Styler};
 
-static UNRESERVED_KEYWORDS: Lazy<HashSet<&'static str>> =
-    Lazy::new(|| keywords::UNRESERVED_KEYWORDS.iter().copied().collect());
+static UNRESERVED_KEYWORDS: LazyLock<HashSet<&'static str>> =
+    LazyLock::new(|| keywords::UNRESERVED_KEYWORDS.iter().copied().collect());
 
 pub fn edgeql(outbuf: &mut String, text: &str, styler: &Styler) {
     let mut pos = 0;

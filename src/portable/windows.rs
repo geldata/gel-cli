@@ -6,13 +6,13 @@ use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::sync::{LazyLock, Mutex, OnceLock, RwLock};
 use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
 use const_format::formatcp;
 use fn_error_context::context;
 use libflate::gzip;
-use once_cell::sync::{Lazy, OnceCell};
 use url::Url;
 
 use crate::async_util;
@@ -43,13 +43,13 @@ use crate::process;
 use super::extension;
 
 const CURRENT_DISTRO: &str = BRANDING_WSL;
-static DISTRO_URL: Lazy<Url> = Lazy::new(|| {
+static DISTRO_URL: LazyLock<Url> = LazyLock::new(|| {
     "https://aka.ms/wsl-debian-gnulinux"
         .parse()
         .expect("wsl url parsed")
 });
 const CERT_UPDATE_INTERVAL: Duration = Duration::from_secs(30 * 86400);
-static IS_IN_WSL: Lazy<bool> = Lazy::new(|| {
+static IS_IN_WSL: LazyLock<bool> = LazyLock::new(|| {
     if cfg!(target_os = "linux") {
         fs::read_to_string("/proc/version")
             .map(|s| s.contains("Microsoft"))
@@ -59,17 +59,20 @@ static IS_IN_WSL: Lazy<bool> = Lazy::new(|| {
     }
 });
 
-static WSL: OnceCell<Wsl> = OnceCell::new();
-
 #[derive(Debug, thiserror::Error)]
 #[error("WSL distribution is not installed")]
 pub struct NoDistribution;
 
+struct WslInit {
+    distribution: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct Wsl {
+    distribution: String,
     #[cfg(windows)]
     #[allow(dead_code)]
-    lib: wslapi::Library,
-    distribution: String,
+    lib: &'static wslapi::Library,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -434,9 +437,19 @@ fn utf16_contains(bytes: &[u8], needle: &str) -> bool {
 }
 
 #[cfg(windows)]
+fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
+    static LIB: LazyLock<std::io::Result<wslapi::Library>> =
+        LazyLock::new(|| wslapi::Library::new());
+    match &*LIB {
+        Ok(lib) => Ok(lib),
+        Err(e) => anyhow::bail!("cannot initialize WSL (Windows Subsystem for Linux): {e:#}"),
+    }
+}
+
+#[cfg(windows)]
 #[context("cannot initialize WSL2 (windows subsystem for linux)")]
-fn get_wsl_distro(install: bool) -> anyhow::Result<Wsl> {
-    let wsl = wslapi::Library::new()?;
+fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
+    let wsl = get_wsl_lib()?;
     let meta_path = config_dir()?.join("wsl.json");
     let mut distro = None;
     let mut update_cli = true;
@@ -448,7 +461,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<Wsl> {
                 let update_certs =
                     wsl_info.certs_timestamp + CERT_UPDATE_INTERVAL < SystemTime::now();
                 if !update_cli && !update_certs {
-                    return Ok(Wsl {
+                    return Ok(WslInit {
                         lib: wsl,
                         distribution: wsl_info.distribution,
                     });
@@ -599,38 +612,69 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<Wsl> {
         certs_timestamp,
     };
     write_json(&meta_path, "WSL info", &info)?;
-    return Ok(Wsl {
+    return Ok(WslInit {
         lib: wsl,
         distribution: info.distribution,
     });
 }
 
 #[cfg(unix)]
-fn get_wsl_distro(_install: bool) -> anyhow::Result<Wsl> {
+fn get_wsl_distro(_install: bool) -> anyhow::Result<WslInit> {
     Err(bug::error("WSL on unix is unupported"))
 }
 
-pub fn ensure_wsl() -> anyhow::Result<&'static Wsl> {
-    WSL.get_or_try_init(|| get_wsl_distro(true))
+static WSL: Mutex<Option<WslInit>> = Mutex::new(None);
+
+/// Ensures that WSL is initialized, installing it if necessary.
+pub fn ensure_wsl() -> anyhow::Result<Wsl> {
+    let mut wsl = WSL.lock().unwrap();
+    if wsl.is_none() {
+        *wsl = Some(get_wsl_distro(true)?);
+    }
+    Ok(Wsl {
+        distribution: wsl.as_ref().unwrap().distribution.clone(),
+        #[cfg(windows)]
+        lib: get_wsl_lib()?,
+    })
 }
 
-fn get_wsl() -> anyhow::Result<Option<&'static Wsl>> {
-    match WSL.get_or_try_init(|| get_wsl_distro(false)) {
-        Ok(v) => Ok(Some(v)),
-        Err(e) if e.is::<NoDistribution>() => Ok(None),
-        Err(e) => Err(e),
+/// Get WSL if it's installed and initialized.
+fn get_wsl() -> anyhow::Result<Option<Wsl>> {
+    let mut wsl = WSL.lock().unwrap();
+    if wsl.is_none() {
+        match get_wsl_distro(false) {
+            Ok(v) => *wsl = Some(v),
+            Err(e) if e.is::<NoDistribution>() => return Ok(None),
+            Err(e) => return Err(e),
+        }
     }
+    Ok(Some(Wsl {
+        distribution: wsl.as_ref().unwrap().distribution.clone(),
+        #[cfg(windows)]
+        lib: get_wsl_lib()?,
+    }))
 }
 
-pub fn try_get_wsl() -> anyhow::Result<&'static Wsl> {
-    match WSL.get_or_try_init(|| get_wsl_distro(false)) {
-        Ok(v) => Ok(v),
-        Err(e) if e.is::<NoDistribution>() => Err(e).hint(formatcp!(
-            "WSL is initialized automatically on \
-              `{BRANDING_CLI_CMD} project init` or `{BRANDING_CLI_CMD} instance create`",
-        ))?,
-        Err(e) => Err(e),
+/// Get WSL if it's installed and initialized.
+pub fn try_get_wsl() -> anyhow::Result<Wsl> {
+    let mut wsl = WSL.lock().unwrap();
+    if wsl.is_none() {
+        match get_wsl_distro(false) {
+            Ok(v) => *wsl = Some(v),
+            Err(e) if e.is::<NoDistribution>() => {
+                return Err(e).hint(formatcp!(
+                    "WSL is initialized automatically on \
+                  `{BRANDING_CLI_CMD} project init` or `{BRANDING_CLI_CMD} instance create`",
+                ))?;
+            }
+            Err(e) => return Err(e),
+        }
     }
+    Ok(Wsl {
+        distribution: wsl.as_ref().unwrap().distribution.clone(),
+        #[cfg(windows)]
+        lib: get_wsl_lib()?,
+    })
 }
 
 pub fn startup_dir() -> anyhow::Result<PathBuf> {
@@ -653,7 +697,7 @@ pub fn service_files(name: &str) -> anyhow::Result<Vec<PathBuf>> {
 
 pub fn create_service(info: &InstanceInfo) -> anyhow::Result<()> {
     let wsl = try_get_wsl()?;
-    create_and_start(wsl, &info.name)
+    create_and_start(&wsl, &info.name)
 }
 
 fn create_and_start(wsl: &Wsl, name: &str) -> anyhow::Result<()> {
@@ -823,7 +867,7 @@ pub fn start(options: &control::Start, name: &str) -> anyhow::Result<()> {
                 .args(options)
                 .run()?;
         } else {
-            create_and_start(wsl, name)?;
+            create_and_start(&wsl, name)?;
         }
     } else {
         anyhow::bail!(
@@ -1070,7 +1114,7 @@ fn get_instance_data_dir(name: &str, wsl: &Wsl) -> anyhow::Result<PathBuf> {
 
 pub fn read_jws_key(name: &str) -> anyhow::Result<String> {
     let wsl = try_get_wsl()?;
-    let data_dir = get_instance_data_dir(name, wsl)?;
+    let data_dir = get_instance_data_dir(name, &wsl)?;
     for keys in ["edbjwskeys.pem", "edbjwskeys.json"] {
         if wsl.check_path_exist(data_dir.join(keys)) {
             return wsl.read_text_file(data_dir.join(keys));

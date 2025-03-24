@@ -661,7 +661,7 @@ macro_rules! success {
 }
 
 pub fn init_colors() {
-    once_cell::sync::Lazy::force(&TERMINAL_LUMA);
+    std::sync::LazyLock::force(&TERMINAL_LUMA);
 }
 
 pub use crate::{error, success, warn};

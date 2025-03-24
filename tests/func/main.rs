@@ -13,7 +13,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use assert_cmd::Command;
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 use test_utils::server::ServerInstance;
 
 // Can't run server on windows
@@ -50,7 +50,7 @@ fn edgedb_cli_cmd() -> assert_cmd::Command {
 
 struct ServerGuard(ServerInstance);
 
-static SERVER: Lazy<ServerGuard> = Lazy::new(start_server);
+static SERVER: LazyLock<ServerGuard> = LazyLock::new(start_server);
 
 fn start_server() -> ServerGuard {
     shutdown_hooks::add_shutdown_hook(stop_server);

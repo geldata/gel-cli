@@ -9,7 +9,7 @@ use anyhow::Context;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 use indicatif::{ProgressBar, ProgressStyle};
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::branding::BRANDING_CLI_CMD;
 use crate::commands::ExitCode;
@@ -24,7 +24,8 @@ use crate::portable::repository::{get_server_package, get_specific_package};
 use crate::portable::ver::{self, Build};
 use crate::print::{self, Highlight, msg};
 
-static INSTALLED_VERSIONS: Lazy<Mutex<BTreeSet<Build>>> = Lazy::new(|| Mutex::new(BTreeSet::new()));
+static INSTALLED_VERSIONS: LazyLock<Mutex<BTreeSet<Build>>> =
+    LazyLock::new(|| Mutex::new(BTreeSet::new()));
 
 pub fn run(options: &Command) -> anyhow::Result<()> {
     if optional_docker_check()? {
