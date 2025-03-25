@@ -67,6 +67,11 @@ pub async fn read(path: &Path) -> anyhow::Result<CredentialsFile> {
     Ok(serde_json::from_str(&text)?)
 }
 
+pub fn read_sync(path: &Path) -> anyhow::Result<CredentialsFile> {
+    let text = fs::read_to_string(path)?;
+    Ok(serde_json::from_str(&text)?)
+}
+
 pub fn maybe_update_credentials_file(config: &Config, ask: bool) -> anyhow::Result<()> {
     if let Some(instance_name) = config.local_instance_name() {
         if let Ok(creds_path) = path(instance_name) {
