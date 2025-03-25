@@ -67,7 +67,7 @@ struct WslInit {
     distribution: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Wsl {
     distribution: String,
     #[cfg(windows)]
@@ -462,7 +462,6 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
                     wsl_info.certs_timestamp + CERT_UPDATE_INTERVAL < SystemTime::now();
                 if !update_cli && !update_certs {
                     return Ok(WslInit {
-                        lib: wsl,
                         distribution: wsl_info.distribution,
                     });
                 }
@@ -613,7 +612,6 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
     };
     write_json(&meta_path, "WSL info", &info)?;
     return Ok(WslInit {
-        lib: wsl,
         distribution: info.distribution,
     });
 }
