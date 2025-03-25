@@ -119,9 +119,11 @@ pub fn build_image(context: Context, tagname: &str) -> anyhow::Result<()> {
     fs::write(&path, context.build()?)?;
     Command::new("docker")
         .arg("build")
+        .arg("-f")
         .arg(path)
         .arg("-t")
         .arg(tagname)
+        .arg(temp.path())
         .assert()
         .success();
     Ok(())
