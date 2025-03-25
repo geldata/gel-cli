@@ -114,12 +114,14 @@ impl Context {
 }
 
 pub fn build_image(context: Context, tagname: &str) -> anyhow::Result<()> {
+    let temp = tempfile::tempdir()?;
+    let path = temp.path().join("Dockerfile");
+    fs::write(&path, context.build()?)?;
     Command::new("docker")
         .arg("build")
-        .arg("-")
+        .arg(path)
         .arg("-t")
         .arg(tagname)
-        .write_stdin(context.build()?)
         .assert()
         .success();
     Ok(())
