@@ -10,7 +10,6 @@ use gel_cli_derive::IntoArgs;
 use gel_cli_instance::cloud::CloudInstanceUpgrade;
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
-use crate::cloud;
 use crate::commands::{self, ExitCode};
 use crate::connect::{Connection, Connector};
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
@@ -26,6 +25,7 @@ use crate::portable::ver;
 use crate::portable::windows;
 use crate::print::{self, Highlight, msg};
 use crate::question;
+use crate::{cloud, credentials};
 
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     match cmd.instance_opts.instance()? {
@@ -407,6 +407,15 @@ pub fn upgrade_incompatible(
                 paths.dump_path.join("edgedb.dump"),
                 paths.dump_path.join("main.dump"),
             )?;
+
+            if let Ok(mut creds) = credentials::read_sync(&paths.credentials) {
+                if creds.database == Some("edgedb".to_string()) {
+                    log::info!("Updating credentials file {:?}", &paths.credentials);
+                    creds.database = Some("main".to_string());
+                    creds.branch = Some("main".to_string());
+                    credentials::write(&paths.credentials, &creds)?;
+                }
+            }
         }
     }
 
