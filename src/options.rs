@@ -5,11 +5,10 @@ use std::time::Duration;
 
 use color_print::cformat;
 use const_format::concatcp;
-use gel_dsn::gel::UnixPath;
+use gel_dsn::gel::{TlsSecurity, UnixPath};
 use gel_errors::ClientNoCredentialsError;
 use gel_protocol::model;
 use gel_tokio::Builder;
-use gel_tokio::credentials::TlsSecurity;
 use log::warn;
 use std::io::IsTerminal;
 use tokio::task::spawn_blocking as unblock;
