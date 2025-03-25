@@ -302,6 +302,7 @@ fn read_wsl(path: &Path) -> anyhow::Result<WslInfo> {
     Ok(serde_json::from_reader(reader)?)
 }
 
+#[cfg(windows)]
 #[context("cannot unpack debian distro from {:?}", zip_path)]
 fn unpack_appx(zip_path: &Path, dest: &Path) -> anyhow::Result<()> {
     let mut zip = zip::ZipArchive::new(io::BufReader::new(fs::File::open(zip_path)?))?;
@@ -319,6 +320,7 @@ fn unpack_appx(zip_path: &Path, dest: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(windows)]
 #[context("cannot unpack root filesystem from {:?}", zip_path)]
 fn unpack_root(zip_path: &Path, dest: &Path) -> anyhow::Result<()> {
     let mut zip = zip::ZipArchive::new(io::BufReader::new(fs::File::open(zip_path)?))?;
