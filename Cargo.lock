@@ -1561,7 +1561,6 @@ dependencies = [
  "immutable-chunkmap",
  "indexmap",
  "indicatif",
- "is-terminal",
  "libc",
  "libflate",
  "log",

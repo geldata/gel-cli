@@ -3,7 +3,7 @@ use std::str;
 
 use anyhow::Context;
 use bytes::BytesMut;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal;
 use terminal_size::{Width, terminal_size};
 use tokio::fs::File as AsyncFile;
 use tokio::io::{AsyncRead, stdin};

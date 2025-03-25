@@ -10,8 +10,8 @@ use gel_errors::ClientNoCredentialsError;
 use gel_protocol::model;
 use gel_tokio::Builder;
 use gel_tokio::credentials::TlsSecurity;
-use is_terminal::IsTerminal;
 use log::warn;
+use std::io::IsTerminal;
 use tokio::task::spawn_blocking as unblock;
 
 use gel_cli_derive::IntoArgs;

@@ -2,7 +2,7 @@ use std::str;
 use std::time::Instant;
 
 use anyhow::Context;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal;
 use terminal_size::{Width, terminal_size};
 use tokio::io::{AsyncWriteExt, stdout};
 use tokio::sync::mpsc::channel;

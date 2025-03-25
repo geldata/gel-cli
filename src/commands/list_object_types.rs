@@ -1,7 +1,7 @@
 use prettytable::{Cell, Row, Table};
 
 use gel_derive::Queryable;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal;
 use terminal_size::{Width, terminal_size};
 
 use crate::commands::Options;

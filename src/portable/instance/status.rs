@@ -14,7 +14,7 @@ use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 use gel_dsn::gel::DEFAULT_PORT;
 use humantime::format_duration;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal;
 use tokio::join;
 use tokio::time::sleep;
 
