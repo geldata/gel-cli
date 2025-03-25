@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use std::fmt;
 use std::future;
 use std::path::Path;
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use anyhow::Context;
 use fn_error_context::context;
 use indicatif::{ProgressBar, ProgressStyle};
-use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize, de, ser};
 use std::io::IsTerminal;
 use tokio::fs;
@@ -24,7 +24,6 @@ use crate::process::IntoArg;
 
 pub const USER_AGENT: &str = BRANDING_CLI;
 pub const DEFAULT_TIMEOUT: Duration = Duration::new(60, 0);
-static PKG_ROOT: OnceCell<Url> = OnceCell::new();
 
 #[derive(thiserror::Error, Debug)]
 #[error("page not found")]
@@ -147,12 +146,17 @@ impl PackageInfo {
 }
 
 fn pkg_root() -> anyhow::Result<&'static Url> {
-    PKG_ROOT.get_or_try_init(|| {
+    static PKG_ROOT: OnceLock<anyhow::Result<Url>> = OnceLock::new();
+
+    match PKG_ROOT.get_or_init(|| {
         let pkg_root =
             Env::pkg_root()?.unwrap_or_else(|| String::from("https://packages.edgedb.com"));
         let pkg_root = Url::parse(&pkg_root).context("Package root is a valid URL")?;
         Ok(pkg_root)
-    })
+    }) {
+        Ok(res) => Ok(res),
+        Err(e) => anyhow::bail!("Failed to initialize package root: {}", e),
+    }
 }
 
 fn channel_suffix(channel: Channel) -> &'static str {

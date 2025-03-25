@@ -7,9 +7,9 @@ use std::fs;
 use std::future::{Future, pending};
 use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Output, Stdio, exit};
+use std::sync::LazyLock;
 
 use anyhow::Context;
-use once_cell::sync::Lazy;
 use tokio::io::AsyncWriteExt;
 use tokio::io::{self, AsyncBufReadExt, AsyncRead, AsyncReadExt, BufReader};
 use tokio::process::Command;
@@ -19,7 +19,7 @@ use crate::platform::tmp_file_path;
 use crate::print::Highlight;
 
 #[cfg(unix)]
-static HAS_UTF8_LOCALE: Lazy<bool> = Lazy::new(|| {
+static HAS_UTF8_LOCALE: LazyLock<bool> = LazyLock::new(|| {
     use std::ffi::CString;
     use std::ptr::null_mut;
 

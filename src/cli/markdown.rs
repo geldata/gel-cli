@@ -27,8 +27,8 @@ macro_rules! print_markdown {
     ($template: expr$(, $($item:tt)*)?) => {
         #[allow(unused_mut)]
         {
-            static TEMPLATE: once_cell::sync::OnceCell<minimad::TextTemplate> =
-                once_cell::sync::OnceCell::new();
+            static TEMPLATE: std::sync::OnceLock<minimad::TextTemplate> =
+                std::sync::OnceLock::new();
             let template = TEMPLATE.get_or_init(move || {
                 minimad::TextTemplate::from($template)
             });

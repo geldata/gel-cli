@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::slice::Iter;
+use std::sync::OnceLock;
 
 use anyhow::Context as _;
 use edgeql_parser::expr;
@@ -12,7 +13,6 @@ use fn_error_context::context;
 use gel_derive::Queryable;
 use gel_errors::{Error, InvalidSyntaxError, QueryError};
 use immutable_chunkmap::set::SetM as Set;
-use once_cell::sync::OnceCell;
 use rustyline::error::ReadlineError;
 use serde::Deserialize;
 use tokio::fs;
@@ -201,7 +201,7 @@ pub struct FutureMigration {
     key: MigrationKey,
     parent: String,
     statements: Vec<String>,
-    id: OnceCell<String>,
+    id: OnceLock<anyhow::Result<String>>,
 }
 
 struct InteractiveMigration<'a> {
@@ -236,7 +236,7 @@ impl FutureMigration {
             key,
             parent: descr.parent,
             statements: descr.confirmed,
-            id: OnceCell::new(),
+            id: OnceLock::new(),
         }
     }
     pub fn empty(key: MigrationKey, parent: &str) -> Self {
@@ -244,7 +244,7 @@ impl FutureMigration {
             key,
             parent: parent.to_owned(),
             statements: Vec::new(),
-            id: OnceCell::new(),
+            id: OnceLock::new(),
         }
     }
 }
@@ -265,7 +265,7 @@ impl<'a> MigrationToText<'a, Iter<'a, String>> for FutureMigration {
             id,
             ..
         } = self;
-        id.get_or_try_init(|| {
+        match id.get_or_init(|| {
             let mut hasher = Hasher::start_migration(parent);
             for statement in statements {
                 hasher
@@ -273,8 +273,10 @@ impl<'a> MigrationToText<'a, Iter<'a, String>> for FutureMigration {
                     .map_err(|e| migration::hashing_error(statement, e))?;
             }
             Ok(hasher.make_migration_id())
-        })
-        .map(|s| &s[..])
+        }) {
+            Ok(s) => Ok(&s[..]),
+            Err(e) => anyhow::bail!("Failed to generate migration id: {}", e),
+        }
     }
 
     fn statements(&'a self) -> Iter<'a, String> {

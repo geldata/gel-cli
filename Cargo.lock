@@ -1569,7 +1569,6 @@ dependencies = [
  "nom",
  "notify",
  "num-bigint",
- "once_cell",
  "open",
  "openssl",
  "os-release",

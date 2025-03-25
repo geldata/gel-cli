@@ -5,9 +5,9 @@ use std::str::FromStr;
 use clap::{CommandFactory, FromArgMatches};
 use const_format::concatcp;
 use gel_dsn::gel::DatabaseBranch;
-use once_cell::sync::Lazy;
 use prettytable::{Cell, Row, Table};
 use regex::Regex;
+use std::sync::LazyLock;
 
 use gel_errors::Error;
 use gel_errors::display::display_error_verbose;
@@ -24,7 +24,7 @@ use crate::prompt;
 use crate::repl;
 use crate::table;
 
-pub static CMD_CACHE: Lazy<CommandCache> = Lazy::new(CommandCache::new);
+pub static CMD_CACHE: LazyLock<CommandCache> = LazyLock::new(CommandCache::new);
 
 pub enum ExecuteResult {
     Skip,
@@ -427,7 +427,7 @@ pub fn full_statement(s: &str) -> usize {
 }
 
 pub fn backslashify_help(text: &str) -> Cow<'_, str> {
-    pub static USAGE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(USAGE:\s*)(\w)").unwrap());
+    pub static USAGE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(USAGE:\s*)(\w)").unwrap());
     USAGE.replace(text, "$1\\$2")
 }
 

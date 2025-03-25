@@ -1,4 +1,4 @@
-use once_cell::sync::Lazy;
+use std::sync::LazyLock;
 
 use crate::print;
 
@@ -27,7 +27,7 @@ fn prepare_markdown(text: &str) -> String {
     buf
 }
 
-static MADSKIN: Lazy<termimad::MadSkin> = Lazy::new(|| {
+static MADSKIN: LazyLock<termimad::MadSkin> = LazyLock::new(|| {
     use termimad::crossterm::style::{Attribute, Color};
 
     if !print::use_color() {

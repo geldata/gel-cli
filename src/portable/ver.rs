@@ -4,8 +4,8 @@ use std::str::FromStr;
 
 use anyhow::Context;
 use const_format::concatcp;
-use once_cell::sync::Lazy;
 use regex::Regex;
+use std::sync::LazyLock;
 
 use crate::branding::BRANDING_CLI_CMD;
 use crate::connect::Connection;
@@ -51,16 +51,16 @@ pub enum FilterMinor {
     Minor(u32),
 }
 
-static BUILD: Lazy<Regex> = Lazy::new(|| {
+static BUILD: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"^\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local)$"#)
         .unwrap()
 });
 
-static SPECIFIC: Lazy<Regex> = Lazy::new(|| {
+static SPECIFIC: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"^(\d+)(?:\.0-(alpha|beta|rc|dev)\.(\d+)|\.(\d+))(?:$|\+)"#).unwrap()
 });
 
-static FILTER: Lazy<Regex> = Lazy::new(|| {
+static FILTER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"(?x)
         ^(?P<marker>=)?
@@ -73,7 +73,7 @@ static FILTER: Lazy<Regex> = Lazy::new(|| {
     )
     .unwrap()
 });
-static OLD_FILTER: Lazy<Regex> = Lazy::new(|| {
+static OLD_FILTER: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(
         r#"(?x)
         ^(?P<major>\d+)
