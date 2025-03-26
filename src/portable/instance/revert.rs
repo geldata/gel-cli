@@ -115,9 +115,10 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     fs::rename(&paths.data_dir, &tmp_path)?;
     fs::rename(&paths.backup_dir, &paths.data_dir)?;
 
-    // If we're downgrading from 5.x+ to 4.x, we need to rewrite the credentials file
-    // to use the edgedb database _if_ the credentials are pointing to the main branch
-    // and the edgedb branch was renamed as part of the upgrade.
+    // If we're reverting from >=5.x to <=4.x, we need to rewrite the
+    // credentials file to use the edgedb database _if_ the credentials are
+    // pointing to the main branch and the edgedb branch was renamed as part of
+    // the upgrade.
     if let Some(current_version) = current_version {
         if old_version.specific().major <= 4 && current_version.specific().major >= 5 {
             let dump_files = fs::read_dir(&paths.dump_path)?;
