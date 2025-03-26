@@ -5,7 +5,6 @@ use gel_cli_derive::IntoArgs;
 
 use crate::branding::{BRANDING, BRANDING_CLOUD};
 use crate::commands::ExitCode;
-use crate::format;
 use crate::options::InstanceOptionsLegacy;
 use crate::platform::tmp_file_path;
 use crate::portable::exit_codes;
@@ -18,6 +17,7 @@ use crate::portable::server::install;
 use crate::print::{self, Highlight, msg};
 use crate::process;
 use crate::question;
+use crate::{credentials, format};
 
 pub fn run(options: &Command) -> anyhow::Result<()> {
     use BackupStatus::*;
@@ -50,7 +50,17 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
             data_meta: Ok(d),
         } => (b, d),
     };
-    msg!("{} version: {:?}", BRANDING, old_inst.get_version());
+
+    let old_version = old_inst.get_version()?;
+    let current_version = status
+        .instance
+        .ok()
+        .as_ref()
+        .and_then(|i| i.installation.as_ref().map(|i| i.version.clone()));
+    if let Some(current_version) = &current_version {
+        msg!("Current {BRANDING} version: {current_version}");
+    }
+    msg!("Backup {BRANDING} version: {old_version}");
     msg!(
         "Backup timestamp: {} {}",
         humantime::format_rfc3339(backup_info.timestamp),
@@ -97,7 +107,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
         }
     }
 
-    install::specific(&old_inst.get_version()?.specific())
+    install::specific(&old_version.specific())
         .context(concatcp!("error installing old ", BRANDING))?;
 
     let paths = Paths::get(&name)?;
@@ -105,9 +115,33 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     fs::rename(&paths.data_dir, &tmp_path)?;
     fs::rename(&paths.backup_dir, &paths.data_dir)?;
 
-    let inst = old_inst;
-    msg!("Starting {} {:?}...", BRANDING, inst.get_version());
+    // If we're downgrading from 5.x+ to 4.x, we need to rewrite the credentials file
+    // to use the edgedb database _if_ the credentials are pointing to the main branch
+    // and the edgedb branch was renamed as part of the upgrade.
+    if let Some(current_version) = current_version {
+        if old_version.specific().major <= 4 && current_version.specific().major >= 5 {
+            let dump_files = fs::read_dir(&paths.dump_path)?;
 
+            let mut has_edgedb_dump = false;
+            let mut has_main_dump = false;
+
+            for file in dump_files.flatten() {
+                has_edgedb_dump |= file.file_name() == "edgedb.dump";
+                has_main_dump |= file.file_name() == "main.dump";
+            }
+
+            if !has_edgedb_dump && has_main_dump {
+                let mut creds = credentials::read_sync(&paths.credentials)?;
+                creds.database = Some("edgedb".to_string());
+                creds.branch = Some("edgedb".to_string());
+                credentials::write(&paths.credentials, &creds)?;
+            }
+        }
+    }
+
+    msg!("Starting {BRANDING} {old_version}...");
+
+    let inst = old_inst;
     create::create_service(&inst)
         .map_err(|e| {
             log::warn!("Error running {BRANDING} as a service: {e:#}");
