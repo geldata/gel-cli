@@ -1357,10 +1357,40 @@ jobs:
         name: builds-win-x86_64
         path: artifacts/win-x86_64
 
+  collect:
+    needs:
+    - build-debian-buster-x86_64
+    - build-debian-buster-aarch64
+    - build-debian-bullseye-x86_64
+    - build-debian-bullseye-aarch64
+    - build-debian-bookworm-x86_64
+    - build-debian-bookworm-aarch64
+    - build-ubuntu-bionic-x86_64
+    - build-ubuntu-bionic-aarch64
+    - build-ubuntu-focal-x86_64
+    - build-ubuntu-focal-aarch64
+    - build-ubuntu-jammy-x86_64
+    - build-ubuntu-jammy-aarch64
+    - build-ubuntu-noble-x86_64
+    - build-ubuntu-noble-aarch64
+    - build-centos-7-x86_64
+    - build-centos-8-x86_64
+    - build-centos-8-aarch64
+    - build-rockylinux-9-x86_64
+    - build-rockylinux-9-aarch64
+    - build-linux-x86_64
+    - build-linux-aarch64
+    - build-macos-x86_64
+    - build-macos-aarch64
+    - build-win-x86_64
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'All builds passed, ready to publish now!'
+
 
 
   publish-debian-buster-x86_64:
-    needs: [build-debian-buster-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1418,7 +1448,7 @@ jobs:
 
 
   publish-debian-buster-aarch64:
-    needs: [build-debian-buster-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1476,7 +1506,7 @@ jobs:
 
 
   publish-debian-bullseye-x86_64:
-    needs: [build-debian-bullseye-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1534,7 +1564,7 @@ jobs:
 
 
   publish-debian-bullseye-aarch64:
-    needs: [build-debian-bullseye-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1592,7 +1622,7 @@ jobs:
 
 
   publish-debian-bookworm-x86_64:
-    needs: [build-debian-bookworm-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1650,7 +1680,7 @@ jobs:
 
 
   publish-debian-bookworm-aarch64:
-    needs: [build-debian-bookworm-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1708,7 +1738,7 @@ jobs:
 
 
   publish-ubuntu-bionic-x86_64:
-    needs: [build-ubuntu-bionic-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1766,7 +1796,7 @@ jobs:
 
 
   publish-ubuntu-bionic-aarch64:
-    needs: [build-ubuntu-bionic-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1824,7 +1854,7 @@ jobs:
 
 
   publish-ubuntu-focal-x86_64:
-    needs: [build-ubuntu-focal-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1882,7 +1912,7 @@ jobs:
 
 
   publish-ubuntu-focal-aarch64:
-    needs: [build-ubuntu-focal-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1940,7 +1970,7 @@ jobs:
 
 
   publish-ubuntu-jammy-x86_64:
-    needs: [build-ubuntu-jammy-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -1998,7 +2028,7 @@ jobs:
 
 
   publish-ubuntu-jammy-aarch64:
-    needs: [build-ubuntu-jammy-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2056,7 +2086,7 @@ jobs:
 
 
   publish-ubuntu-noble-x86_64:
-    needs: [build-ubuntu-noble-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2114,7 +2144,7 @@ jobs:
 
 
   publish-ubuntu-noble-aarch64:
-    needs: [build-ubuntu-noble-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2172,7 +2202,7 @@ jobs:
 
 
   publish-centos-7-x86_64:
-    needs: [build-centos-7-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2230,7 +2260,7 @@ jobs:
 
 
   publish-centos-8-x86_64:
-    needs: [build-centos-8-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2288,7 +2318,7 @@ jobs:
 
 
   publish-centos-8-aarch64:
-    needs: [build-centos-8-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2346,7 +2376,7 @@ jobs:
 
 
   publish-rockylinux-9-x86_64:
-    needs: [build-rockylinux-9-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2404,7 +2434,7 @@ jobs:
 
 
   publish-rockylinux-9-aarch64:
-    needs: [build-rockylinux-9-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2462,7 +2492,7 @@ jobs:
 
 
   publish-linux-x86_64:
-    needs: [build-linux-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2522,7 +2552,7 @@ jobs:
 
 
   publish-linux-aarch64:
-    needs: [build-linux-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2583,7 +2613,7 @@ jobs:
 
 
   publish-macos-x86_64:
-    needs: [build-macos-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2615,7 +2645,7 @@ jobs:
 
 
   publish-macos-aarch64:
-    needs: [build-macos-aarch64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
@@ -2648,7 +2678,7 @@ jobs:
 
 
   publish-win-x86_64:
-    needs: [build-win-x86_64]
+    needs: [collect]
     runs-on: ubuntu-latest
 
     steps:
