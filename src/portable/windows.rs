@@ -12,7 +12,6 @@ use std::time::{Duration, SystemTime};
 use anyhow::Context;
 use const_format::formatcp;
 use fn_error_context::context;
-use libflate::gzip;
 use url::Url;
 
 use crate::async_util;
@@ -302,6 +301,7 @@ fn read_wsl(path: &Path) -> anyhow::Result<WslInfo> {
     Ok(serde_json::from_reader(reader)?)
 }
 
+#[cfg(windows)]
 #[context("cannot unpack debian distro from {:?}", zip_path)]
 fn unpack_appx(zip_path: &Path, dest: &Path) -> anyhow::Result<()> {
     let mut zip = zip::ZipArchive::new(io::BufReader::new(fs::File::open(zip_path)?))?;
@@ -319,6 +319,7 @@ fn unpack_appx(zip_path: &Path, dest: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(windows)]
 #[context("cannot unpack root filesystem from {:?}", zip_path)]
 fn unpack_root(zip_path: &Path, dest: &Path) -> anyhow::Result<()> {
     let mut zip = zip::ZipArchive::new(io::BufReader::new(fs::File::open(zip_path)?))?;
@@ -327,7 +328,7 @@ fn unpack_root(zip_path: &Path, dest: &Path) -> anyhow::Result<()> {
         .find(|name| name.eq_ignore_ascii_case("install.tar.gz"))
         .ok_or_else(|| anyhow::anyhow!("file `install.tar.gz` is not found in archive"))?
         .to_string();
-    let mut inp = gzip::Decoder::new(io::BufReader::new(zip.by_name(&name)?))?;
+    let mut inp = libflate::gzip::Decoder::new(io::BufReader::new(zip.by_name(&name)?))?;
     let mut out = fs::File::create(dest)?;
     io::copy(&mut inp, &mut out)?;
     Ok(())
