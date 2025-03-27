@@ -948,22 +948,6 @@ jobs:
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
 
-  check-published-debian-buster-x86_64:
-    needs: [publish-debian-buster-x86_64]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-debian-buster-x86_64
-        path: artifacts/debian-buster/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: debian-buster
-
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-buster@master
       env:
@@ -981,7 +965,7 @@ jobs:
 
   publish-debian-buster-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1003,22 +987,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-debian-buster-aarch64:
-    needs: [publish-debian-buster-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-debian-buster-aarch64
-        path: artifacts/debian-buster/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: debian-buster
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-buster@master
@@ -1060,22 +1028,6 @@ jobs:
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
 
-  check-published-debian-bullseye-x86_64:
-    needs: [publish-debian-bullseye-x86_64]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-debian-bullseye-x86_64
-        path: artifacts/debian-bullseye/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: debian-bullseye
-
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-bullseye@master
       env:
@@ -1093,7 +1045,7 @@ jobs:
 
   publish-debian-bullseye-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1115,22 +1067,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-debian-bullseye-aarch64:
-    needs: [publish-debian-bullseye-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-debian-bullseye-aarch64
-        path: artifacts/debian-bullseye/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: debian-bullseye
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-bullseye@master
@@ -1149,7 +1085,7 @@ jobs:
 
   publish-debian-bookworm-x86_64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'x64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1171,22 +1107,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-debian-bookworm-x86_64:
-    needs: [publish-debian-bookworm-x86_64]
-    runs-on: ['self-hosted', 'linux', 'x64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-debian-bookworm-x86_64
-        path: artifacts/debian-bookworm/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: debian-bookworm
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-bookworm@master
@@ -1205,7 +1125,7 @@ jobs:
 
   publish-debian-bookworm-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1227,22 +1147,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-debian-bookworm-aarch64:
-    needs: [publish-debian-bookworm-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-debian-bookworm-aarch64
-        path: artifacts/debian-bookworm/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: debian-bookworm
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-bookworm@master
@@ -1284,22 +1188,6 @@ jobs:
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
 
-  check-published-ubuntu-bionic-x86_64:
-    needs: [publish-ubuntu-bionic-x86_64]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-ubuntu-bionic-x86_64
-        path: artifacts/ubuntu-bionic/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: ubuntu-bionic
-
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-bionic@master
       env:
@@ -1317,7 +1205,7 @@ jobs:
 
   publish-ubuntu-bionic-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1339,22 +1227,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-ubuntu-bionic-aarch64:
-    needs: [publish-ubuntu-bionic-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-ubuntu-bionic-aarch64
-        path: artifacts/ubuntu-bionic/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: ubuntu-bionic
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-bionic@master
@@ -1396,22 +1268,6 @@ jobs:
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
 
-  check-published-ubuntu-focal-x86_64:
-    needs: [publish-ubuntu-focal-x86_64]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-ubuntu-focal-x86_64
-        path: artifacts/ubuntu-focal/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: ubuntu-focal
-
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-focal@master
       env:
@@ -1429,7 +1285,7 @@ jobs:
 
   publish-ubuntu-focal-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1451,22 +1307,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-ubuntu-focal-aarch64:
-    needs: [publish-ubuntu-focal-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-ubuntu-focal-aarch64
-        path: artifacts/ubuntu-focal/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: ubuntu-focal
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-focal@master
@@ -1508,22 +1348,6 @@ jobs:
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
 
-  check-published-ubuntu-jammy-x86_64:
-    needs: [publish-ubuntu-jammy-x86_64]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-ubuntu-jammy-x86_64
-        path: artifacts/ubuntu-jammy/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: ubuntu-jammy
-
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-jammy@master
       env:
@@ -1541,7 +1365,7 @@ jobs:
 
   publish-ubuntu-jammy-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1563,22 +1387,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-ubuntu-jammy-aarch64:
-    needs: [publish-ubuntu-jammy-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-ubuntu-jammy-aarch64
-        path: artifacts/ubuntu-jammy/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: ubuntu-jammy
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-jammy@master
@@ -1620,22 +1428,6 @@ jobs:
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
 
-  check-published-ubuntu-noble-x86_64:
-    needs: [publish-ubuntu-noble-x86_64]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-ubuntu-noble-x86_64
-        path: artifacts/ubuntu-noble/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: ubuntu-noble
-
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-noble@master
       env:
@@ -1653,7 +1445,7 @@ jobs:
 
   publish-ubuntu-noble-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1675,22 +1467,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-ubuntu-noble-aarch64:
-    needs: [publish-ubuntu-noble-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-ubuntu-noble-aarch64
-        path: artifacts/ubuntu-noble/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: ubuntu-noble
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-noble@master
@@ -1732,22 +1508,6 @@ jobs:
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
 
-  check-published-centos-7-x86_64:
-    needs: [publish-centos-7-x86_64]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-centos-7-x86_64
-        path: artifacts/centos-7/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: centos-7
-
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/centos-7@master
       env:
@@ -1788,22 +1548,6 @@ jobs:
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
 
-  check-published-centos-8-x86_64:
-    needs: [publish-centos-8-x86_64]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-centos-8-x86_64
-        path: artifacts/centos-8/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: centos-8
-
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/centos-8@master
       env:
@@ -1821,7 +1565,7 @@ jobs:
 
   publish-centos-8-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1843,22 +1587,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-centos-8-aarch64:
-    needs: [publish-centos-8-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-centos-8-aarch64
-        path: artifacts/centos-8/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: centos-8
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/centos-8@master
@@ -1877,7 +1605,7 @@ jobs:
 
   publish-rockylinux-9-x86_64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'x64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1899,22 +1627,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-rockylinux-9-x86_64:
-    needs: [publish-rockylinux-9-x86_64]
-    runs-on: ['self-hosted', 'linux', 'x64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-rockylinux-9-x86_64
-        path: artifacts/rockylinux-9/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: rockylinux-9
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/rockylinux-9@master
@@ -1933,7 +1645,7 @@ jobs:
 
   publish-rockylinux-9-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -1955,22 +1667,6 @@ jobs:
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
-
-  check-published-rockylinux-9-aarch64:
-    needs: [publish-rockylinux-9-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-rockylinux-9-aarch64
-        path: artifacts/rockylinux-9/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: rockylinux-9
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/rockylinux-9@master
@@ -2014,22 +1710,6 @@ jobs:
         PKG_PLATFORM_LIBC: "musl"
 
 
-  check-published-linux-x86_64:
-    needs: [publish-linux-x86_64]
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-linux-x86_64
-        path: artifacts/linuxmusl-x86_64/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: linuxmusl-x86_64
-
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/linuxmusl-x86_64@master
       env:
@@ -2047,7 +1727,7 @@ jobs:
 
   publish-linux-aarch64:
     needs: [collect]
-    runs-on: ubuntu-latest
+    runs-on: ['self-hosted', 'linux', 'arm64']
 
     steps:
     - uses: actions/download-artifact@v4
@@ -2071,22 +1751,6 @@ jobs:
 
         PKG_PLATFORM_LIBC: "musl"
 
-
-  check-published-linux-aarch64:
-    needs: [publish-linux-aarch64]
-    runs-on: ['self-hosted', 'linux', 'arm64']
-
-    steps:
-    - uses: actions/download-artifact@v4
-      with:
-        name: builds-linux-aarch64
-        path: artifacts/linuxmusl-aarch64/
-
-    - name: Describe
-      id: describe
-      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
-      with:
-        target: linuxmusl-aarch64
 
     - name: Test Published
       uses: edgedb/edgedb-pkg/integration/linux/testpublished/linuxmusl-aarch64@master
@@ -2203,9 +1867,9 @@ jobs:
   publish-docker:
     needs:
       
-      - check-published-linux-x86_64
+      - publish-linux-x86_64
       
-      - check-published-linux-aarch64
+      - publish-linux-aarch64
       
     runs-on: ubuntu-latest
 
@@ -2264,8 +1928,8 @@ jobs:
         ENTRYPOINT ["/usr/bin/gel"]
         EOF
     - env:
-        VERSION: "${{ needs.check-published-linux-x86_64.outputs.version }}"
-        VERSION_CORE: "${{ needs.check-published-linux-x86_64.outputs.version-core }}"
+        VERSION: "${{ needs.publish-linux-x86_64.outputs.version }}"
+        VERSION_CORE: "${{ needs.publish-linux-x86_64.outputs.version-core }}"
         PKG_SUBDIST: ""
       id: tags
       run: |
@@ -2310,6 +1974,6 @@ jobs:
         password: ${{ secrets.DOCKER_PASSWORD }}
         tags: "${{ steps.tags.outputs.tags }}"
         workdir: dockerctx
-        buildargs: install_ref_x86_64=${{ needs.check-published-linux-x86_64.outputs.install-ref }},install_ref_aarch64=${{ needs.check-published-linux-aarch64.outputs.install-ref }},subdist=
+        buildargs: install_ref_x86_64=${{ needs.publish-linux-x86_64.outputs.install-ref }},install_ref_aarch64=${{ needs.publish-linux-aarch64.outputs.install-ref }},subdist=
         platforms: linux/amd64,linux/arm64
 
