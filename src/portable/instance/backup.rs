@@ -153,7 +153,7 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
     let prompt = format!(
-        "Will create a backup for the {BRANDING_CLOUD} instance \"{inst_name}\":\
+        "Will create a backup for the {BRANDING_CLOUD} instance \"{inst_name}\".\
         \n\nContinue?",
     );
 
@@ -178,7 +178,7 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
     let prompt = format!(
-        "Will restore the {BRANDING_CLOUD} instance \"{inst_name}\" from the specified backup:\
+        "Will restore the {BRANDING_CLOUD} instance \"{inst_name}\" from the specified backup.\
         \n\nContinue?",
     );
 

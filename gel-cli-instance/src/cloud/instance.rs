@@ -66,11 +66,7 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
             };
 
             let source_instance_id = if let Some(name) = cloud_name {
-                match api.get_instance(&name.org_slug, &name.name).await {
-                    Ok(instance) => Some(instance.id),
-                    Err(CloudError::NotFound(..)) => None,
-                    Err(e) => return Err(e),
-                }
+                Some(api.get_instance(&name.org_slug, &name.name).await?.id)
             } else {
                 None
             };
@@ -113,11 +109,10 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
                     id: BackupId::new(b.id),
                     created_on: b.created_on,
                     status: b.status,
-                    backup_type: match b.r#type.as_str() {
+                    backup_type: match b.r#type.as_str().to_lowercase().as_str() {
                         "automated" => BackupType::Automated,
-                        "manual" => BackupType::Manual,
-                        // TODO: handle other types
-                        _ => BackupType::Automated,
+                        "on-demand" => BackupType::Manual,
+                        _ => BackupType::Unknown(b.r#type),
                     },
                     server_version: b.edgedb_version,
                 })

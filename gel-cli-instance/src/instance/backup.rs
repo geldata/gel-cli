@@ -32,10 +32,11 @@ impl std::ops::Deref for ProgressCallback {
     }
 }
 
-#[derive(Debug, Copy, Clone, derive_more::Display, Serialize)]
+#[derive(Debug, Clone, derive_more::Display, Serialize)]
 pub enum BackupType {
     Automated,
     Manual,
+    Unknown(String),
 }
 
 #[derive(Debug, Clone)]
