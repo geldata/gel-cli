@@ -12,7 +12,7 @@ use crate::commands::Options;
 use crate::interrupt;
 use crate::print;
 
-pub async fn psql<'x>(cli: &mut Connection, _options: &Options) -> Result<(), anyhow::Error> {
+pub async fn psql(cli: &mut Connection, _options: &Options) -> Result<(), anyhow::Error> {
     let mut cmd = Command::new("psql");
     let path = if let Some(dir) = option_env!("PSQL_DEFAULT_PATH") {
         let psql_path = Path::new(dir).join("psql");

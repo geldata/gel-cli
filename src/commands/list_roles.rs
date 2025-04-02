@@ -3,7 +3,7 @@ use crate::commands::filter;
 use crate::commands::list;
 use crate::connect::Connection;
 
-pub async fn list_roles<'x>(
+pub async fn list_roles(
     cli: &mut Connection,
     options: &Options,
     pattern: &Option<String>,

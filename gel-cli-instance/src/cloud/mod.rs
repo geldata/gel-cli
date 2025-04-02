@@ -236,7 +236,7 @@ impl<H: CloudHttp> CloudApi<H> {
             .post(
                 CloudResource::Instance(org_slug, name),
                 &self.endpoint(&format!("orgs/{org_slug}/instances/{name}/backups")),
-                {},
+                (),
             )
             .await
     }
@@ -278,7 +278,7 @@ impl<H: CloudHttp> CloudApi<H> {
             .post(
                 CloudResource::Instance(org_slug, name),
                 &self.endpoint(&format!("orgs/{org_slug}/instances/{name}/restart")),
-                {},
+                (),
             )
             .await
     }
