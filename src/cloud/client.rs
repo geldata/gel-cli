@@ -83,7 +83,11 @@ impl Http {
 
             let message = if let Ok(body) = serde_json::from_str::<ErrorResponse>(&body) {
                 body.error
-            } else if body.is_empty() { None } else { Some(body) };
+            } else if body.is_empty() {
+                None
+            } else {
+                Some(body)
+            };
 
             match status {
                 reqwest::StatusCode::BAD_REQUEST => {
