@@ -34,7 +34,9 @@ impl std::ops::Deref for ProgressCallback {
 
 #[derive(Debug, Clone, derive_more::Display, Serialize)]
 pub enum BackupType {
+    #[serde(rename = "automated")]
     Automated,
+    #[serde(rename = "manual")]
     Manual,
     Unknown(String),
 }
@@ -47,6 +49,7 @@ pub enum RestoreType {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, derive_more::Display, Serialize)]
 #[display("{}", id)]
+#[serde(transparent)]
 pub struct BackupId {
     id: String,
 }
@@ -60,6 +63,7 @@ impl BackupId {
 #[derive(Debug, Clone, Serialize)]
 pub struct Backup {
     pub id: BackupId,
+    #[serde(with = "humantime_serde")]
     pub created_on: SystemTime,
     pub backup_type: BackupType,
     pub status: String,
