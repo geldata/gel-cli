@@ -1,5 +1,8 @@
-use color_print::cformat;
+use std::time::Duration;
+
 use gel_cli_derive::IntoArgs;
+use gel_cli_instance::instance::backup::{ProgressCallbackListener, RestoreType};
+use gel_cli_instance::instance::{InstanceHandle, get_cloud_instance, get_local_instance};
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::cloud;
@@ -8,16 +11,26 @@ use crate::portable::options::InstanceName;
 use crate::print::msg;
 use crate::question;
 
-pub fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::Result<()> {
-    match &cmd.instance {
-        InstanceName::Local(_) => Err(opts.error(
-            clap::error::ErrorKind::InvalidValue,
-            cformat!("list-backups can only operate on {BRANDING_CLOUD} instances."),
-        ))?,
-        InstanceName::Cloud {
-            org_slug: org,
-            name,
-        } => list_cloud_backups_cmd(cmd, org, name, opts),
+struct ProgressBar {
+    bar: indicatif::ProgressBar,
+}
+
+impl Default for ProgressBar {
+    fn default() -> Self {
+        let bar =
+            indicatif::ProgressBar::new_spinner().with_message(format!("{}", "Please wait..."));
+        bar.enable_steady_tick(Duration::from_millis(100));
+        Self { bar }
+    }
+}
+
+impl ProgressCallbackListener for ProgressBar {
+    fn progress(&self, progress: Option<f64>, message: &str) {
+        if let Some(progress) = progress {
+            self.bar.set_length(100);
+            self.bar.set_position(progress as u64);
+        }
+        self.bar.set_message(message.to_string());
     }
 }
 
@@ -34,33 +47,6 @@ pub struct ListBackups {
     /// Output in JSON format.
     #[arg(long)]
     pub json: bool,
-}
-
-fn list_cloud_backups_cmd(
-    cmd: &ListBackups,
-    org_slug: &str,
-    name: &str,
-    opts: &crate::options::Options,
-) -> anyhow::Result<()> {
-    let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
-    client.ensure_authenticated()?;
-
-    cloud::backups::list_cloud_instance_backups(&client, org_slug, name, cmd.json)?;
-
-    Ok(())
-}
-
-pub fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Result<()> {
-    match &cmd.instance {
-        InstanceName::Local(_) => Err(opts.error(
-            clap::error::ErrorKind::InvalidValue,
-            cformat!("Only {BRANDING_CLOUD} instances can be backed up using this command."),
-        ))?,
-        InstanceName::Cloud {
-            org_slug: org,
-            name,
-        } => backup_cloud_cmd(cmd, org, name, opts),
-    }
 }
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
@@ -88,48 +74,6 @@ pub struct BackupSpec {
     pub latest: bool,
 }
 
-fn backup_cloud_cmd(
-    cmd: &Backup,
-    org_slug: &str,
-    name: &str,
-    opts: &crate::options::Options,
-) -> anyhow::Result<()> {
-    let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
-    client.ensure_authenticated()?;
-
-    let inst_name = InstanceName::Cloud {
-        org_slug: org_slug.to_string(),
-        name: name.to_string(),
-    };
-
-    let prompt = format!(
-        "Will create a backup for the {BRANDING_CLOUD} instance \"{inst_name}\":\
-        \n\nContinue?",
-    );
-
-    if !cmd.non_interactive && !question::Confirm::new(prompt).ask()? {
-        return Ok(());
-    }
-
-    cloud::backups::backup_cloud_instance(&client, org_slug, name)?;
-
-    msg!("Successfully created a backup for {BRANDING_CLOUD} instance {inst_name}");
-    Ok(())
-}
-
-pub fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::Result<()> {
-    match &cmd.instance {
-        InstanceName::Local(_) => Err(opts.error(
-            clap::error::ErrorKind::InvalidValue,
-            cformat!("Only {BRANDING_CLOUD} instances can be restored."),
-        ))?,
-        InstanceName::Cloud {
-            org_slug: org,
-            name,
-        } => restore_cloud_cmd(cmd, org, name, opts),
-    }
-}
-
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
 pub struct Restore {
     #[command(flatten)]
@@ -153,34 +97,85 @@ pub struct Restore {
     pub non_interactive: bool,
 }
 
-fn restore_cloud_cmd(
-    cmd: &Restore,
-    org_slug: &str,
-    name: &str,
+fn get_instance(
     opts: &crate::options::Options,
-) -> anyhow::Result<()> {
-    let backup = &cmd.backup_spec;
-
-    let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
-    client.ensure_authenticated()?;
-
-    let inst_name = InstanceName::Cloud {
-        org_slug: org_slug.to_string(),
-        name: name.to_string(),
-    };
-
-    let source_inst = match &cmd.source_instance {
-        Some(InstanceName::Local(_)) => Err(opts.error(
-            clap::error::ErrorKind::InvalidValue,
-            cformat!("--source-instance can only be a valid {BRANDING_CLOUD} instance"),
-        ))?,
-        Some(InstanceName::Cloud { org_slug, name }) => {
-            let inst = cloud::ops::find_cloud_instance_by_name(name, org_slug, &client)?
-                .ok_or_else(|| anyhow::anyhow!("instance not found"))?;
-            Some(inst)
+    instance_name: &InstanceName,
+) -> anyhow::Result<InstanceHandle> {
+    match instance_name.clone().into() {
+        gel_dsn::gel::InstanceName::Local(name) => Ok(get_local_instance(&name)?),
+        gel_dsn::gel::InstanceName::Cloud(name) => {
+            let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
+            client.ensure_authenticated()?;
+            Ok(get_cloud_instance(name, client.api)?)
         }
-        None => None,
-    };
+    }
+}
+
+#[tokio::main]
+pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::Result<()> {
+    let instance = get_instance(opts, &cmd.instance)?.backup()?;
+    let backups = instance.list_backups().await?;
+
+    if cmd.json {
+        println!("{}", serde_json::to_string_pretty(&backups)?);
+    } else {
+        use crate::table::{self, Cell, Row, Table};
+        let mut table = Table::new();
+        table.set_format(*table::FORMAT);
+        table.set_titles(Row::new(
+            ["ID", "Created", "Type", "Status", "Server Version"]
+                .iter()
+                .map(|x| table::header_cell(x))
+                .collect(),
+        ));
+        for key in backups {
+            table.add_row(Row::new(vec![
+                Cell::new(&key.id.to_string()),
+                Cell::new(&humantime::format_rfc3339_seconds(key.created_on).to_string()),
+                Cell::new(&key.backup_type.to_string()),
+                Cell::new(&key.status),
+                Cell::new(&key.server_version),
+            ]));
+        }
+        if !table.is_empty() {
+            table.printstd();
+        } else {
+            println!("No backups found.")
+        }
+    }
+
+    Ok(())
+}
+
+#[tokio::main]
+pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Result<()> {
+    let inst_name = cmd.instance.clone();
+    let backup = get_instance(opts, &cmd.instance)?.backup()?;
+
+    let prompt = format!(
+        "Will create a backup for the {BRANDING_CLOUD} instance \"{inst_name}\":\
+        \n\nContinue?",
+    );
+
+    if !cmd.non_interactive && !question::Confirm::new(prompt).ask()? {
+        return Ok(());
+    }
+
+    let progress_bar = ProgressBar::default();
+    let backup = backup.backup(progress_bar.into()).await?;
+
+    if let Some(backup_id) = backup {
+        msg!("Successfully created a backup {backup_id} for {BRANDING_CLOUD} instance {inst_name}");
+    } else {
+        msg!("Successfully created a backup for {BRANDING_CLOUD} instance {inst_name}");
+    }
+    Ok(())
+}
+
+#[tokio::main]
+pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::Result<()> {
+    let inst_name = cmd.instance.clone();
+    let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
     let prompt = format!(
         "Will restore the {BRANDING_CLOUD} instance \"{inst_name}\" from the specified backup:\
@@ -191,14 +186,22 @@ fn restore_cloud_cmd(
         return Ok(());
     }
 
-    cloud::backups::restore_cloud_instance(
-        &client,
-        org_slug,
-        name,
-        backup.latest,
-        backup.backup_id.clone(),
-        source_inst.map(|i| i.id),
-    )?;
+    let restore_type = if cmd.backup_spec.latest {
+        RestoreType::Latest
+    } else if let Some(backup_id) = cmd.backup_spec.backup_id.as_ref() {
+        RestoreType::Specific(backup_id.clone())
+    } else {
+        unreachable!()
+    };
+
+    let progress_bar = ProgressBar::default();
+    backup
+        .restore(
+            cmd.source_instance.clone().map(|x| x.into()),
+            restore_type,
+            progress_bar.into(),
+        )
+        .await?;
 
     msg!("{BRANDING_CLOUD} instance {inst_name} has been restored successfully.");
     msg!("To connect to the instance run:");

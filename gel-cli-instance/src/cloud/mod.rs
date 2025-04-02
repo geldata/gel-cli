@@ -1,9 +1,17 @@
 use humantime_serde::re::humantime;
 use serde::{Serialize, de::DeserializeOwned};
-use std::{collections::HashMap, fmt::Debug};
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    time::{Duration, Instant},
+};
 
 mod schema;
 pub use schema::*;
+mod instance;
+pub use instance::CloudInstanceHandle;
+
+use crate::instance::backup::ProgressCallback;
 
 #[derive(Debug, thiserror::Error)]
 pub enum CloudError {
@@ -27,34 +35,39 @@ pub enum CloudError {
     CommunicationError(Box<dyn std::error::Error + Send + Sync>),
     #[error("Deserialization error: {0}")]
     DeserializationError(Box<dyn std::error::Error + Send + Sync>),
+    #[error("Operation failed: {0}")]
+    Failure(String),
+    #[error("Operation timed out")]
+    Timeout,
 }
 
 #[allow(async_fn_in_trait)]
-pub trait CloudHttp {
-    async fn get<T: DeserializeOwned + Debug>(
+pub trait CloudHttp: Clone + Send + Sync + 'static {
+    fn get<T: DeserializeOwned + Debug + Send + Sync + 'static>(
         &self,
         what: impl std::fmt::Display,
-        url: &str,
-    ) -> Result<T, CloudError>;
-    async fn post<REQ: Serialize + Debug, RES: DeserializeOwned + Debug>(
+        url: String,
+    ) -> impl Future<Output = Result<T, CloudError>> + Send + Sync + 'static;
+    fn post<REQ: Serialize + Debug, RES: DeserializeOwned + Debug + Send + Sync + 'static>(
         &self,
         what: impl std::fmt::Display,
-        url: &str,
+        url: String,
         body: REQ,
-    ) -> Result<RES, CloudError>;
-    async fn put<REQ: Serialize + Debug, RES: DeserializeOwned + Debug>(
+    ) -> impl Future<Output = Result<RES, CloudError>> + Send + Sync + 'static;
+    fn put<REQ: Serialize + Debug, RES: DeserializeOwned + Debug + Send + Sync + 'static>(
         &self,
         what: impl std::fmt::Display,
-        url: &str,
+        url: String,
         body: REQ,
-    ) -> Result<RES, CloudError>;
-    async fn delete<T: DeserializeOwned + Debug>(
+    ) -> impl Future<Output = Result<RES, CloudError>> + Send + Sync + 'static;
+    fn delete<T: DeserializeOwned + Debug + Send + Sync + 'static>(
         &self,
         what: impl std::fmt::Display,
-        url: &str,
-    ) -> Result<T, CloudError>;
+        url: String,
+    ) -> impl Future<Output = Result<T, CloudError>> + Send + Sync + 'static;
 }
 
+#[derive(Debug, Clone)]
 pub struct CloudApi<H: CloudHttp> {
     http: H,
     endpoint: String,
@@ -101,7 +114,7 @@ enum CloudResource<'a> {
 impl<H: CloudHttp> CloudApi<H> {
     pub async fn get_user(&self) -> Result<schema::User, CloudError> {
         self.http
-            .get(CloudResource::User, &self.endpoint("user"))
+            .get(CloudResource::User, self.endpoint("user"))
             .await
     }
 
@@ -114,7 +127,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .post(
                 CloudResource::UserSessions,
-                &self.endpoint("auth/sessions"),
+                self.endpoint("auth/sessions"),
                 body,
             )
             .await
@@ -124,7 +137,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .get(
                 CloudResource::UserSession(session_id),
-                &self.endpoint(&format!("auth/sessions/{}", session_id)),
+                self.endpoint(&format!("auth/sessions/{}", session_id)),
             )
             .await
     }
@@ -133,17 +146,21 @@ impl<H: CloudHttp> CloudApi<H> {
         &self,
         operation_id: &str,
     ) -> Result<schema::CloudOperation, CloudError> {
-        self.http
+        let mut res: CloudOperation = self
+            .http
             .get(
                 CloudResource::CloudOperation(operation_id),
-                &self.endpoint(&format!("operations/{}", operation_id)),
+                self.endpoint(&format!("operations/{}", operation_id)),
             )
-            .await
+            .await?;
+        // Temporary fix to replace "EdgeDB" until the cloud updates the message.
+        res.description = res.description.replace("EdgeDB", "Gel");
+        Ok(res)
     }
 
     pub async fn list_instances(&self) -> Result<Vec<schema::CloudInstance>, CloudError> {
         self.http
-            .get(CloudResource::Instances, &self.endpoint("instances"))
+            .get(CloudResource::Instances, self.endpoint("instances"))
             .await
     }
 
@@ -155,7 +172,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .get(
                 CloudResource::Instance(org_slug, name),
-                &self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
+                self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
             )
             .await
     }
@@ -168,7 +185,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .delete(
                 CloudResource::Instance(org_slug, name),
-                &self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
+                self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
             )
             .await
     }
@@ -181,7 +198,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .post(
                 CloudResource::Instance(org_slug, &request.name.to_owned()),
-                &self.endpoint(&format!("orgs/{org_slug}/instances")),
+                self.endpoint(&format!("orgs/{org_slug}/instances")),
                 request,
             )
             .await
@@ -196,7 +213,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .put(
                 CloudResource::Instance(org_slug, name),
-                &self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
+                self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
                 request,
             )
             .await
@@ -211,7 +228,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .put(
                 CloudResource::Instance(org_slug, name),
-                &self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
+                self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
                 request,
             )
             .await
@@ -221,7 +238,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .get(
                 CloudResource::Org(org_slug),
-                &self.endpoint(&format!("orgs/{org_slug}")),
+                self.endpoint(&format!("orgs/{org_slug}")),
             )
             .await
     }
@@ -235,7 +252,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .post(
                 CloudResource::Instance(org_slug, name),
-                &self.endpoint(&format!("orgs/{org_slug}/instances/{name}/backups")),
+                self.endpoint(&format!("orgs/{org_slug}/instances/{name}/backups")),
                 (),
             )
             .await
@@ -249,7 +266,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .get(
                 CloudResource::Instance(org_slug, name),
-                &self.endpoint(&format!("orgs/{org_slug}/instances/{name}/backups")),
+                self.endpoint(&format!("orgs/{org_slug}/instances/{name}/backups")),
             )
             .await
     }
@@ -263,7 +280,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .post(
                 CloudResource::Instance(org_slug, name),
-                &self.endpoint(&format!("orgs/{org_slug}/instances/{name}/restore")),
+                self.endpoint(&format!("orgs/{org_slug}/instances/{name}/restore")),
                 request,
             )
             .await
@@ -277,7 +294,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .post(
                 CloudResource::Instance(org_slug, name),
-                &self.endpoint(&format!("orgs/{org_slug}/instances/{name}/restart")),
+                self.endpoint(&format!("orgs/{org_slug}/instances/{name}/restart")),
                 (),
             )
             .await
@@ -308,7 +325,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .get(
                 CloudResource::Instance(org_slug, name),
-                &self.endpoint(&format!(
+                self.endpoint(&format!(
                     "orgs/{org_slug}/instances/{name}/logs?{}",
                     query_params.join("&")
                 )),
@@ -323,7 +340,7 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .post(
                 CloudResource::SecretKeys,
-                &self.endpoint("secretkeys/"),
+                self.endpoint("secretkeys/"),
                 input,
             )
             .await
@@ -331,7 +348,7 @@ impl<H: CloudHttp> CloudApi<H> {
 
     pub async fn list_secret_keys(&self) -> Result<Vec<schema::SecretKey>, CloudError> {
         self.http
-            .get(CloudResource::SecretKeys, &self.endpoint("secretkeys/"))
+            .get(CloudResource::SecretKeys, self.endpoint("secretkeys/"))
             .await
     }
 
@@ -342,26 +359,79 @@ impl<H: CloudHttp> CloudApi<H> {
         self.http
             .delete(
                 CloudResource::SecretKey(secret_key_id),
-                &self.endpoint(&format!("secretkeys/{}", secret_key_id)),
+                self.endpoint(&format!("secretkeys/{}", secret_key_id)),
             )
             .await
     }
 
     pub async fn get_versions(&self) -> Result<Vec<schema::Version>, CloudError> {
         self.http
-            .get(CloudResource::Versions, &self.endpoint("versions"))
+            .get(CloudResource::Versions, self.endpoint("versions"))
             .await
     }
 
     pub async fn get_prices(&self) -> Result<schema::PricesResponse, CloudError> {
         self.http
-            .get(CloudResource::Pricing, &self.endpoint("pricing"))
+            .get(CloudResource::Pricing, self.endpoint("pricing"))
             .await
     }
 
     pub async fn get_current_region(&self) -> Result<schema::Region, CloudError> {
         self.http
-            .get(CloudResource::Region, &self.endpoint("region/self"))
+            .get(CloudResource::Region, self.endpoint("region/self"))
             .await
+    }
+
+    /// Wait for an operation to complete, returning status in the [`ProgressCallback`].
+    pub async fn wait_for_operation(
+        &self,
+        mut operation: schema::CloudOperation,
+        timeout: Duration,
+        callback: ProgressCallback,
+    ) -> Result<(), CloudError> {
+        const INITIAL_POLLING_INTERVAL: Duration = Duration::from_millis(100);
+        const MAX_POLLING_INTERVAL: Duration = Duration::from_secs(1);
+
+        let start = Instant::now();
+        let mut description = operation.description.clone();
+        callback.progress(None, &format!("Current operation: {}...", description));
+
+        let mut sleep = INITIAL_POLLING_INTERVAL;
+        let mut original_error = None;
+        let mut id = operation.id;
+
+        while start.elapsed() < timeout {
+            match (operation.status, operation.subsequent_id) {
+                (OperationStatus::Failed, Some(subsequent_id)) => {
+                    original_error = original_error.or(Some(operation.message));
+                    id = subsequent_id;
+                }
+                (OperationStatus::Failed, None) => {
+                    return Err(CloudError::Failure(
+                        original_error.unwrap_or(operation.message),
+                    ));
+                }
+                (OperationStatus::InProgress, _) => {
+                    tokio::time::sleep(sleep).await;
+                    sleep *= 2;
+                    sleep = sleep.min(MAX_POLLING_INTERVAL);
+                }
+                (OperationStatus::Completed, _) => {
+                    if let Some(message) = original_error {
+                        return Err(CloudError::Failure(message));
+                    } else {
+                        return Ok(());
+                    }
+                }
+            }
+
+            operation = self.get_operation(&id).await?;
+            if operation.description != description {
+                description = operation.description.clone();
+                callback.progress(None, &format!("Current operation: {}...", description));
+            }
+        }
+
+        Err(CloudError::Timeout)
     }
 }

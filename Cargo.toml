@@ -10,6 +10,22 @@ members = [
 edition = "2024"
 rust-version = "1.85"
 
+[workspace.dependencies]
+clap = "4.4.6"
+termimad = "0.30.0"
+trybuild = "1.0.19"
+indexmap = {version = "2.4", features=["serde"]}
+heck = "0.5.0"
+
+# Use cargo update for these
+gel-protocol = { version = "0.8", features = ["all-types"] }
+gel-derive = { version = "0.7" }
+gel-errors = { version = "0.5" }
+gel-auth = { version = "0.1" }
+gel-tokio = { version = "0.10", features=["admin_socket", "unstable"] }
+gel-dsn = { version = "0.2", features = ["unstable", "gel", "auto-log-trace", "auto-log-warning"] }
+gel-jwt = { version = "0.1", features = ["gel"] }
+
 [package]
 name = "gel-cli"
 license = "MIT/Apache-2.0"
@@ -30,24 +46,16 @@ portable_tests = []
 docker_test_wrapper = []
 gel = []
 
-[workspace.dependencies]
-clap = "4.4.6"
-termimad = "0.30.0"
-trybuild = "1.0.19"
-indexmap = {version = "2.4", features=["serde"]}
-heck = "0.5.0"
-
 [dependencies]
 edgeql-parser = {git = "https://github.com/edgedb/edgeql"}
 
-# Use cargo update for these
-gel-protocol = { version = "0.8", features = ["all-types"] }
-gel-derive = { version = "0.7" }
-gel-errors = { version = "0.5" }
-gel-auth = { version = "0.1" }
-gel-tokio = { version = "0.10", features=["admin_socket", "unstable"] }
-gel-dsn = { version = "0.2", features = ["unstable", "gel", "auto-log-trace", "auto-log-warning"] }
-gel-jwt = { version = "0.1", features = ["gel"] }
+gel-protocol = { workspace = true }
+gel-derive = { workspace = true }
+gel-errors = { workspace = true }
+gel-auth = { workspace = true }
+gel-tokio = { workspace = true }
+gel-dsn = { workspace = true }
+gel-jwt = { workspace = true }
 
 gel-cli-instance = { path = "./gel-cli-instance" }
 gel-cli-derive = { path = "./gel-cli-derive" }

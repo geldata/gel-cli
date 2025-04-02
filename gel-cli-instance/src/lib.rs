@@ -15,6 +15,8 @@ use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWriteExt};
 
 pub mod cloud;
 pub mod docker;
+pub mod instance;
+pub mod local;
 
 #[derive(derive_more::Error, derive_more::Display, Debug)]
 #[display("Error running {:?}, {}", command, kind)]
