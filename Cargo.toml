@@ -13,7 +13,7 @@ rust-version = "1.85"
 [package]
 name = "gel-cli"
 license = "MIT/Apache-2.0"
-version = "7.2.0"
+version = "7.3.0-dev"
 authors = ["Gel Data Inc. <yo@geldata.com>"]
 edition.workspace = true
 rust-version.workspace = true
