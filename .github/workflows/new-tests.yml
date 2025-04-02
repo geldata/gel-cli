@@ -1,0 +1,31 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-2019]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        with:
+          components: "cargo,rustc,rust-std"
+          toolchain: '1.85'
+          override: true
+
+      - name: Run tests
+        run: |
+          echo "TODO"
