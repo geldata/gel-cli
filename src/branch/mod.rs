@@ -20,14 +20,22 @@ pub async fn run(
     options: &Options,
     conn: Option<&mut Connection>,
 ) -> anyhow::Result<CommandResult> {
-    let context = context::Context::new(options.instance_name.as_ref()).await?;
-
     let mut connector: Connector = options.conn_params.clone();
 
     // commands that don't need connection
     match &cmd {
-        Subcommand::Switch(switch) => return switch::run(switch, &context, &mut connector).await,
+        Subcommand::Switch(switch) => {
+            let context = context::Context::new(
+                options.instance_name.as_ref(),
+                None,
+            ).await?;
+            return switch::run(switch, &context, &mut connector).await;
+        }
         Subcommand::Wipe(wipe) => {
+            let context = context::Context::new(
+                options.instance_name.as_ref(),
+                Some(wipe.target_branch.as_ref(),
+            )).await?;
             wipe::main(wipe, &context, &mut connector).await?;
             return Ok(CommandResult::default());
         }
@@ -45,6 +53,7 @@ pub async fn run(
 
     verify_server_can_use_branches(conn).await?;
 
+    let context = context::Context::new(options.instance_name.as_ref(), None).await?;
     match cmd {
         Subcommand::Current(cmd) => current::run(cmd, &context, conn).await?,
         Subcommand::Create(cmd) => create::run(cmd, &context, conn).await?,

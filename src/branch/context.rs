@@ -29,10 +29,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub async fn new(instance_arg: Option<&InstanceName>) -> anyhow::Result<Context> {
+    pub async fn new(
+        instance_arg: Option<&InstanceName>,
+        branch_arg: Option<&str>,
+    ) -> anyhow::Result<Context> {
         let mut ctx = Context {
             instance_name: None,
-            current_branch: None,
+            current_branch: branch_arg.map(|x| x.to_string()),
             project: None,
             project_ctx_cache: Mutex::new(None),
         };

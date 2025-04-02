@@ -81,8 +81,10 @@ pub async fn wipe(connection: &mut Connection, cmd: &WipeDatabase) -> Result<(),
         }
     }
 
-    let context =
-        crate::branch::context::Context::new(cmd.instance_opts.maybe_instance().as_ref()).await?;
+    let context = crate::branch::context::Context::new(
+        cmd.instance_opts.maybe_instance().as_ref(),
+        None,
+    ).await?;
     crate::branch::wipe::do_wipe(connection, &context).await?;
     Ok(())
 }
