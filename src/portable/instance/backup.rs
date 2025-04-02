@@ -30,7 +30,8 @@ impl ProgressCallbackListener for ProgressBar {
             self.bar.set_length(100);
             self.bar.set_position(progress as u64);
         }
-        self.bar.set_message(message.to_string());
+        self.bar
+            .set_message(format!("Current operation: {}...", message));
     }
 }
 

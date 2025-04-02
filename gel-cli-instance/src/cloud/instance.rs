@@ -54,6 +54,11 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
         let api = self.instance.api.clone();
         let name = self.instance.name.clone();
 
+        callback.progress(
+            None,
+            &format!("preparing to restore \"{}\"", self.instance.name),
+        );
+
         tokio::spawn(async move {
             let cloud_name = match instance {
                 Some(InstanceName::Cloud(name)) => Some(name),

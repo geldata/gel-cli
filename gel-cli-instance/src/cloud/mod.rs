@@ -146,16 +146,12 @@ impl<H: CloudHttp> CloudApi<H> {
         &self,
         operation_id: &str,
     ) -> Result<schema::CloudOperation, CloudError> {
-        let mut res: CloudOperation = self
-            .http
+        self.http
             .get(
                 CloudResource::CloudOperation(operation_id),
                 self.endpoint(&format!("operations/{}", operation_id)),
             )
-            .await?;
-        // Temporary fix to replace "EdgeDB" until the cloud updates the message.
-        res.description = res.description.replace("EdgeDB", "Gel");
-        Ok(res)
+            .await
     }
 
     pub async fn list_instances(&self) -> Result<Vec<schema::CloudInstance>, CloudError> {
@@ -394,7 +390,7 @@ impl<H: CloudHttp> CloudApi<H> {
 
         let start = Instant::now();
         let mut description = operation.description.clone();
-        callback.progress(None, &format!("Current operation: {}...", description));
+        callback.progress(None, &description.replace("EdgeDB", "Gel"));
 
         let mut sleep = INITIAL_POLLING_INTERVAL;
         let mut original_error = None;
@@ -428,7 +424,7 @@ impl<H: CloudHttp> CloudApi<H> {
             operation = self.get_operation(&id).await?;
             if operation.description != description {
                 description = operation.description.clone();
-                callback.progress(None, &format!("Current operation: {}...", description));
+                callback.progress(None, &description.replace("EdgeDB", "Gel"));
             }
         }
 
