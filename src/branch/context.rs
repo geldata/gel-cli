@@ -1,6 +1,7 @@
 use crate::branding::BRANDING_CLOUD;
 use crate::connect::Connection;
 use crate::credentials;
+use crate::hint::HintExt;
 use crate::platform::tmp_file_path;
 use crate::portable::options::InstanceName;
 use crate::portable::project::{self, get_stash_path};
@@ -29,10 +30,13 @@ pub struct Context {
 }
 
 impl Context {
-    pub async fn new(instance_arg: Option<&InstanceName>) -> anyhow::Result<Context> {
+    pub async fn new(
+        instance_arg: Option<&InstanceName>,
+        branch_arg: Option<&str>,
+    ) -> anyhow::Result<Context> {
         let mut ctx = Context {
             instance_name: None,
-            current_branch: None,
+            current_branch: branch_arg.map(|x| x.to_string()),
             project: None,
             project_ctx_cache: Mutex::new(None),
         };
@@ -40,12 +44,14 @@ impl Context {
         // use instance name provided with --instance
         ctx.instance_name = instance_arg.cloned();
         if let Some(instance_name) = &ctx.instance_name {
-            let instance_name = ensure_local_instance(instance_name)?;
+            if ctx.current_branch.is_none() {
+                let instance_name = ensure_local_instance(instance_name)?;
 
-            let credentials_path = credentials::path(instance_name)?;
-            if credentials_path.exists() {
-                let credentials = credentials::read(&credentials_path).await?;
-                ctx.current_branch = credentials.branch.or(credentials.database);
+                let credentials_path = credentials::path(instance_name)?;
+                if credentials_path.exists() {
+                    let credentials = credentials::read(&credentials_path).await?;
+                    ctx.current_branch = credentials.branch.or(credentials.database);
+                }
             }
             return Ok(ctx);
         }
@@ -55,7 +61,9 @@ impl Context {
         if let Some(location) = &ctx.project {
             let stash_dir = get_stash_path(&location.root)?;
             ctx.instance_name = project::instance_name(&stash_dir).ok();
-            ctx.current_branch = project::database_name(&stash_dir).ok().flatten();
+            if ctx.current_branch.is_none() {
+                ctx.current_branch = project::database_name(&stash_dir).ok().flatten();
+            }
         }
 
         Ok(ctx)
@@ -132,8 +140,8 @@ fn ensure_local_instance(instance_name: &InstanceName) -> anyhow::Result<&str> {
         InstanceName::Cloud { .. } => {
             // should never occur because of the above check
             Err(anyhow::anyhow!(
-                "cannot use branches on {BRANDING_CLOUD} instance unless linked to a project"
-            ))
+                "Missing --branch argument"
+            ).with_hint(|| format!("When using {BRANDING_CLOUD} instance either an explict --branch or a linked project is required.")).into())
         }
     }
 }

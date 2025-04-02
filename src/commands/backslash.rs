@@ -584,6 +584,7 @@ pub async fn execute(
         styler: Some(Styler::new()),
         conn_params: prompt.conn_params.clone(),
         instance_name: None,
+        branch: None,
     };
     options.infer_instance_name()?;
     match cmd {

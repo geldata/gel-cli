@@ -304,6 +304,9 @@ pub struct WipeDatabase {
 
     #[command(flatten)]
     pub instance_opts: InstanceOptions,
+
+    #[arg(from_global)]
+    pub branch: Option<String>,
 }
 
 #[derive(clap::Args, Clone, Debug)]

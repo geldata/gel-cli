@@ -1255,6 +1255,7 @@ async fn migrate_async(inst: &project::Handle<'_>, ask_for_running: bool) -> any
             styler: None,
             conn_params: Connector::new(inst.get_builder()?.build().map_err(Into::into)),
             instance_name: Some(InstanceName::Local(inst.name.clone())),
+            branch: inst.database.clone(),
         },
     )
     .await?;
