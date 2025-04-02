@@ -19,33 +19,53 @@
     };
   };
 
-  outputs = inputs@{ flake-parts, fenix, edgedb, ... }:
+  outputs =
+    inputs@{
+      flake-parts,
+      fenix,
+      edgedb,
+      ...
+    }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
-      perSystem = { config, system, pkgs, ... }:
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
+      ];
+      perSystem =
+        {
+          config,
+          system,
+          pkgs,
+          ...
+        }:
         let
           fenix_pkgs = fenix.packages.${system};
 
-          common = [
-            # needed for running tests
-            edgedb.packages.${system}.edgedb-server-nightly
-          ] ++ pkgs.lib.optional pkgs.stdenv.isDarwin [
-            pkgs.libiconv
-            pkgs.darwin.apple_sdk.frameworks.CoreServices
-            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-          ];
+          common =
+            [
+              # needed for running tests
+              edgedb.packages.${system}.edgedb-server-nightly
+            ]
+            ++ pkgs.lib.optional pkgs.stdenv.isDarwin [
+              pkgs.libiconv
+              pkgs.darwin.apple_sdk.frameworks.CoreServices
+              pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+            ];
 
-        in {
+        in
+        {
           devShells.default = pkgs.mkShell {
             buildInputs = common ++ [
               (fenix_pkgs.combine [
                 (fenix_pkgs.fromToolchainFile {
                   file = ./rust-toolchain.toml;
-                  sha256 = "sha256-VZZnlyP69+Y3crrLHQyJirqlHrTtGTsyiSnZB8jEvVo=";
+                  sha256 = "sha256-Hn2uaQzRLidAWpfmRwSRdImifGUCAb9HeAqTYFXWeQk=";
                 })
                 (fenix_pkgs.targets.x86_64-unknown-linux-musl.fromToolchainFile {
                   file = ./rust-toolchain.toml;
-                  sha256 = "sha256-VZZnlyP69+Y3crrLHQyJirqlHrTtGTsyiSnZB8jEvVo=";
+                  sha256 = "sha256-Hn2uaQzRLidAWpfmRwSRdImifGUCAb9HeAqTYFXWeQk=";
                 })
               ])
             ];
