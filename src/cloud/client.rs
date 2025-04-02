@@ -57,7 +57,7 @@ impl Http {
         });
         let resp = req.send().await;
         slow_task_warning.abort();
-        let resp = resp.map_err(|e| Http::map_error(e))?;
+        let resp = resp.map_err(Http::map_error)?;
 
         let status = resp.status();
         debug!("Got response: status: {:?}", status);
@@ -83,9 +83,7 @@ impl Http {
 
             let message = if let Ok(body) = serde_json::from_str::<ErrorResponse>(&body) {
                 body.error
-            } else {
-                if body.is_empty() { None } else { Some(body) }
-            };
+            } else if body.is_empty() { None } else { Some(body) };
 
             match status {
                 reqwest::StatusCode::BAD_REQUEST => {
