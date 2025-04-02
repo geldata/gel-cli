@@ -221,7 +221,7 @@ async fn is_non_empty_db(cli: &mut Connection) -> Result<bool, anyhow::Error> {
     return Ok(non_empty);
 }
 
-pub async fn restore<'x>(
+pub async fn restore(
     cli: &mut Connection,
     options: &Options,
     params: &RestoreCmd,
@@ -233,7 +233,7 @@ pub async fn restore<'x>(
     }
 }
 
-async fn restore_db<'x>(
+async fn restore_db(
     cli: &mut Connection,
     _options: &Options,
     params: &RestoreCmd,
@@ -327,7 +327,7 @@ async fn apply_init(cli: &mut Connection, path: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn restore_all<'x>(
+pub async fn restore_all(
     cli: &mut Connection,
     options: &Options,
     params: &RestoreCmd,

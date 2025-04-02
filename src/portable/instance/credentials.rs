@@ -56,7 +56,7 @@ pub fn show_credentials(options: &Options, c: &Command) -> anyhow::Result<()> {
     } else if c.insecure_dsn {
         creds.dsn_url()
     } else {
-        crate::table::settings(&credentials_table(&creds));
+        crate::table::settings(&credentials_table(creds));
         None
     } {
         stdout()

@@ -16,7 +16,7 @@ struct ScalarType {
     kind: String,
 }
 
-pub async fn list_scalar_types<'x>(
+pub async fn list_scalar_types(
     cli: &mut Connection,
     options: &Options,
     pattern: &Option<String>,

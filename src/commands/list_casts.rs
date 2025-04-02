@@ -16,7 +16,7 @@ struct Cast {
     volatility_str: String,
 }
 
-pub async fn list_casts<'x>(
+pub async fn list_casts(
     cli: &mut Connection,
     options: &Options,
     pattern: &Option<String>,
