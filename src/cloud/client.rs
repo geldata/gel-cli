@@ -26,6 +26,7 @@ pub struct CloudConfig {
     pub secret_key: Option<String>,
 }
 
+#[derive(Debug, Clone)]
 pub struct Http {
     client: reqwest_middleware::ClientWithMiddleware,
 }
@@ -45,8 +46,22 @@ impl Http {
         CloudError::CommunicationError(Box::new(err))
     }
 
-    async fn map<T: DeserializeOwned + Debug>(
+    fn map<T: DeserializeOwned + Debug + Send + Sync + 'static>(
         resource: impl std::fmt::Display,
+        req: reqwest_middleware::RequestBuilder,
+    ) -> impl Future<Output = Result<T, CloudError>> + Send + Sync + 'static {
+        let resource = resource.to_string();
+        async move {
+            match tokio::spawn(Self::map_inner(resource, req)).await {
+                Ok(Ok(t)) => Ok(t),
+                Ok(Err(e)) => Err(e),
+                Err(e) => Err(CloudError::CommunicationError(Box::new(e))),
+            }
+        }
+    }
+
+    async fn map_inner<T: DeserializeOwned + Debug + Send + Sync + 'static>(
+        resource: String,
         req: reqwest_middleware::RequestBuilder,
     ) -> Result<T, CloudError> {
         let slow_task_warning = tokio::task::spawn(async {
@@ -111,42 +126,42 @@ impl Http {
 }
 
 impl CloudHttp for Http {
-    async fn get<T: DeserializeOwned + Debug>(
+    fn get<T: DeserializeOwned + Debug + Send + Sync + 'static>(
         &self,
         resource: impl std::fmt::Display,
-        url: &str,
-    ) -> Result<T, CloudError> {
+        url: String,
+    ) -> impl Future<Output = Result<T, CloudError>> + Send + Sync + 'static {
         debug!("GET {resource} {url}");
-        Self::map(resource, self.client.get(url)).await
+        Self::map(resource, self.client.get(url))
     }
 
-    async fn post<REQ: Serialize + Debug, RES: DeserializeOwned + Debug>(
+    fn post<REQ: Serialize + Debug, RES: DeserializeOwned + Debug + Send + Sync + 'static>(
         &self,
         resource: impl std::fmt::Display,
-        url: &str,
+        url: String,
         body: REQ,
-    ) -> Result<RES, CloudError> {
+    ) -> impl Future<Output = Result<RES, CloudError>> + Send + Sync + 'static {
         debug!("POST {resource} {url} {body:?}");
-        Self::map(resource, self.client.post(url).json(&body)).await
+        Self::map(resource, self.client.post(url).json(&body))
     }
 
-    async fn put<REQ: Serialize + Debug, RES: DeserializeOwned + Debug>(
+    fn put<REQ: Serialize + Debug, RES: DeserializeOwned + Debug + Send + Sync + 'static>(
         &self,
         resource: impl std::fmt::Display,
-        url: &str,
+        url: String,
         body: REQ,
-    ) -> Result<RES, CloudError> {
+    ) -> impl Future<Output = Result<RES, CloudError>> + Send + Sync + 'static {
         debug!("PUT {resource} {url} {body:?}");
-        Self::map(resource, self.client.put(url).json(&body)).await
+        Self::map(resource, self.client.put(url).json(&body))
     }
 
-    async fn delete<T: DeserializeOwned + Debug>(
+    fn delete<T: DeserializeOwned + Debug + Send + Sync + 'static>(
         &self,
         resource: impl std::fmt::Display,
-        url: &str,
-    ) -> Result<T, CloudError> {
+        url: String,
+    ) -> impl Future<Output = Result<T, CloudError>> + Send + Sync + 'static {
         debug!("DELETE {resource} {url}");
-        Self::map(resource, self.client.delete(url)).await
+        Self::map(resource, self.client.delete(url))
     }
 }
 

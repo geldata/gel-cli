@@ -7,7 +7,10 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+gel-dsn = { workspace = true, features = ["gel"] }
+
 tokio = { version = "1", features = ["process"] }
+futures = "0.3"
 bytes = "1"
 scopeguard = "1"
 log = "0.4"
@@ -17,6 +20,7 @@ thiserror = "2"
 derive_more = { version = "2", features = ["error", "display"] }
 humantime-serde = "1.1.1"
 clap = "4"
+anyhow = "1"
 
 [dev-dependencies]
 rstest = "0.25"

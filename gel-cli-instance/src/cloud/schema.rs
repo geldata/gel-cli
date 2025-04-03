@@ -36,7 +36,7 @@ pub struct CloudInstanceBackup {
     pub org: String,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Default, serde::Serialize)]
 pub struct CloudInstanceRestore {
     pub backup_id: Option<String>,
     pub latest: bool,

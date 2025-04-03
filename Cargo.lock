@@ -1609,9 +1609,12 @@ dependencies = [
 name = "gel-cli-instance"
 version = "7.2.0-dev"
 dependencies = [
+ "anyhow",
  "bytes",
  "clap",
  "derive_more",
+ "futures",
+ "gel-dsn",
  "humantime-serde",
  "log",
  "rstest",
