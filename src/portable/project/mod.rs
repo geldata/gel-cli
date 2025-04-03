@@ -115,8 +115,7 @@ pub enum InstanceKind<'a> {
     Portable(InstanceInfo),
     Wsl,
     Cloud {
-        org_slug: String,
-        name: String,
+        name: CloudName,
         cloud_client: &'a CloudClient,
     },
 }
@@ -193,14 +192,10 @@ impl Handle<'_> {
                     database: None,
                 }),
             },
-            InstanceName::Cloud(CloudName {
-                org_slug,
-                name: inst_name,
-            }) => Ok(Handle {
-                name: name.to_string(),
+            InstanceName::Cloud(name) => Ok(Handle {
+                name: name.name.clone(),
                 instance: InstanceKind::Cloud {
-                    org_slug: org_slug.to_owned(),
-                    name: inst_name.to_owned(),
+                    name: name.clone(),
                     cloud_client,
                 },
                 database: None,

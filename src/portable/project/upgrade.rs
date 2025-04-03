@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Context;
 use clap::ValueHint;
+use gel_tokio::CloudName;
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD};
 use crate::cloud;
@@ -141,8 +142,8 @@ pub fn update_toml(
                 upgrade_local(options, &project, inst, &query, opts)
             }
             project::InstanceKind::Wsl => todo!(),
-            project::InstanceKind::Cloud { org_slug, name, .. } => {
-                upgrade_cloud(options, &org_slug, &name, &query, opts)
+            project::InstanceKind::Cloud { name, .. } => {
+                upgrade_cloud(options, &name, &query, opts)
             }
         }?;
 
@@ -235,9 +236,7 @@ pub fn upgrade_instance(cmd: &Command, opts: &crate::options::Options) -> anyhow
         project::InstanceKind::Remote => anyhow::bail!("remote instances cannot be upgraded"),
         project::InstanceKind::Portable(inst) => upgrade_local(cmd, &project, inst, cfg_ver, opts),
         project::InstanceKind::Wsl => todo!(),
-        project::InstanceKind::Cloud { org_slug, name, .. } => {
-            upgrade_cloud(cmd, &org_slug, &name, cfg_ver, opts)
-        }
+        project::InstanceKind::Cloud { name, .. } => upgrade_cloud(cmd, &name, cfg_ver, opts),
     }?;
 
     match result.action {
@@ -359,18 +358,16 @@ fn upgrade_local(
 
 fn upgrade_cloud(
     cmd: &Command,
-    org: &str,
-    name: &str,
+    name: &CloudName,
     to_version: &Query,
     opts: &crate::options::Options,
 ) -> anyhow::Result<upgrade::UpgradeResult> {
     let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
     client.ensure_authenticated()?;
 
-    let result = upgrade::upgrade_cloud(org, name, to_version, &client, cmd.force, |target_ver| {
+    let result = upgrade::upgrade_cloud(name, to_version, &client, cmd.force, |target_ver| {
         let target_ver_str = target_ver.to_string();
-        let _inst_name = format!("{org}/{name}");
-        let inst_name = _inst_name.emphasized();
+        let inst_name = name.to_string().emphasized();
         if !cmd.non_interactive {
             question::Confirm::new(format!(
                 "This will upgrade {inst_name} to version {target_ver_str}.\
@@ -383,10 +380,10 @@ fn upgrade_cloud(
     })?;
 
     if let upgrade::UpgradeAction::Upgraded = result.action {
-        let inst_name = format!("{org}/{name}");
+        let inst_name = name.to_string().emphasized();
         msg!(
             "Instance {} has been successfully upgraded to {}.",
-            inst_name.emphasized(),
+            inst_name,
             result.requested_version.to_string().emphasized(),
         );
     }

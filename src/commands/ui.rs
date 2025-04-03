@@ -48,12 +48,8 @@ fn get_cloud_ui_url(
     let url = if client.is_default_partition {
         format!("https://cloud.edgedb.com/{cloud_name}")
     } else {
-        let inst = cloud::ops::find_cloud_instance_by_name(
-            &cloud_name.name,
-            &cloud_name.org_slug,
-            &client,
-        )?
-        .ok_or_else(|| anyhow::anyhow!("instance not found"))?;
+        let inst = cloud::ops::find_cloud_instance_by_name(cloud_name, &client)?
+            .ok_or_else(|| anyhow::anyhow!("instance not found"))?;
         match inst.ui_url {
             Some(url) => url,
             None => get_local_ui_url(cmd, cfg)?,

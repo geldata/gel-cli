@@ -17,10 +17,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
             clap::error::ErrorKind::InvalidValue,
             cformat!("Only {BRANDING_CLOUD} instances can be resized."),
         ))?,
-        InstanceName::Cloud(CloudName {
-            org_slug: org,
-            name,
-        }) => resize_cloud_cmd(cmd, org, name, opts),
+        InstanceName::Cloud(name) => resize_cloud_cmd(cmd, name, opts),
     }
 }
 
@@ -44,8 +41,7 @@ pub struct Command {
 
 fn resize_cloud_cmd(
     cmd: &Command,
-    org_slug: &str,
-    name: &str,
+    name: &CloudName,
     opts: &crate::options::Options,
 ) -> anyhow::Result<()> {
     let billables = &cmd.billables;
@@ -66,12 +62,9 @@ fn resize_cloud_cmd(
     let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
     client.ensure_authenticated()?;
 
-    let inst_name = InstanceName::Cloud(CloudName {
-        org_slug: org_slug.to_string(),
-        name: name.to_string(),
-    });
+    let inst_name = InstanceName::Cloud(name.clone());
 
-    let inst = cloud::ops::find_cloud_instance_by_name(name, org_slug, &client)?
+    let inst = cloud::ops::find_cloud_instance_by_name(name, &client)?
         .ok_or_else(|| anyhow::anyhow!("instance not found"))?;
 
     let mut compute_size = billables.compute_size.clone();
@@ -83,7 +76,7 @@ fn resize_cloud_cmd(
             Err(opts.error(
                 clap::error::ErrorKind::InvalidValue,
                 cformat!(
-                    "Instance \"{org_slug}/{name}\" is already a {tier:?} \
+                    "Instance \"{inst_name}\" is already a {tier:?} \
                 instance."
                 ),
             ))?;
@@ -195,7 +188,7 @@ fn resize_cloud_cmd(
             requested_resources: Some(vec![res]),
             tier: billables.tier,
         };
-        cloud::ops::resize_cloud_instance(&client, org_slug, name, request)?;
+        cloud::ops::resize_cloud_instance(&client, name, request)?;
     }
     msg!("{BRANDING_CLOUD} instance {inst_name} has been resized successfuly.");
     msg!("To connect to the instance run:");

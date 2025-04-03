@@ -70,8 +70,8 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
 
     let name = match inst_name.clone() {
         InstanceName::Local(name) => name,
-        InstanceName::Cloud(CloudName { org_slug, name }) => {
-            create_cloud(cmd, opts, &org_slug, &name, &client)?;
+        InstanceName::Cloud(name) => {
+            create_cloud(cmd, opts, &name, &client)?;
             return Ok(());
         }
     };
@@ -304,14 +304,14 @@ fn ask_name(cloud_client: &mut cloud::client::CloudClient) -> anyhow::Result<Ins
         };
         let exists = match &inst_name {
             InstanceName::Local(name) => instances.contains(name),
-            InstanceName::Cloud(CloudName { org_slug, name }) => {
+            InstanceName::Cloud(name) => {
                 if !cloud_client.is_logged_in {
                     if let Err(e) = cloud::ops::prompt_cloud_login(cloud_client) {
                         print::error!("{e}");
                         continue;
                     }
                 }
-                cloud::ops::find_cloud_instance_by_name(name, org_slug, cloud_client)?.is_some()
+                cloud::ops::find_cloud_instance_by_name(name, cloud_client)?.is_some()
             }
         };
         if exists {
@@ -329,14 +329,10 @@ fn ask_name(cloud_client: &mut cloud::client::CloudClient) -> anyhow::Result<Ins
 fn create_cloud(
     cmd: &Command,
     opts: &crate::options::Options,
-    org_slug: &str,
-    name: &str,
+    name: &CloudName,
     client: &cloud::client::CloudClient,
 ) -> anyhow::Result<()> {
-    let inst_name = InstanceName::Cloud(CloudName {
-        org_slug: org_slug.to_string(),
-        name: name.to_string(),
-    });
+    let inst_name = InstanceName::Cloud(name.clone());
 
     client.ensure_authenticated()?;
 
@@ -347,7 +343,7 @@ fn create_cloud(
         Some(region) => region.to_string(),
     };
 
-    let org = cloud::ops::get_org(org_slug, client)?;
+    let org = cloud::ops::get_org(&name.org_slug, client)?;
 
     let (query, _) = Query::from_options(
         QueryOptions {
@@ -471,10 +467,7 @@ fn create_cloud(
     }
 
     let source_instance_id = match &cmd.cloud_backup_source.from_instance {
-        Some(InstanceName::Cloud(CloudName {
-            org_slug: org,
-            name,
-        })) => match cloud::ops::find_cloud_instance_by_name(name, org, client) {
+        Some(InstanceName::Cloud(name)) => match cloud::ops::find_cloud_instance_by_name(name, client) {
             Ok(Some(instance)) => Ok(Some(instance.id)),
             Ok(None) => Err(opts.error(
                 clap::error::ErrorKind::InvalidValue,
@@ -504,7 +497,7 @@ fn create_cloud(
         source_instance_id,
         source_backup_id: cmd.cloud_backup_source.from_backup_id.clone(),
     };
-    cloud::ops::create_cloud_instance(client, org_slug, request)?;
+    cloud::ops::create_cloud_instance(client, &name.org_slug, request)?;
     msg!("{BRANDING_CLOUD} instance {inst_name} is up and running.");
     msg!("To connect to the instance run:");
     msg!("  {BRANDING_CLI_CMD} -I {inst_name}");

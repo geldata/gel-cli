@@ -105,11 +105,10 @@ pub async fn get_prices(client: &CloudClient) -> anyhow::Result<Prices> {
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn find_cloud_instance_by_name(
-    inst: &str,
-    org: &str,
+    instance: &CloudName,
     client: &CloudClient,
 ) -> anyhow::Result<Option<CloudInstance>> {
-    Ok(Some(client.api.get_instance(org, inst).await?))
+    Ok(Some(client.api.get_instance(instance).await?))
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -176,11 +175,10 @@ pub async fn create_cloud_instance(
 #[tokio::main(flavor = "current_thread")]
 pub async fn resize_cloud_instance(
     client: &CloudClient,
-    org: &str,
-    name: &str,
+    name: &CloudName,
     request: CloudInstanceResize,
 ) -> anyhow::Result<()> {
-    let operation: CloudOperation = client.api.resize_instance(org, name, request).await?;
+    let operation: CloudOperation = client.api.resize_instance(name, request).await?;
     wait_for_operation(operation, client).await?;
     Ok(())
 }
@@ -188,11 +186,10 @@ pub async fn resize_cloud_instance(
 #[tokio::main(flavor = "current_thread")]
 pub async fn upgrade_cloud_instance(
     client: &CloudClient,
-    org: &str,
-    name: &str,
+    name: &CloudName,
     request: CloudInstanceUpgrade,
 ) -> anyhow::Result<()> {
-    let operation: CloudOperation = client.api.upgrade_instance(org, name, request).await?;
+    let operation: CloudOperation = client.api.upgrade_instance(name, request).await?;
     wait_for_operation(operation, client).await?;
     Ok(())
 }
@@ -215,26 +212,24 @@ pub fn prompt_cloud_login(client: &mut CloudClient) -> anyhow::Result<()> {
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn restart_cloud_instance(
-    name: &str,
-    org: &str,
+    name: &CloudName,
     options: &CloudOptions,
 ) -> anyhow::Result<()> {
     let client = CloudClient::new(options)?;
     client.ensure_authenticated()?;
-    let operation = client.api.restart_instance(org, name).await?;
+    let operation = client.api.restart_instance(name).await?;
     wait_for_operation(operation, &client).await?;
     Ok(())
 }
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn destroy_cloud_instance(
-    name: &str,
-    org: &str,
+    name: &CloudName,
     options: &CloudOptions,
 ) -> anyhow::Result<()> {
     let client = CloudClient::new(options)?;
     client.ensure_authenticated()?;
-    let operation: CloudOperation = client.api.delete_instance(org, name).await?;
+    let operation: CloudOperation = client.api.delete_instance(name).await?;
     wait_for_operation(operation, &client).await?;
     Ok(())
 }
@@ -279,8 +274,7 @@ pub async fn get_status(
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn logs_cloud_instance(
-    name: &str,
-    org_slug: &str,
+    name: &CloudName,
     limit: Option<usize>,
     options: &CloudOptions,
 ) -> anyhow::Result<()> {
@@ -288,7 +282,7 @@ pub async fn logs_cloud_instance(
     client.ensure_authenticated()?;
     let logs = client
         .api
-        .get_instance_logs(org_slug, name, limit, None, None, None)
+        .get_instance_logs(name, limit, None, None, None)
         .await?;
     for log in logs.logs {
         println!(

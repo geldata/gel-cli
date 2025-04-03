@@ -1,3 +1,4 @@
+use gel_dsn::gel::CloudName;
 use humantime_serde::re::humantime;
 use serde::{Serialize, de::DeserializeOwned};
 use std::{
@@ -162,26 +163,32 @@ impl<H: CloudHttp> CloudApi<H> {
 
     pub async fn get_instance(
         &self,
-        org_slug: &str,
-        name: &str,
+        instance: &CloudName,
     ) -> Result<schema::CloudInstance, CloudError> {
         self.http
             .get(
-                CloudResource::Instance(org_slug, name),
-                self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
+                CloudResource::Instance(&instance.org_slug, &instance.name),
+                self.endpoint(&format!(
+                    "orgs/{org_slug}/instances/{name}",
+                    org_slug = instance.org_slug,
+                    name = instance.name
+                )),
             )
             .await
     }
 
     pub async fn delete_instance(
         &self,
-        org_slug: &str,
-        name: &str,
+        instance: &CloudName,
     ) -> Result<schema::CloudOperation, CloudError> {
         self.http
             .delete(
-                CloudResource::Instance(org_slug, name),
-                self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
+                CloudResource::Instance(&instance.org_slug, &instance.name),
+                self.endpoint(&format!(
+                    "orgs/{org_slug}/instances/{name}",
+                    org_slug = instance.org_slug,
+                    name = instance.name
+                )),
             )
             .await
     }
@@ -202,14 +209,17 @@ impl<H: CloudHttp> CloudApi<H> {
 
     pub async fn upgrade_instance(
         &self,
-        org_slug: &str,
-        name: &str,
+        instance: &CloudName,
         request: schema::CloudInstanceUpgrade,
     ) -> Result<schema::CloudOperation, CloudError> {
         self.http
             .put(
-                CloudResource::Instance(org_slug, name),
-                self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
+                CloudResource::Instance(&instance.org_slug, &instance.name),
+                self.endpoint(&format!(
+                    "orgs/{org_slug}/instances/{name}",
+                    org_slug = instance.org_slug,
+                    name = instance.name
+                )),
                 request,
             )
             .await
@@ -217,14 +227,17 @@ impl<H: CloudHttp> CloudApi<H> {
 
     pub async fn resize_instance(
         &self,
-        org_slug: &str,
-        name: &str,
+        instance: &CloudName,
         request: schema::CloudInstanceResize,
     ) -> Result<schema::CloudOperation, CloudError> {
         self.http
             .put(
-                CloudResource::Instance(org_slug, name),
-                self.endpoint(&format!("orgs/{org_slug}/instances/{name}")),
+                CloudResource::Instance(&instance.org_slug, &instance.name),
+                self.endpoint(&format!(
+                    "orgs/{org_slug}/instances/{name}",
+                    org_slug = instance.org_slug,
+                    name = instance.name
+                )),
                 request,
             )
             .await
@@ -241,14 +254,17 @@ impl<H: CloudHttp> CloudApi<H> {
 
     pub async fn create_backup(
         &self,
-        org_slug: &str,
-        name: &str,
+        instance: &CloudName,
     ) -> Result<schema::CloudOperation, CloudError> {
         // TODO: Missing API in doc
         self.http
             .post(
-                CloudResource::Instance(org_slug, name),
-                self.endpoint(&format!("orgs/{org_slug}/instances/{name}/backups")),
+                CloudResource::Instance(&instance.org_slug, &instance.name),
+                self.endpoint(&format!(
+                    "orgs/{org_slug}/instances/{name}/backups",
+                    org_slug = instance.org_slug,
+                    name = instance.name
+                )),
                 (),
             )
             .await
@@ -256,27 +272,33 @@ impl<H: CloudHttp> CloudApi<H> {
 
     pub async fn list_backups(
         &self,
-        org_slug: &str,
-        name: &str,
+        instance: &CloudName,
     ) -> Result<Vec<schema::Backup>, CloudError> {
         self.http
             .get(
-                CloudResource::Instance(org_slug, name),
-                self.endpoint(&format!("orgs/{org_slug}/instances/{name}/backups")),
+                CloudResource::Instance(&instance.org_slug, &instance.name),
+                self.endpoint(&format!(
+                    "orgs/{org_slug}/instances/{name}/backups",
+                    org_slug = instance.org_slug,
+                    name = instance.name
+                )),
             )
             .await
     }
 
     pub async fn restore_instance(
         &self,
-        org_slug: &str,
-        name: &str,
+        instance: &CloudName,
         request: schema::CloudInstanceRestore,
     ) -> Result<schema::CloudOperation, CloudError> {
         self.http
             .post(
-                CloudResource::Instance(org_slug, name),
-                self.endpoint(&format!("orgs/{org_slug}/instances/{name}/restore")),
+                CloudResource::Instance(&instance.org_slug, &instance.name),
+                self.endpoint(&format!(
+                    "orgs/{org_slug}/instances/{name}/restore",
+                    org_slug = instance.org_slug,
+                    name = instance.name
+                )),
                 request,
             )
             .await
@@ -284,13 +306,16 @@ impl<H: CloudHttp> CloudApi<H> {
 
     pub async fn restart_instance(
         &self,
-        org_slug: &str,
-        name: &str,
+        instance: &CloudName,
     ) -> Result<schema::CloudOperation, CloudError> {
         self.http
             .post(
-                CloudResource::Instance(org_slug, name),
-                self.endpoint(&format!("orgs/{org_slug}/instances/{name}/restart")),
+                CloudResource::Instance(&instance.org_slug, &instance.name),
+                self.endpoint(&format!(
+                    "orgs/{org_slug}/instances/{name}/restart",
+                    org_slug = instance.org_slug,
+                    name = instance.name
+                )),
                 (),
             )
             .await
@@ -298,8 +323,7 @@ impl<H: CloudHttp> CloudApi<H> {
 
     pub async fn get_instance_logs(
         &self,
-        org_slug: &str,
-        name: &str,
+        instance: &CloudName,
         limit: Option<usize>,
         start: Option<std::time::SystemTime>,
         to: Option<std::time::SystemTime>,
@@ -320,10 +344,12 @@ impl<H: CloudHttp> CloudApi<H> {
         }
         self.http
             .get(
-                CloudResource::Instance(org_slug, name),
+                CloudResource::Instance(&instance.org_slug, &instance.name),
                 self.endpoint(&format!(
                     "orgs/{org_slug}/instances/{name}/logs?{}",
-                    query_params.join("&")
+                    query_params.join("&"),
+                    org_slug = instance.org_slug,
+                    name = instance.name
                 )),
             )
             .await

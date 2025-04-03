@@ -324,7 +324,7 @@ impl InstanceOptions {
                 let instance = config.instance_name().cloned();
 
                 if let Some(instance) = instance {
-                    return Ok(instance.into());
+                    return Ok(instance);
                 }
             }
         };

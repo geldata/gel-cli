@@ -291,11 +291,8 @@ pub fn instance_status(name: &str) -> anyhow::Result<FullStatus> {
 fn normal_status(cmd: &Status, opts: &crate::options::Options) -> anyhow::Result<()> {
     let name = match cmd.instance_opts.instance()? {
         InstanceName::Local(name) => name,
-        InstanceName::Cloud(CloudName {
-            org_slug: org,
-            name,
-        }) => {
-            return cloud_status(cmd, &org, &name, opts);
+        InstanceName::Cloud(name) => {
+            return cloud_status(cmd, &name, opts);
         }
     };
     let meta = InstanceInfo::try_read(&name).transpose();
@@ -319,14 +316,13 @@ fn normal_status(cmd: &Status, opts: &crate::options::Options) -> anyhow::Result
 
 fn cloud_status(
     cmd: &Status,
-    org: &str,
-    name: &str,
+    name: &CloudName,
     opts: &crate::options::Options,
 ) -> anyhow::Result<()> {
     let client = CloudClient::new(&opts.cloud_options)?;
     client.ensure_authenticated()?;
 
-    let inst = cloud::ops::find_cloud_instance_by_name(name, org, &client)?
+    let inst = cloud::ops::find_cloud_instance_by_name(name, &client)?
         .ok_or_else(|| anyhow::anyhow!("instance not found"))?;
 
     let status = cloud::ops::get_status(&client, &inst)?;

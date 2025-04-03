@@ -34,9 +34,7 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
         let name = self.instance.name.clone();
 
         tokio::spawn(async move {
-            let operation = api
-                .create_backup(name.org_slug.as_str(), name.name.as_str())
-                .await?;
+            let operation = api.create_backup(&name).await?;
             api.wait_for_operation(operation, Duration::from_secs(30 * 60), callback)
                 .await?;
             Ok(None)
@@ -71,7 +69,7 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
             };
 
             let source_instance_id = if let Some(name) = cloud_name {
-                Some(api.get_instance(&name.org_slug, &name.name).await?.id)
+                Some(api.get_instance(&name).await?.id)
             } else {
                 None
             };
@@ -89,9 +87,7 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
                 },
             };
 
-            let operation = api
-                .restore_instance(name.org_slug.as_str(), name.name.as_str(), request)
-                .await?;
+            let operation = api.restore_instance(&name, request).await?;
             api.wait_for_operation(operation, Duration::from_secs(30 * 60), callback)
                 .await?;
             Ok(())
@@ -105,9 +101,7 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
         let name = self.instance.name.clone();
 
         tokio::spawn(async move {
-            let backups = api
-                .list_backups(name.org_slug.as_str(), name.name.as_str())
-                .await?;
+            let backups = api.list_backups(&name).await?;
             Ok(backups
                 .into_iter()
                 .map(|b| Backup {

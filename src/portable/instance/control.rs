@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
-use gel_tokio::{CloudName, InstanceName};
+use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::bug;
@@ -593,18 +593,15 @@ pub fn restart(cmd: &Restart, options: &crate::Options) -> anyhow::Result<()> {
             let meta = InstanceInfo::read(&name)?;
             do_restart(&meta)
         }
-        InstanceName::Cloud(CloudName {
-            org_slug,
-            name: inst_name,
-        }) => {
-            crate::cloud::ops::restart_cloud_instance(&inst_name, &org_slug, &options.cloud_options)
+        InstanceName::Cloud(name) => {
+            crate::cloud::ops::restart_cloud_instance(&name, &options.cloud_options)
         }
     }
 }
 
 pub fn logs(cmd: &Logs, options: &crate::Options) -> anyhow::Result<()> {
-    if let InstanceName::Cloud(CloudName { org_slug, name }) = cmd.instance_opts.instance()? {
-        crate::cloud::ops::logs_cloud_instance(&name, &org_slug, cmd.tail, &options.cloud_options)
+    if let InstanceName::Cloud(name) = cmd.instance_opts.instance()? {
+        crate::cloud::ops::logs_cloud_instance(&name, cmd.tail, &options.cloud_options)
     } else if cfg!(windows) {
         windows::logs(cmd)
     } else if cfg!(target_os = "macos") {
