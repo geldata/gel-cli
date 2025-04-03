@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::Context;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
+use gel_tokio::{CloudName, InstanceName};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::bug;
@@ -14,7 +15,6 @@ use crate::hint::HintExt;
 use crate::options::{InstanceOptions, InstanceOptionsLegacy};
 use crate::platform::current_exe;
 use crate::portable::local::{InstanceInfo, lock_file, open_lock, runstate_dir};
-use crate::portable::options::InstanceName;
 use crate::portable::ver;
 use crate::portable::{linux, macos, windows};
 use crate::print;
@@ -593,17 +593,17 @@ pub fn restart(cmd: &Restart, options: &crate::Options) -> anyhow::Result<()> {
             let meta = InstanceInfo::read(&name)?;
             do_restart(&meta)
         }
-        InstanceName::Cloud {
+        InstanceName::Cloud(CloudName {
             org_slug,
             name: inst_name,
-        } => {
+        }) => {
             crate::cloud::ops::restart_cloud_instance(&inst_name, &org_slug, &options.cloud_options)
         }
     }
 }
 
 pub fn logs(cmd: &Logs, options: &crate::Options) -> anyhow::Result<()> {
-    if let InstanceName::Cloud { org_slug, name } = cmd.instance_opts.instance()? {
+    if let InstanceName::Cloud(CloudName { org_slug, name }) = cmd.instance_opts.instance()? {
         crate::cloud::ops::logs_cloud_instance(&name, &org_slug, cmd.tail, &options.cloud_options)
     } else if cfg!(windows) {
         windows::logs(cmd)

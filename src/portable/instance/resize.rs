@@ -2,11 +2,12 @@ use anyhow::Context;
 use color_print::cformat;
 use gel_cli_derive::IntoArgs;
 use gel_cli_instance::cloud::{CloudInstanceResize, CloudInstanceResourceRequest, CloudTier};
+use gel_tokio::{CloudName, InstanceName};
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::cloud;
 use crate::options::CloudOptions;
-use crate::portable::options::{CloudInstanceBillables, InstanceName};
+use crate::portable::options::CloudInstanceBillables;
 use crate::print::msg;
 use crate::question;
 
@@ -16,10 +17,10 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
             clap::error::ErrorKind::InvalidValue,
             cformat!("Only {BRANDING_CLOUD} instances can be resized."),
         ))?,
-        InstanceName::Cloud {
+        InstanceName::Cloud(CloudName {
             org_slug: org,
             name,
-        } => resize_cloud_cmd(cmd, org, name, opts),
+        }) => resize_cloud_cmd(cmd, org, name, opts),
     }
 }
 
@@ -65,10 +66,10 @@ fn resize_cloud_cmd(
     let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
     client.ensure_authenticated()?;
 
-    let inst_name = InstanceName::Cloud {
+    let inst_name = InstanceName::Cloud(CloudName {
         org_slug: org_slug.to_string(),
         name: name.to_string(),
-    };
+    });
 
     let inst = cloud::ops::find_cloud_instance_by_name(name, org_slug, &client)?
         .ok_or_else(|| anyhow::anyhow!("instance not found"))?;

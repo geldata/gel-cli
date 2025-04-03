@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use fs_err as fs;
 use gel_cli_derive::IntoArgs;
+use gel_tokio::{CloudName, InstanceName};
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::commands::ExitCode;
@@ -9,7 +10,6 @@ use crate::options::{CloudOptions, InstanceOptionsLegacy, Options};
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::local;
-use crate::portable::options::InstanceName;
 use crate::portable::project;
 use crate::portable::windows;
 use crate::print::{self, Highlight, msg};
@@ -172,10 +172,10 @@ fn do_destroy(options: &Command, opts: &Options, name: &InstanceName) -> anyhow:
                 destroy_local(name)
             }
         }
-        InstanceName::Cloud {
+        InstanceName::Cloud(CloudName {
             org_slug,
             name: inst_name,
-        } => {
+        }) => {
             log::info!("Removing {BRANDING_CLOUD} instance {}", name);
             if let Err(e) =
                 crate::cloud::ops::destroy_cloud_instance(inst_name, org_slug, &opts.cloud_options)

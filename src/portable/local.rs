@@ -11,14 +11,13 @@ use anyhow::Context;
 use fn_error_context::context;
 
 use gel_dsn::gel::UnixPath;
-use gel_tokio::{Builder, Config};
+use gel_tokio::{Builder, Config, InstanceName};
 
 use crate::branding::BRANDING;
 use crate::bug;
 use crate::credentials;
 use crate::hint::HintExt;
 use crate::platform::{cache_dir, config_dir, data_dir, portable_dir};
-use crate::portable::options::InstanceName;
 use crate::portable::repository::PackageHash;
 use crate::portable::ver;
 use crate::portable::{linux, macos, windows};

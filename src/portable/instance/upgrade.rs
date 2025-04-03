@@ -8,6 +8,7 @@ use const_format::concatcp;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 use gel_cli_instance::cloud::CloudInstanceUpgrade;
+use gel_tokio::{CloudName, InstanceName};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
 use crate::commands::{self, ExitCode};
@@ -17,7 +18,6 @@ use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::local::{InstallInfo, InstanceInfo, Paths, write_json};
-use crate::portable::options::InstanceName;
 use crate::portable::project;
 use crate::portable::repository::{self, Channel, PackageInfo, Query, QueryOptions};
 use crate::portable::server::install;
@@ -30,10 +30,10 @@ use crate::{cloud, credentials};
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     match cmd.instance_opts.instance()? {
         InstanceName::Local(name) => upgrade_local_cmd(cmd, &name),
-        InstanceName::Cloud {
+        InstanceName::Cloud(CloudName {
             org_slug: org,
             name,
-        } => upgrade_cloud_cmd(cmd, &org, &name, opts),
+        }) => upgrade_cloud_cmd(cmd, &org, &name, opts),
     }
 }
 

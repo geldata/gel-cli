@@ -3,11 +3,11 @@ use std::time::Duration;
 use gel_cli_derive::IntoArgs;
 use gel_cli_instance::instance::backup::{ProgressCallbackListener, RestoreType};
 use gel_cli_instance::instance::{InstanceHandle, get_cloud_instance, get_local_instance};
+use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::cloud;
 use crate::options::CloudOptions;
-use crate::portable::options::InstanceName;
 use crate::print::msg;
 use crate::question;
 

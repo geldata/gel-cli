@@ -1,5 +1,4 @@
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 
 use anyhow::Context;
 use clap::ValueHint;
@@ -11,7 +10,6 @@ use crate::migrations;
 use crate::portable::instance;
 use crate::portable::instance::upgrade;
 use crate::portable::local::InstanceInfo;
-use crate::portable::options::InstanceName;
 use crate::portable::project;
 use crate::portable::project::manifest;
 use crate::portable::repository::{self, Channel, Query};
@@ -292,7 +290,7 @@ fn upgrade_local(
 ) -> anyhow::Result<upgrade::UpgradeResult> {
     let inst_ver = inst.get_version()?.specific();
 
-    let instance_name = InstanceName::from_str(&inst.name)?;
+    let instance_name = inst.instance_name.clone();
     let pkg = repository::get_server_package(to_version)?.with_context(|| {
         format!(
             "cannot find package matching {} \

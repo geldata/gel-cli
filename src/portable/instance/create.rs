@@ -10,6 +10,7 @@ use gel_cli_derive::IntoArgs;
 use color_print::cformat;
 use gel_cli_instance::cloud::{CloudInstanceCreate, CloudInstanceResourceRequest, CloudTier};
 use gel_dsn::gel::{CredentialsFile, DEFAULT_PORT};
+use gel_tokio::{CloudName, InstanceName};
 use serde::{Deserialize, Serialize};
 
 use crate::branding::{
@@ -27,7 +28,7 @@ use crate::portable::instance::control::{self, ensure_runstate_dir, self_signed_
 use crate::portable::instance::reset_password::{generate_password, password_hash};
 use crate::portable::local::{InstanceInfo, Paths};
 use crate::portable::local::{allocate_port, write_json};
-use crate::portable::options::{CloudInstanceParams, InstanceName};
+use crate::portable::options::CloudInstanceParams;
 use crate::portable::platform::optional_docker_check;
 use crate::portable::repository::{Channel, Query, QueryOptions};
 use crate::portable::server::install;
@@ -69,7 +70,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
 
     let name = match inst_name.clone() {
         InstanceName::Local(name) => name,
-        InstanceName::Cloud { org_slug, name } => {
+        InstanceName::Cloud(CloudName { org_slug, name }) => {
             create_cloud(cmd, opts, &org_slug, &name, &client)?;
             return Ok(());
         }
@@ -303,7 +304,7 @@ fn ask_name(cloud_client: &mut cloud::client::CloudClient) -> anyhow::Result<Ins
         };
         let exists = match &inst_name {
             InstanceName::Local(name) => instances.contains(name),
-            InstanceName::Cloud { org_slug, name } => {
+            InstanceName::Cloud(CloudName { org_slug, name }) => {
                 if !cloud_client.is_logged_in {
                     if let Err(e) = cloud::ops::prompt_cloud_login(cloud_client) {
                         print::error!("{e}");
@@ -332,10 +333,10 @@ fn create_cloud(
     name: &str,
     client: &cloud::client::CloudClient,
 ) -> anyhow::Result<()> {
-    let inst_name = InstanceName::Cloud {
+    let inst_name = InstanceName::Cloud(CloudName {
         org_slug: org_slug.to_string(),
         name: name.to_string(),
-    };
+    });
 
     client.ensure_authenticated()?;
 
@@ -470,10 +471,10 @@ fn create_cloud(
     }
 
     let source_instance_id = match &cmd.cloud_backup_source.from_instance {
-        Some(InstanceName::Cloud {
+        Some(InstanceName::Cloud(CloudName {
             org_slug: org,
             name,
-        }) => match cloud::ops::find_cloud_instance_by_name(name, org, client) {
+        })) => match cloud::ops::find_cloud_instance_by_name(name, org, client) {
             Ok(Some(instance)) => Ok(Some(instance.id)),
             Ok(None) => Err(opts.error(
                 clap::error::ErrorKind::InvalidValue,

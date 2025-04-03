@@ -21,7 +21,7 @@ use tokio::time::sleep;
 
 use crate::connect::Connection;
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
-use gel_tokio::Builder;
+use gel_tokio::{Builder, CloudName, InstanceName};
 
 use crate::branding::{BRANDING_CLOUD, QUERY_TAG};
 use crate::cloud;
@@ -36,7 +36,6 @@ use crate::portable::instance::control;
 use crate::portable::instance::upgrade::{BackupMeta, UpgradeMeta};
 use crate::portable::local::{InstanceInfo, Paths};
 use crate::portable::local::{lock_file, read_ports};
-use crate::portable::options::InstanceName;
 use crate::portable::{linux, macos, windows};
 use crate::print::{self, Highlight, msg};
 use crate::process;
@@ -292,10 +291,10 @@ pub fn instance_status(name: &str) -> anyhow::Result<FullStatus> {
 fn normal_status(cmd: &Status, opts: &crate::options::Options) -> anyhow::Result<()> {
     let name = match cmd.instance_opts.instance()? {
         InstanceName::Local(name) => name,
-        InstanceName::Cloud {
+        InstanceName::Cloud(CloudName {
             org_slug: org,
             name,
-        } => {
+        }) => {
             return cloud_status(cmd, &org, &name, opts);
         }
     };

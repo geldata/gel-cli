@@ -6,7 +6,7 @@ use anyhow::Context;
 use clap::ValueHint;
 use const_format::concatcp;
 use gel_cli_instance::cloud::CloudInstanceCreate;
-use gel_tokio::PROJECT_FILES;
+use gel_tokio::{CloudName, InstanceName, PROJECT_FILES};
 use rand::{Rng, thread_rng};
 
 use edgeql_parser::helpers::quote_name;
@@ -26,7 +26,6 @@ use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::local::{InstanceInfo, Paths, allocate_port};
-use crate::portable::options::InstanceName;
 use crate::portable::options::{CloudInstanceBillables, CloudInstanceParams};
 use crate::portable::platform::optional_docker_check;
 use crate::portable::project::{self, get_stash_path};
@@ -191,7 +190,7 @@ pub fn init_existing(
     }
 
     match &name {
-        InstanceName::Cloud { org_slug, name } => {
+        InstanceName::Cloud(CloudName { org_slug, name }) => {
             msg!("Checking {BRANDING_CLOUD} versions...");
 
             let ver = cloud::versions::get_version(&ver_query, &client)
@@ -660,7 +659,7 @@ fn init_new(
     };
 
     match &inst_name {
-        InstanceName::Cloud { org_slug, name } => {
+        InstanceName::Cloud(CloudName { org_slug, name }) => {
             msg!("Checking {BRANDING_CLOUD} versions...");
             client.ensure_authenticated()?;
 
@@ -809,7 +808,7 @@ fn ask_name(
     if options.non_interactive {
         let exists = match &default_name {
             InstanceName::Local(name) => instances.contains(name),
-            InstanceName::Cloud { org_slug, name } => {
+            InstanceName::Cloud(CloudName { org_slug, name }) => {
                 cloud_client.ensure_authenticated()?;
                 let inst =
                     crate::cloud::ops::find_cloud_instance_by_name(name, org_slug, cloud_client)?;
@@ -844,7 +843,7 @@ fn ask_name(
         };
         let exists = match &inst_name {
             InstanceName::Local(name) => instances.contains(name),
-            InstanceName::Cloud { org_slug, name } => {
+            InstanceName::Cloud(CloudName { org_slug, name }) => {
                 if !cloud_client.is_logged_in {
                     if let Err(e) = crate::cloud::ops::prompt_cloud_login(cloud_client) {
                         print::error!("{e}");
@@ -1005,7 +1004,7 @@ fn ask_existing_instance_name(cloud_client: &mut CloudClient) -> anyhow::Result<
         };
         let exists = match &inst_name {
             InstanceName::Local(name) => instances.contains(name),
-            InstanceName::Cloud { org_slug, name } => {
+            InstanceName::Cloud(CloudName { org_slug, name }) => {
                 if !cloud_client.is_logged_in {
                     if let Err(e) = crate::cloud::ops::prompt_cloud_login(cloud_client) {
                         print::error!("{e}");

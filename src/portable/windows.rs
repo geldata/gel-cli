@@ -12,6 +12,7 @@ use std::time::{Duration, SystemTime};
 use anyhow::Context;
 use const_format::formatcp;
 use fn_error_context::context;
+use gel_tokio::InstanceName;
 use url::Url;
 
 use crate::async_util;
@@ -232,7 +233,7 @@ pub fn create_instance(
     let wsl = ensure_wsl()?;
 
     let inner_options = create::Command {
-        name: Some(options::InstanceName::Local(name.to_string())),
+        name: Some(InstanceName::Local(name.to_string())),
         instance: None,
         port: Some(port),
         ..options.clone()
