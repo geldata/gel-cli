@@ -10,6 +10,7 @@ use std::process::{ExitStatus, Output, Stdio, exit};
 use std::sync::LazyLock;
 
 use anyhow::Context;
+use gel_tokio::InstanceName;
 use tokio::io::AsyncWriteExt;
 use tokio::io::{self, AsyncBufReadExt, AsyncRead, AsyncReadExt, BufReader};
 use tokio::process::Command;
@@ -140,6 +141,12 @@ impl IntoArg for &u16 {
 }
 
 impl IntoArg for &usize {
+    fn add_arg(self, process: &mut Native) {
+        process.arg(self.to_string());
+    }
+}
+
+impl IntoArg for &InstanceName {
     fn add_arg(self, process: &mut Native) {
         process.arg(self.to_string());
     }

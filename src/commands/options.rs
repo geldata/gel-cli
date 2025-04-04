@@ -1,14 +1,13 @@
 use std::str::FromStr;
 
 use crate::connect::Connector;
-use crate::portable;
 use crate::print::style::Styler;
 
 pub struct Options {
     pub command_line: bool,
     pub styler: Option<Styler>,
     pub conn_params: Connector,
-    pub instance_name: Option<portable::options::InstanceName>,
+    pub instance_name: Option<gel_tokio::InstanceName>,
 }
 
 impl Options {
@@ -17,7 +16,7 @@ impl Options {
             .conn_params
             .get()?
             .instance_name()
-            .map(|x| portable::options::InstanceName::from_str(&x.to_string()))
+            .map(|x| gel_tokio::InstanceName::from_str(&x.to_string()))
             .transpose()?;
         Ok(())
     }

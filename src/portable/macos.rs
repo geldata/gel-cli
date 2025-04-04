@@ -4,6 +4,7 @@ use std::thread;
 use std::time;
 
 use fn_error_context::context;
+use gel_tokio::InstanceName;
 
 use crate::branding::BRANDING;
 use crate::commands::ExitCode;
@@ -12,7 +13,6 @@ use crate::platform::{data_dir, get_current_uid, home_dir};
 use crate::portable::instance::control;
 use crate::portable::instance::status::Service;
 use crate::portable::local::{InstanceInfo, log_file, runstate_dir};
-use crate::portable::options::InstanceName;
 use crate::print::{self, Highlight, msg};
 use crate::process;
 

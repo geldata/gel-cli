@@ -8,6 +8,7 @@ use const_format::concatcp;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 use gel_cli_instance::cloud::CloudInstanceUpgrade;
+use gel_tokio::{CloudName, InstanceName};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
 use crate::commands::{self, ExitCode};
@@ -17,7 +18,6 @@ use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::local::{InstallInfo, InstanceInfo, Paths, write_json};
-use crate::portable::options::InstanceName;
 use crate::portable::project;
 use crate::portable::repository::{self, Channel, PackageInfo, Query, QueryOptions};
 use crate::portable::server::install;
@@ -30,10 +30,7 @@ use crate::{cloud, credentials};
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     match cmd.instance_opts.instance()? {
         InstanceName::Local(name) => upgrade_local_cmd(cmd, &name),
-        InstanceName::Cloud {
-            org_slug: org,
-            name,
-        } => upgrade_cloud_cmd(cmd, &org, &name, opts),
+        InstanceName::Cloud(name) => upgrade_cloud_cmd(cmd, &name, opts),
     }
 }
 
@@ -227,8 +224,7 @@ fn upgrade_local_cmd(cmd: &Command, name: &str) -> anyhow::Result<()> {
 
 fn upgrade_cloud_cmd(
     cmd: &Command,
-    org: &str,
-    name: &str,
+    name: &CloudName,
     opts: &crate::options::Options,
 ) -> anyhow::Result<()> {
     let (query, _) = Query::from_options(
@@ -245,10 +241,9 @@ fn upgrade_cloud_cmd(
     let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
     client.ensure_authenticated()?;
 
-    let _inst_name = format!("{org}/{name}");
-    let inst_name = _inst_name.emphasized();
+    let inst_name = name.to_string().emphasized();
 
-    let result = upgrade_cloud(org, name, &query, &client, cmd.force, |target_ver| {
+    let result = upgrade_cloud(name, &query, &client, cmd.force, |target_ver| {
         let target_ver_str = target_ver.to_string();
         ver::print_version_hint(target_ver, &query);
         if !cmd.non_interactive {
@@ -287,14 +282,13 @@ fn upgrade_cloud_cmd(
 }
 
 pub fn upgrade_cloud(
-    org: &str,
-    name: &str,
+    name: &CloudName,
     to_version: &Query,
     client: &cloud::client::CloudClient,
     force: bool,
     confirm: impl FnOnce(&ver::Specific) -> anyhow::Result<bool>,
 ) -> anyhow::Result<UpgradeResult> {
-    let inst = cloud::ops::find_cloud_instance_by_name(name, org, client)?
+    let inst = cloud::ops::find_cloud_instance_by_name(name, client)?
         .ok_or_else(|| anyhow::anyhow!("instance not found"))?;
 
     let target_ver = cloud::versions::get_version(to_version, client)?;
@@ -320,7 +314,7 @@ pub fn upgrade_cloud(
             force,
         };
 
-        cloud::ops::upgrade_cloud_instance(client, org, name, request)?;
+        cloud::ops::upgrade_cloud_instance(client, name, request)?;
 
         Ok(UpgradeResult {
             action: UpgradeAction::Upgraded,

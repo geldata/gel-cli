@@ -3,11 +3,11 @@ use std::time::Duration;
 use gel_cli_derive::IntoArgs;
 use gel_cli_instance::instance::backup::{ProgressCallbackListener, RestoreType};
 use gel_cli_instance::instance::{InstanceHandle, get_cloud_instance, get_local_instance};
+use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::cloud;
 use crate::options::CloudOptions;
-use crate::portable::options::InstanceName;
 use crate::print::msg;
 use crate::question;
 
@@ -102,12 +102,12 @@ fn get_instance(
     opts: &crate::options::Options,
     instance_name: &InstanceName,
 ) -> anyhow::Result<InstanceHandle> {
-    match instance_name.clone().into() {
-        gel_dsn::gel::InstanceName::Local(name) => Ok(get_local_instance(&name)?),
+    match instance_name {
+        gel_dsn::gel::InstanceName::Local(name) => Ok(get_local_instance(name)?),
         gel_dsn::gel::InstanceName::Cloud(name) => {
             let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
             client.ensure_authenticated()?;
-            Ok(get_cloud_instance(name, client.api)?)
+            Ok(get_cloud_instance(name.clone(), client.api)?)
         }
     }
 }
@@ -198,7 +198,7 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
     let progress_bar = ProgressBar::default();
     backup
         .restore(
-            cmd.source_instance.clone().map(|x| x.into()),
+            cmd.source_instance.clone(),
             restore_type,
             progress_bar.into(),
         )

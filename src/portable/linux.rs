@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use anyhow::Context;
 use fn_error_context::context;
+use gel_tokio::InstanceName;
 
 use crate::branding::BRANDING_CLOUD;
 use crate::commands::ExitCode;
@@ -12,7 +13,6 @@ use crate::portable::instance::control;
 use crate::portable::instance::destroy::InstanceNotFound;
 use crate::portable::instance::status;
 use crate::portable::local::{InstanceInfo, log_file, runstate_dir};
-use crate::portable::options::InstanceName;
 use crate::print;
 use crate::process;
 

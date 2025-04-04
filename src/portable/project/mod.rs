@@ -14,6 +14,8 @@ use fn_error_context::context;
 
 use gel_dsn::gel::ProjectDir;
 use gel_tokio::Builder;
+use gel_tokio::CloudName;
+use gel_tokio::InstanceName;
 use tokio::task::spawn_blocking;
 
 use crate::branding::QUERY_TAG;
@@ -23,7 +25,6 @@ use crate::connect::Connection;
 use crate::platform::{bytes_to_path, path_bytes};
 use crate::platform::{config_dir, is_schema_file, symlink_dir, tmp_file_path};
 use crate::portable::local::InstanceInfo;
-use crate::portable::options::InstanceName;
 use crate::portable::repository::Query;
 use crate::portable::ver;
 use crate::print;
@@ -114,8 +115,7 @@ pub enum InstanceKind<'a> {
     Portable(InstanceInfo),
     Wsl,
     Cloud {
-        org_slug: String,
-        name: String,
+        name: CloudName,
         cloud_client: &'a CloudClient,
     },
 }
@@ -192,14 +192,10 @@ impl Handle<'_> {
                     database: None,
                 }),
             },
-            InstanceName::Cloud {
-                org_slug,
-                name: inst_name,
-            } => Ok(Handle {
-                name: name.to_string(),
+            InstanceName::Cloud(name) => Ok(Handle {
+                name: name.name.clone(),
                 instance: InstanceKind::Cloud {
-                    org_slug: org_slug.to_owned(),
-                    name: inst_name.to_owned(),
+                    name: name.clone(),
                     cloud_client,
                 },
                 database: None,
@@ -301,7 +297,7 @@ fn write_schema_default(dir: &Path, version: &Query) -> anyhow::Result<()> {
 #[context("cannot read instance name of {:?}", stash_dir)]
 pub fn instance_name(stash_dir: &Path) -> anyhow::Result<InstanceName> {
     let inst = fs::read_to_string(stash_dir.join("instance-name"))?;
-    InstanceName::from_str(inst.trim())
+    Ok(InstanceName::from_str(inst.trim())?)
 }
 
 #[context("cannot read database name of {:?}", stash_dir)]

@@ -8,7 +8,7 @@ use gel_tokio::builder::CertCheck;
 use gel_errors::{
     ClientConnectionFailedError, ClientNoCredentialsError, Error, ErrorKind, PasswordRequired,
 };
-use gel_tokio::{Builder, Config, TlsSecurity};
+use gel_tokio::{Builder, Config, InstanceName, TlsSecurity};
 use log::debug;
 use rustyline::error::ReadlineError;
 use sha2::Digest;
@@ -20,7 +20,6 @@ use crate::hint::HintExt;
 use crate::options;
 use crate::options::CloudOptions;
 use crate::options::{ConnectionOptions, Options};
-use crate::portable::options::InstanceName;
 use crate::print::{self, Highlight};
 use crate::question;
 use crate::tty_password;
@@ -67,7 +66,7 @@ pub fn run(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
-    if matches!(cmd.name, Some(InstanceName::Cloud { .. })) {
+    if cmd.name.as_ref().and_then(|n| n.cloud()).is_some() {
         anyhow::bail!(
             "{BRANDING_CLOUD} instances cannot be linked\
             \nTo connect run:\
@@ -164,7 +163,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
 
     let (cred_path, instance_name) = match &cmd.name {
         Some(InstanceName::Local(name)) => (credentials::path(name)?, name.clone()),
-        Some(InstanceName::Cloud { .. }) => unreachable!(),
+        Some(InstanceName::Cloud(..)) => unreachable!(),
         None => {
             let default = if opts.conn_options.instance_opts.docker {
                 "docker".to_string()

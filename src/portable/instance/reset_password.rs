@@ -4,6 +4,7 @@ use std::path::Path;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 use gel_dsn::gel::{CredentialsFile, DEFAULT_USER};
+use gel_tokio::InstanceName;
 use rand::{Rng, SeedableRng};
 
 use edgeql_parser::helpers::{quote_name, quote_string};
@@ -14,7 +15,6 @@ use crate::connect::Connection;
 use crate::credentials;
 use crate::options::InstanceOptionsLegacy;
 use crate::portable::local::InstanceInfo;
-use crate::portable::options::InstanceName;
 use crate::print;
 use crate::tty_password;
 

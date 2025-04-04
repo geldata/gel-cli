@@ -2,6 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::Context;
+use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::credentials;
@@ -9,7 +10,6 @@ use crate::hint::HintExt;
 use crate::options::InstanceOptionsLegacy;
 use crate::portable::instance::destroy::with_projects;
 use crate::portable::local::InstanceInfo;
-use crate::portable::options::InstanceName;
 use crate::portable::project;
 
 pub fn run(cmd: &Command) -> anyhow::Result<()> {

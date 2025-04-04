@@ -6,7 +6,7 @@ use anyhow::Context;
 use clap::ValueHint;
 use const_format::concatcp;
 use gel_cli_instance::cloud::CloudInstanceCreate;
-use gel_tokio::PROJECT_FILES;
+use gel_tokio::{CloudName, InstanceName, PROJECT_FILES};
 use rand::{Rng, thread_rng};
 
 use edgeql_parser::helpers::quote_name;
@@ -26,7 +26,6 @@ use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::local::{InstanceInfo, Paths, allocate_port};
-use crate::portable::options::InstanceName;
 use crate::portable::options::{CloudInstanceBillables, CloudInstanceParams};
 use crate::portable::platform::optional_docker_check;
 use crate::portable::project::{self, get_stash_path};
@@ -191,7 +190,7 @@ pub fn init_existing(
     }
 
     match &name {
-        InstanceName::Cloud { org_slug, name } => {
+        InstanceName::Cloud(name) => {
             msg!("Checking {BRANDING_CLOUD} versions...");
 
             let ver = cloud::versions::get_version(&ver_query, &client)
@@ -235,8 +234,7 @@ pub fn init_existing(
                 project::write_schema_default(&schema_dir, &Query::from_version(&ver)?)?;
             }
             do_cloud_init(
-                name.to_owned(),
-                org_slug.to_owned(),
+                name.clone(),
                 &stash_dir,
                 &project,
                 &ver,
@@ -431,8 +429,7 @@ fn do_init(
 
 #[allow(clippy::too_many_arguments)]
 fn do_cloud_init(
-    name: String,
-    org: String,
+    name: CloudName,
     stash_dir: &Path,
     project: &project::Context,
     version: &ver::Specific,
@@ -441,7 +438,7 @@ fn do_cloud_init(
     client: &CloudClient,
 ) -> anyhow::Result<project::ProjectInfo> {
     let request = CloudInstanceCreate {
-        name: name.clone(),
+        name: name.name.clone(),
         version: version.to_string(),
         region: None,
         tier: None,
@@ -449,8 +446,8 @@ fn do_cloud_init(
         source_instance_id: None,
         source_backup_id: None,
     };
-    crate::cloud::ops::create_cloud_instance(client, &org, request)?;
-    let full_name = format!("{org}/{name}");
+    crate::cloud::ops::create_cloud_instance(client, &name.org_slug, request)?;
+    let full_name = name.to_string();
 
     let handle = project::Handle {
         name: full_name.clone(),
@@ -660,7 +657,7 @@ fn init_new(
     };
 
     match &inst_name {
-        InstanceName::Cloud { org_slug, name } => {
+        InstanceName::Cloud(name) => {
             msg!("Checking {BRANDING_CLOUD} versions...");
             client.ensure_authenticated()?;
 
@@ -690,7 +687,7 @@ fn init_new(
                     database.to_string(),
                 ),
                 ("Version", version.to_string()),
-                ("Instance name", name.clone()),
+                ("Instance name", name.to_string()),
             ]);
 
             let manifest = project::manifest::Manifest {
@@ -709,7 +706,6 @@ fn init_new(
 
             do_cloud_init(
                 name.to_owned(),
-                org_slug.to_owned(),
                 &stash_dir,
                 &ctx,
                 &version,
@@ -809,10 +805,9 @@ fn ask_name(
     if options.non_interactive {
         let exists = match &default_name {
             InstanceName::Local(name) => instances.contains(name),
-            InstanceName::Cloud { org_slug, name } => {
+            InstanceName::Cloud(name) => {
                 cloud_client.ensure_authenticated()?;
-                let inst =
-                    crate::cloud::ops::find_cloud_instance_by_name(name, org_slug, cloud_client)?;
+                let inst = crate::cloud::ops::find_cloud_instance_by_name(name, cloud_client)?;
                 inst.is_some()
             }
         };
@@ -844,15 +839,14 @@ fn ask_name(
         };
         let exists = match &inst_name {
             InstanceName::Local(name) => instances.contains(name),
-            InstanceName::Cloud { org_slug, name } => {
+            InstanceName::Cloud(name) => {
                 if !cloud_client.is_logged_in {
                     if let Err(e) = crate::cloud::ops::prompt_cloud_login(cloud_client) {
                         print::error!("{e}");
                         continue;
                     }
                 }
-                crate::cloud::ops::find_cloud_instance_by_name(name, org_slug, cloud_client)?
-                    .is_some()
+                crate::cloud::ops::find_cloud_instance_by_name(name, cloud_client)?.is_some()
             }
         };
         if exists {
@@ -1005,15 +999,14 @@ fn ask_existing_instance_name(cloud_client: &mut CloudClient) -> anyhow::Result<
         };
         let exists = match &inst_name {
             InstanceName::Local(name) => instances.contains(name),
-            InstanceName::Cloud { org_slug, name } => {
+            InstanceName::Cloud(name) => {
                 if !cloud_client.is_logged_in {
                     if let Err(e) = crate::cloud::ops::prompt_cloud_login(cloud_client) {
                         print::error!("{e}");
                         continue;
                     }
                 }
-                crate::cloud::ops::find_cloud_instance_by_name(name, org_slug, cloud_client)?
-                    .is_some()
+                crate::cloud::ops::find_cloud_instance_by_name(name, cloud_client)?.is_some()
             }
         };
         if exists {

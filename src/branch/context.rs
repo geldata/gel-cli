@@ -1,9 +1,10 @@
+use gel_tokio::InstanceName;
+
 use crate::branding::BRANDING_CLOUD;
 use crate::connect::Connection;
 use crate::credentials;
 use crate::hint::HintExt;
 use crate::platform::tmp_file_path;
-use crate::portable::options::InstanceName;
 use crate::portable::project::{self, get_stash_path};
 use std::fs;
 use std::sync::Mutex;

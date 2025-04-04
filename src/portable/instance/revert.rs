@@ -2,6 +2,7 @@ use anyhow::Context;
 use const_format::concatcp;
 use fs_err as fs;
 use gel_cli_derive::IntoArgs;
+use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING, BRANDING_CLOUD};
 use crate::commands::ExitCode;
@@ -12,7 +13,6 @@ use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::instance::status::{BackupStatus, DataDirectory, instance_status};
 use crate::portable::local::Paths;
-use crate::portable::options::InstanceName;
 use crate::portable::server::install;
 use crate::print::{self, Highlight, msg};
 use crate::process;
