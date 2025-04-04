@@ -1,7 +1,3 @@
-use std::fs;
-use std::path::Path;
-
-use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 use gel_tokio::InstanceName;
 use gel_tokio::dsn::{CredentialsFile, DEFAULT_USER};
@@ -58,12 +54,13 @@ pub struct Command {
 }
 
 pub fn run(options: &Command) -> anyhow::Result<()> {
-    let name = match options.instance_opts.instance()? {
+    let instance = options.instance_opts.instance()?;
+    let name = match &instance {
         InstanceName::Local(name) => {
             if cfg!(windows) {
                 return crate::portable::windows::reset_password(options, &name);
             } else {
-                name
+                name.clone()
             }
         }
         InstanceName::Cloud { .. } => {
@@ -71,9 +68,8 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
             return Err(ExitCode::new(1))?;
         }
     };
-    let credentials_file = credentials::path(&name)?;
-    let (creds, save, user) = if credentials_file.exists() {
-        let creds = read_credentials(&credentials_file)?;
+    let creds = credentials::read(&instance)?;
+    let (creds, save, user) = if let Some(creds) = creds {
         let user = options.user.clone().or(creds.user.clone());
         if options.no_save_credentials {
             (Some(creds), false, user)
@@ -138,25 +134,16 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
         let mut creds = creds.unwrap_or_else(Default::default);
         creds.user = user;
         creds.password = Some(password);
-        credentials::write(&credentials_file, &creds)?;
+        credentials::write(&instance, &creds)?;
     }
     if !options.quiet {
         if save {
-            print::success_msg(
-                "Password was successfully changed and saved to",
-                credentials_file.display(),
-            );
+            print::success!("Password was successfully changed and saved.",);
         } else {
             print::success!("Password was successfully changed.");
         }
     }
     Ok(())
-}
-
-#[context("error reading credentials at {}", path.display())]
-fn read_credentials(path: &Path) -> anyhow::Result<CredentialsFile> {
-    let data = fs::read(path)?;
-    Ok(serde_json::from_slice(&data)?)
 }
 
 pub fn password_hash(password: &str) -> String {

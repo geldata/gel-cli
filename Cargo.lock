@@ -1511,7 +1511,6 @@ dependencies = [
  "gel-cli-derive",
  "gel-cli-instance",
  "gel-derive",
- "gel-dsn",
  "gel-errors",
  "gel-jwt",
  "gel-protocol",
@@ -1639,9 +1638,15 @@ dependencies = [
 
 [[package]]
 name = "gel-dsn"
+<<<<<<< HEAD
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "299df7202234e7e15016fa6bcc9c3647dd14f58713472dd88fcaf44ddc80b30f"
+=======
+version = "0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c1104cd7b44da2116b86eadcbacf140a898635d46fcd7b5e0d5243c658087e3"
+>>>>>>> 842175e (.)
 dependencies = [
  "base64 0.22.1",
  "crc16",

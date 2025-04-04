@@ -103,8 +103,8 @@ fn get_instance(
     instance_name: &InstanceName,
 ) -> anyhow::Result<InstanceHandle> {
     match instance_name {
-        gel_dsn::gel::InstanceName::Local(name) => Ok(get_local_instance(name)?),
-        gel_dsn::gel::InstanceName::Cloud(name) => {
+        InstanceName::Local(name) => Ok(get_local_instance(name)?),
+        InstanceName::Cloud(name) => {
             let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
             client.ensure_authenticated()?;
             Ok(get_cloud_instance(name.clone(), client.api)?)

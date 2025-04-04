@@ -22,7 +22,9 @@ use crate::{credentials, format};
 pub fn run(options: &Command) -> anyhow::Result<()> {
     use BackupStatus::*;
 
-    let name = match options.instance_opts.instance()? {
+    let instance = options.instance_opts.instance()?;
+
+    let name = match &instance {
         InstanceName::Local(name) => {
             if cfg!(windows) {
                 return crate::portable::windows::revert(options, &name);
@@ -132,10 +134,11 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
             }
 
             if !has_edgedb_dump && has_main_dump {
-                let mut creds = credentials::read_sync(&paths.credentials)?;
-                creds.database = Some("edgedb".to_string());
-                creds.branch = Some("edgedb".to_string());
-                credentials::write(&paths.credentials, &creds)?;
+                if let Some(mut creds) = credentials::read(&instance)? {
+                    creds.database = Some("edgedb".to_string());
+                    creds.branch = Some("edgedb".to_string());
+                    credentials::write(&instance, &creds)?;
+                }
             }
         }
     }

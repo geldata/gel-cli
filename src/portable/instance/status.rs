@@ -21,7 +21,10 @@ use tokio::time::sleep;
 
 use crate::connect::Connection;
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
-use gel_tokio::{Builder, CloudName, InstanceName};
+use gel_tokio::{
+    Builder, CloudName, InstanceName,
+    dsn::{CredentialsFile, DEFAULT_PORT, DEFAULT_USER},
+};
 
 use crate::branding::{BRANDING_CLOUD, QUERY_TAG};
 use crate::cloud;
@@ -267,7 +270,8 @@ fn status_from_meta(
         DataDirectory::Absent
     };
     let backup = backup_status(name, &paths.backup_dir);
-    let credentials_file_exists = paths.credentials.exists();
+    let credentials_file_exists =
+        credentials::exists(&InstanceName::Local(name.to_string())).unwrap_or_default();
     let service_exists = paths.service_files.iter().any(|f| f.exists());
     FullStatus {
         name: name.into(),
@@ -367,24 +371,25 @@ pub async fn try_connect(creds: &CredentialsFile) -> (Option<String>, Connection
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn remote_status_with_feedback(name: &str, quiet: bool) -> anyhow::Result<RemoteStatus> {
+async fn remote_status_with_feedback(
+    name: &InstanceName,
+    quiet: bool,
+) -> anyhow::Result<RemoteStatus> {
     intermediate_feedback(_remote_status(name, quiet), || "Trying to connect...").await
 }
 
-async fn _remote_status(name: &str, quiet: bool) -> anyhow::Result<RemoteStatus> {
-    let cred_path = credentials::path(name)?;
-    if !cred_path.exists() {
+async fn _remote_status(name: &InstanceName, quiet: bool) -> anyhow::Result<RemoteStatus> {
+    let credentials = credentials::read(name)?;
+    let Some(credentials) = credentials else {
         if !quiet {
             msg!(
                 "{} No instance {} found",
                 print::err_marker(),
-                name.emphasized()
+                name.to_string().emphasized()
             );
         }
         return Err(ExitCode::new(exit_codes::INSTANCE_NOT_FOUND).into());
-    }
-    let cred_data = tokio::fs::read(cred_path).await?;
-    let credentials = serde_json::from_slice(&cred_data)?;
+    };
     let (version, connection) = try_connect(&credentials).await;
     let location = format!(
         "{}:{}",
@@ -392,7 +397,7 @@ async fn _remote_status(name: &str, quiet: bool) -> anyhow::Result<RemoteStatus>
         credentials.port.map(NonZero::get).unwrap_or(DEFAULT_PORT)
     );
     Ok(RemoteStatus {
-        name: name.into(),
+        name: name.to_string(),
         type_: RemoteType::Remote,
         credentials,
         version,
@@ -420,9 +425,8 @@ where
 }
 
 pub fn remote_status(options: &Status) -> anyhow::Result<()> {
-    let name = match options.instance_opts.instance()? {
-        InstanceName::Local(name) => name,
-        InstanceName::Cloud { .. } => unreachable!("remote_status got cloud instance"),
+    let name @ InstanceName::Local(_) = options.instance_opts.instance()? else {
+        unreachable!("remote_status got cloud instance");
     };
 
     let status = remote_status_with_feedback(&name, options.quiet)?;
@@ -473,7 +477,7 @@ pub fn list_local(
 }
 
 async fn get_remote_async(
-    instances: Vec<String>,
+    instances: Vec<InstanceName>,
     errors: &Collector<anyhow::Error>,
 ) -> anyhow::Result<Vec<RemoteStatus>> {
     let sem = Arc::new(tokio::sync::Semaphore::new(100));
@@ -512,7 +516,7 @@ async fn get_remote_async(
 }
 
 async fn get_remote_and_cloud(
-    instances: Vec<String>,
+    instances: Vec<InstanceName>,
     cloud_client: CloudClient,
     errors: &Collector<anyhow::Error>,
 ) -> anyhow::Result<Vec<RemoteStatus>> {
@@ -538,7 +542,7 @@ async fn get_remote_and_cloud(
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn get_remote(
-    visited: &BTreeSet<String>,
+    visited: &BTreeSet<InstanceName>,
     opts: &crate::options::Options,
     errors: &Collector<anyhow::Error>,
 ) -> anyhow::Result<Vec<RemoteStatus>> {
@@ -546,7 +550,7 @@ pub async fn get_remote(
 }
 
 async fn _get_remote(
-    visited: &BTreeSet<String>,
+    visited: &BTreeSet<InstanceName>,
     opts: &crate::options::Options,
     errors: &Collector<anyhow::Error>,
 ) -> anyhow::Result<Vec<RemoteStatus>> {
@@ -578,7 +582,7 @@ async fn _get_remote(
     }
 }
 
-fn list_local_status(visited: &mut BTreeSet<String>) -> anyhow::Result<Vec<FullStatus>> {
+fn list_local_status(visited: &mut BTreeSet<InstanceName>) -> anyhow::Result<Vec<FullStatus>> {
     let mut local = Vec::new();
     let data_dir = data_dir()?;
     if data_dir.exists() {
@@ -593,7 +597,7 @@ fn list_local_status(visited: &mut BTreeSet<String>) -> anyhow::Result<Vec<FullS
                     name
                 );
             } else {
-                visited.insert(name.clone());
+                visited.insert(InstanceName::Local(name.clone()));
                 local.push(instance_status(&name)?);
             }
         }
