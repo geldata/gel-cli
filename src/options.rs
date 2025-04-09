@@ -6,7 +6,7 @@ use std::time::Duration;
 use color_print::cformat;
 use const_format::concatcp;
 use gel_dsn::gel::{TlsSecurity, UnixPath};
-use gel_errors::ClientNoCredentialsError;
+use gel_errors::{ClientNoCredentialsError, NoCloudConfigFound};
 use gel_protocol::model;
 use gel_tokio::{Builder, InstanceName};
 use log::warn;
@@ -1004,6 +1004,18 @@ impl Options {
                 Ok(Connector::new(Ok(config)))
             }
             Err(e) => {
+                if e.is::<NoCloudConfigFound>() {
+                    return Err(anyhow::anyhow!(
+                        "No {BRANDING_CLOUD} configuration found, but a {BRANDING_CLOUD} instance was specified."
+                    ))
+                    .with_hint(|| {
+                        format!(
+                            "Please run `{BRANDING_CLI_CMD} cloud login` to use {BRANDING_CLOUD} instances."
+                        )
+                    })
+                    .map_err(Into::into);
+                }
+
                 let (cfg, errors) = builder.clone().compute()?;
 
                 // ask password anyways, so input that fed as a password
