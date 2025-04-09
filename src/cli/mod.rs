@@ -3,7 +3,6 @@ pub mod env;
 pub mod gen_completions;
 pub mod install;
 pub mod logo;
-pub mod migrate;
 pub mod upgrade;
 
 #[macro_use]
@@ -24,9 +23,6 @@ pub enum Subcommand {
     /// Install the [`BRANDING_CLI_CMD`] command-line tool
     #[command(hide = true)]
     Install(install::Command),
-    /// Migrate files from `~/.edgedb` to the new directory layout
-    #[command(hide = true)]
-    Migrate(migrate::Command),
 }
 
 pub fn run(cmd: &Command) -> anyhow::Result<()> {
@@ -35,6 +31,5 @@ pub fn run(cmd: &Command) -> anyhow::Result<()> {
     match &cmd.subcommand {
         Upgrade(s) => upgrade::run(s),
         Install(s) => install::run(s),
-        Migrate(s) => migrate::run(s),
     }
 }
