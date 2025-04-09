@@ -1010,7 +1010,7 @@ impl Options {
                     ))
                     .with_hint(|| {
                         format!(
-                            "Please run `{BRANDING_CLI_CMD} cloud login` to use cloud instances."
+                            "Please run `{BRANDING_CLI_CMD} cloud login` to use {BRANDING_CLOUD} instances."
                         )
                     })
                     .map_err(Into::into);
