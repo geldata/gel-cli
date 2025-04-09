@@ -1006,7 +1006,7 @@ impl Options {
             Err(e) => {
                 if e.is::<NoCloudConfigFound>() {
                     return Err(anyhow::anyhow!(
-                        "No cloud configuration found, but a cloud instance was specified."
+                        "No {BRANDING_CLOUD} configuration found, but a {BRANDING_CLOUD} instance was specified."
                     ))
                     .with_hint(|| {
                         format!(
