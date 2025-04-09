@@ -14,9 +14,9 @@ use prettytable::{Cell, Row, Table};
 
 use crate::branding::BRANDING_CLI_CMD_ALT_FILE;
 use crate::branding::BRANDING_CLI_CMD_FILE;
-use crate::branding::{BRANDING, BRANDING_CLI, BRANDING_CLI_CMD};
+use crate::branding::{BRANDING, BRANDING_CLI_CMD};
 use crate::cli::logo::print_logo;
-use crate::cli::{migrate, upgrade};
+use crate::cli::upgrade;
 use crate::commands::ExitCode;
 use crate::platform::{binary_path, config_dir, current_exe, home_dir};
 use crate::portable::platform;
@@ -198,36 +198,11 @@ fn _run(cmd: &Command) -> anyhow::Result<()> {
             .with_context(|| format!("failed to write env file {:?}", settings.env_file))?;
     }
 
-    let base = home_dir()?.join(".edgedb");
-    let new_layout = if base.exists() {
-        eprintln!(
-            "\
-                {BRANDING_CLI} no longer uses '{}' to store data \
-                and now uses standard locations of your OS. \
-        ",
-            base.display()
-        );
-        let q = question::Confirm::new(format!(
-            "\
-            Do you want to run `{BRANDING_CLI_CMD} cli migrate` now to update \
-            the directory layout?\
-        "
-        ));
-        if q.ask()? {
-            migrate::migrate(&base, false)?;
-            true
-        } else {
-            false
-        }
-    } else {
-        true
-    };
-
     if !cmd.upgrade {
         let init_result = if cmd.no_confirm {
             Ok(InitResult::NonInteractive)
         } else {
-            try_project_init(new_layout)
+            try_project_init()
         };
 
         print_post_install_message(&settings, init_result);
@@ -481,18 +456,6 @@ fn print_post_install_message(settings: &Settings, init_result: anyhow::Result<I
                 cmd = BRANDING_CLI_CMD,
             );
         }
-        Ok(InitResult::OldLayout) => {
-            print_markdown!(
-                "\n\
-                To initialize a project run:\n\
-                ```\n\
-                    ${cmd} cli migrate\n\
-                    ${cmd} project init\n\
-                ```\
-            ",
-                cmd = BRANDING_CLI_CMD,
-            );
-        }
         Err(e) => {
             print_markdown!(
                 "
@@ -526,10 +489,9 @@ pub enum InitResult {
     Refused,
     NonInteractive,
     NotAProject,
-    OldLayout,
 }
 
-fn try_project_init(new_layout: bool) -> anyhow::Result<InitResult> {
+fn try_project_init() -> anyhow::Result<InitResult> {
     use InitResult::*;
 
     let base_dir = env::current_dir().context("failed to get current directory")?;
@@ -543,13 +505,6 @@ fn try_project_init(new_layout: bool) -> anyhow::Result<InitResult> {
         if get_stash_path(&project.root)?.exists() {
             log::info!("Project already initialized. Skipping...");
             return Ok(Already);
-        }
-        if !new_layout {
-            log::warn!(
-                "Directory layout not upgraded; \
-            project will not be initialized."
-            );
-            return Ok(OldLayout);
         }
         println!("Command-line tools are installed successfully.");
         println!();
