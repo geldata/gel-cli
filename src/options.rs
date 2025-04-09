@@ -1051,12 +1051,6 @@ impl Options {
                             .hint(CONNECTION_ARG_HINT)
                             .map_err(Into::into),
                     ))
-                } else if e.is::<NoCloudConfigFound>() {
-                    Ok(Connector::new(
-                        Err(anyhow::anyhow!(""))
-                            .hint(CONNECTION_ARG_HINT)
-                            .map_err(Into::into),
-                    ))
                 } else {
                     Ok(Connector::new(Err(e.into())))
                 }
