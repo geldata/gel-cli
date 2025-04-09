@@ -76,7 +76,7 @@ fn main() {
             "file not found",
         ),
         ("project_not_initialised", "not initialized"),
-        ("secret_key_not_found", "Secret key not found"),
+        ("secret_key_not_found", "Secret key not found|No Gel Cloud configuration found"),
         ("invalid_secret_key", "Invalid secret key"),
         ("unix_socket_unsupported", "Unix socket unsupported|must be a hostname"),
     ]);
