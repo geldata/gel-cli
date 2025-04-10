@@ -8,6 +8,7 @@ use const_format::concatcp;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 use gel_cli_instance::cloud::CloudInstanceUpgrade;
+use gel_tokio::dsn::DEFAULT_DATABASE_NAME;
 use gel_tokio::{CloudName, InstanceName};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
@@ -402,12 +403,12 @@ pub fn upgrade_incompatible(
                 paths.dump_path.join("main.dump"),
             )?;
 
-            if let Ok(mut creds) = credentials::read_sync(&paths.credentials) {
-                if creds.database == Some("edgedb".to_string()) {
-                    log::info!("Updating credentials file {:?}", &paths.credentials);
-                    creds.database = Some("main".to_string());
-                    creds.branch = Some("main".to_string());
-                    credentials::write(&paths.credentials, &creds)?;
+            if let Ok(Some(mut creds)) = credentials::read(&inst.instance_name) {
+                if creds.database == Some(DEFAULT_DATABASE_NAME.to_string()) {
+                    log::info!("Updating credentials file");
+                    creds.database = None;
+                    creds.branch = None;
+                    credentials::write(&inst.instance_name, &creds)?;
                 }
             }
         }

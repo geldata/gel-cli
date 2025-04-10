@@ -1511,7 +1511,6 @@ dependencies = [
  "gel-cli-derive",
  "gel-cli-instance",
  "gel-derive",
- "gel-dsn",
  "gel-errors",
  "gel-jwt",
  "gel-protocol",

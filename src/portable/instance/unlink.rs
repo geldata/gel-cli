@@ -1,7 +1,5 @@
-use std::fs;
 use std::path::PathBuf;
 
-use anyhow::Context;
 use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
@@ -13,8 +11,9 @@ use crate::portable::local::InstanceInfo;
 use crate::portable::project;
 
 pub fn run(cmd: &Command) -> anyhow::Result<()> {
-    let name = match cmd.instance_opts.instance()? {
-        InstanceName::Local(name) => name,
+    let instance = cmd.instance_opts.instance()?;
+    let name = match &instance {
+        InstanceName::Local(name) => name.clone(),
         inst_name => {
             return Err(anyhow::anyhow!(
                 "cannot unlink {BRANDING_CLOUD} instance {}.",
@@ -35,10 +34,9 @@ pub fn run(cmd: &Command) -> anyhow::Result<()> {
             })
             .into());
     }
-    with_projects(&name, cmd.force, print_warning, || {
-        let path = credentials::path(&name)?;
-        fs::remove_file(&path)
-            .with_context(|| format!("Credentials for {name} missing from {path:?}"))
+    with_projects(&name, cmd.force, print_warning, move || {
+        _ = credentials::delete(&instance);
+        Ok(())
     })?;
     Ok(())
 }

@@ -2,9 +2,9 @@ use std::net::SocketAddr;
 
 use colorful::Colorful;
 use gel_cli_instance::docker::{GelDockerInstance, GelDockerInstanceState, GelDockerInstances};
-use gel_dsn::{HostType, gel::TlsSecurity};
 use gel_jwt::{GelPrivateKeyRegistry, Key, KeyRegistry, SigningContext};
 use gel_tokio::Builder;
+use gel_tokio::dsn::{HostType, TlsSecurity};
 use log::warn;
 
 pub enum DockerMode {

@@ -123,13 +123,12 @@ fn daemon_start(instance: &str) -> anyhow::Result<()> {
 }
 
 pub fn do_start(inst: &InstanceInfo) -> anyhow::Result<()> {
-    let cred_path = credentials::path(&inst.name)?;
-    if !cred_path.exists() {
+    if !credentials::exists(&inst.instance_name)? {
         log::warn!(
-            "No corresponding credentials file {:?} exists. \
+            "No corresponding credentials file exists for {:#}. \
                     Use `{BRANDING_CLI_CMD} instance reset-password -I {}` to create one.",
-            cred_path,
-            inst.name
+            inst.instance_name,
+            inst.instance_name
         );
     }
     if detect_supervisor(&inst.name) {

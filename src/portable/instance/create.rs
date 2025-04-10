@@ -9,7 +9,7 @@ use gel_cli_derive::IntoArgs;
 
 use color_print::cformat;
 use gel_cli_instance::cloud::{CloudInstanceCreate, CloudInstanceResourceRequest, CloudTier};
-use gel_tokio::dsn::{CredentialsFile, DEFAULT_PORT};
+use gel_tokio::dsn::{CredentialsFile, DEFAULT_PORT, DatabaseBranch};
 use gel_tokio::{CloudName, InstanceName};
 use serde::{Deserialize, Serialize};
 
@@ -76,6 +76,25 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
         }
     };
 
+    let hint = || {
+        format!(
+            "Use `{BRANDING_CLI_CMD} instance destroy -I {name}` \
+                               to remove a linked or portable instance if you wish to replace it."
+        )
+    };
+
+    let paths = Paths::get(&name)?;
+    paths
+        .check_exists()
+        .with_context(|| format!("Local {inst_name:#} already exists."))
+        .with_hint(hint)?;
+
+    if credentials::exists(&inst_name)? {
+        return Err(anyhow::anyhow!("{inst_name:#} is already linked.")
+            .with_hint(hint)
+            .into());
+    }
+
     let cp = &cmd.cloud_params;
 
     if cp.region.is_some() {
@@ -105,21 +124,10 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
         ))?;
     }
 
-    let paths = Paths::get(&name)?;
-    paths
-        .check_exists()
-        .with_context(|| format!("instance {name:?} detected"))
-        .with_hint(|| {
-            format!(
-                "Use `{BRANDING_CLI_CMD} instance destroy -I {name}` \
-                              to remove rest of unused instance"
-            )
-        })?;
-
     let port = cmd.port.map(Ok).unwrap_or_else(|| allocate_port(&name))?;
 
-    let info = if cfg!(windows) {
-        windows::create_instance(cmd, &name, port, &paths)?;
+    let info: InstanceInfo = if cfg!(windows) {
+        windows::create_instance(cmd, &name, port)?;
         InstanceInfo {
             name: name.clone(),
             instance_name: inst_name,
@@ -151,9 +159,10 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
             cmd.default_user
                 .as_deref()
                 .unwrap_or_else(|| get_default_user_name(specific_version)),
-            &cmd.default_branch
-                .clone()
-                .unwrap_or_else(|| get_default_branch_name(specific_version)),
+            match cmd.default_branch.clone() {
+                Some(branch) => DatabaseBranch::Ambiguous(branch),
+                None => DatabaseBranch::Default,
+            },
         )?;
         info
     };
@@ -292,7 +301,6 @@ pub struct CloudBackupSourceParams {
 }
 
 fn ask_name(cloud_client: &mut cloud::client::CloudClient) -> anyhow::Result<InstanceName> {
-    let instances = credentials::all_instance_names()?;
     loop {
         let name = question::String::new("Specify a name for the new instance").ask()?;
         let inst_name = match InstanceName::from_str(&name) {
@@ -303,7 +311,7 @@ fn ask_name(cloud_client: &mut cloud::client::CloudClient) -> anyhow::Result<Ins
             }
         };
         let exists = match &inst_name {
-            InstanceName::Local(name) => instances.contains(name),
+            InstanceName::Local(..) => credentials::exists(&inst_name)?,
             InstanceName::Cloud(name) => {
                 if !cloud_client.is_logged_in {
                     if let Err(e) = cloud::ops::prompt_cloud_login(cloud_client) {
@@ -541,7 +549,7 @@ pub fn bootstrap(
     paths: &Paths,
     info: &InstanceInfo,
     user: &str,
-    branch: &str,
+    branch: DatabaseBranch,
 ) -> anyhow::Result<()> {
     let server_path = info.server_path()?;
 
@@ -563,7 +571,7 @@ pub fn bootstrap(
         },
     );
 
-    msg!("Initializing {BRANDING} instance...");
+    msg!("Initializing {:#}...", info.instance_name);
     let mut cmd = process::Native::new("bootstrap", "edgedb", server_path);
     cmd.arg("--bootstrap-only");
     cmd.env_default("EDGEDB_SERVER_LOG_LEVEL", "warn");
@@ -573,9 +581,17 @@ pub fn bootstrap(
     self_signed_arg(&mut cmd, info.get_version()?);
     cmd.arg("--bootstrap-command").arg(script);
     if info.get_version()?.specific().major >= 5 {
-        cmd.arg("--default-branch").arg(branch);
+        if let Some(branch) = branch.branch_for_create() {
+            cmd.arg("--default-branch").arg(branch);
+        } else if branch.database().is_some() {
+            anyhow::bail!("cannot specify database for version >= 5");
+        }
     } else {
-        cmd.arg("--default-database").arg(branch);
+        if let Some(database) = branch.database() {
+            cmd.arg("--default-database").arg(database);
+        } else if branch.branch_for_create().is_some() {
+            anyhow::bail!("cannot specify branch for version < 5");
+        }
     }
     cmd.run()?;
 
@@ -595,13 +611,13 @@ pub fn bootstrap(
             .try_into()
             .unwrap_or(NonZero::new(DEFAULT_PORT).unwrap()),
     );
-    credentials.database = Some(branch.to_string());
-    credentials.branch = Some(branch.to_string());
+    credentials.database = branch.database().map(|s| s.to_string());
+    credentials.branch = branch.branch_for_connect().map(|s| s.to_string());
     credentials.password = Some(password);
     credentials.tls_ca = Some(cert);
-    credentials.tls_security = gel_dsn::gel::TlsSecurity::NoHostVerification;
+    credentials.tls_security = gel_tokio::dsn::TlsSecurity::NoHostVerification;
 
-    credentials::write(&paths.credentials, &credentials)?;
+    credentials::write(&info.instance_name, &credentials)?;
     Ok(())
 }
 
@@ -624,14 +640,6 @@ pub fn create_service(meta: &InstanceInfo) -> anyhow::Result<()> {
     } else {
         anyhow::bail!("creating a service is not supported on the platform");
     }
-}
-
-pub fn get_default_branch_name(version: &Specific) -> String {
-    if version.major >= 5 {
-        return String::from("main");
-    }
-
-    String::from("edgedb")
 }
 
 pub fn get_default_user_name(version: &Specific) -> &'static str {

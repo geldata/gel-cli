@@ -6,6 +6,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::{LazyLock, Mutex, OnceLock, RwLock};
 use std::time::{Duration, SystemTime};
 
@@ -13,6 +14,7 @@ use anyhow::Context;
 use const_format::formatcp;
 use fn_error_context::context;
 use gel_tokio::InstanceName;
+use gel_tokio::dsn::CredentialsFile;
 use url::Url;
 
 use crate::async_util;
@@ -173,6 +175,15 @@ fn credentials_linux(instance: &str) -> String {
     format!("/home/edgedb/.config/edgedb/credentials/{instance}.json")
 }
 
+/// Credentials may be updated by various operations.
+fn sync_credentials(instance: &str) -> anyhow::Result<()> {
+    let wsl = ensure_wsl()?;
+    let credentials = wsl.read_text_file(credentials_linux(instance))?;
+    let credentials = CredentialsFile::from_str(&credentials)?;
+    credentials::write(&InstanceName::Local(instance.to_string()), &credentials)?;
+    Ok(())
+}
+
 #[context("cannot convert to linux (WSL) path {:?}", path)]
 pub fn path_to_linux(path: &Path) -> anyhow::Result<String> {
     use std::path::Component::*;
@@ -224,12 +235,7 @@ pub fn path_to_windows(path: &Path) -> anyhow::Result<PathBuf> {
     Ok(result)
 }
 
-pub fn create_instance(
-    options: &create::Command,
-    name: &str,
-    port: u16,
-    paths: &Paths,
-) -> anyhow::Result<()> {
+pub fn create_instance(options: &create::Command, name: &str, port: u16) -> anyhow::Result<()> {
     let wsl = ensure_wsl()?;
 
     let inner_options = create::Command {
@@ -244,15 +250,11 @@ pub fn create_instance(
         .args(&inner_options)
         .run()?;
 
-    if let Some(dir) = paths.credentials.parent() {
-        fs_err::create_dir_all(dir)?;
-    }
-    wsl.copy_out(credentials_linux(name), &paths.credentials)?;
-
+    sync_credentials(name)?;
     Ok(())
 }
 
-pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<()> {
+pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<bool> {
     let mut found = false;
     if let Some(wsl) = get_wsl()? {
         let options = destroy::Command {
@@ -275,12 +277,6 @@ pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<()> {
     }
 
     let paths = Paths::get(name)?;
-    if paths.credentials.exists() {
-        found = true;
-        log::info!(target: "edgedb::portable::destroy",
-                   "Removing credentials file {:?}", &paths.credentials);
-        fs::remove_file(&paths.credentials)?;
-    }
     for path in &paths.service_files {
         if path.exists() {
             found = true;
@@ -289,11 +285,7 @@ pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<()> {
             fs::remove_file(path)?;
         }
     }
-    if !found {
-        msg!("No instance named {} found", name.emphasized());
-        return Err(ExitCode::new(exit_codes::INSTANCE_NOT_FOUND).into());
-    }
-    Ok(())
+    Ok(found)
 }
 
 #[context("cannot read {:?}", path)]
@@ -848,7 +840,7 @@ pub fn reset_password(
             .arg("reset-password")
             .args(options)
             .run()?;
-        wsl.copy_out(credentials_linux(name), credentials::path(name)?)?;
+        sync_credentials(name)?;
     } else {
         anyhow::bail!(
             "WSL distribution is not installed, \
@@ -1017,7 +1009,7 @@ pub fn list(options: &status::List, opts: &crate::Options) -> anyhow::Result<()>
     };
     let visited = local
         .iter()
-        .map(|v| v.name.clone())
+        .map(|v| InstanceName::Local(v.name.clone()))
         .collect::<BTreeSet<_>>();
 
     let remote = if options.no_remote {
@@ -1080,8 +1072,7 @@ pub fn upgrade(options: &instance::upgrade::Command, name: &str) -> anyhow::Resu
         .arg("upgrade")
         .args(options)
         .run()?;
-    // credentials might be updated on upgrade if we change format somehow
-    wsl.copy_out(credentials_linux(name), credentials::path(name)?)?;
+    sync_credentials(name)?;
     Ok(())
 }
 
@@ -1092,8 +1083,7 @@ pub fn revert(options: &instance::revert::Command, name: &str) -> anyhow::Result
         .arg("revert")
         .args(options)
         .run()?;
-    // credentials might be updated on upgrade if we change format somehow
-    wsl.copy_out(credentials_linux(name), credentials::path(name)?)?;
+    sync_credentials(name)?;
     Ok(())
 }
 

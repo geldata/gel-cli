@@ -13,7 +13,7 @@ use crate::portable::local;
 use crate::portable::project;
 use crate::portable::windows;
 use crate::print::{self, Highlight, msg};
-use crate::question;
+use crate::{credentials, question};
 
 pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {
     let name = options.instance_opts.instance()?;
@@ -39,8 +39,8 @@ pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {
     })?;
     if !options.quiet {
         msg!(
-            "Instance {} is successfully deleted.",
-            name_str.emphasized()
+            "{} was successfully deleted.",
+            format!("{name:#}").emphasized()
         );
     }
     Ok(())
@@ -103,16 +103,13 @@ pub fn with_projects(
     Ok(())
 }
 
-fn destroy_local(name: &str) -> anyhow::Result<()> {
+fn destroy_local(name: &str) -> anyhow::Result<bool> {
     let paths = local::Paths::get(name)?;
     log::debug!("Paths {:?}", paths);
     let mut found = false;
-    let mut not_found_err = None;
     match control::stop_and_disable(name) {
         Ok(f) => found = f,
-        Err(e) if e.is::<InstanceNotFound>() => {
-            not_found_err = Some(e);
-        }
+        Err(e) if e.is::<InstanceNotFound>() => {}
         Err(e) => {
             log::warn!("Error unloading service: {:#}", e);
         }
@@ -126,11 +123,6 @@ fn destroy_local(name: &str) -> anyhow::Result<()> {
         found = true;
         log::info!("Removing data directory {:?}", paths.data_dir);
         fs::remove_dir_all(&paths.data_dir)?;
-    }
-    if paths.credentials.exists() {
-        found = true;
-        log::info!("Removing credentials file {:?}", &paths.credentials);
-        fs::remove_file(&paths.credentials)?;
     }
     for path in &paths.service_files {
         if path.exists() {
@@ -154,26 +146,32 @@ fn destroy_local(name: &str) -> anyhow::Result<()> {
         log::info!("Removing upgrade marker {:?}", paths.upgrade_marker);
         fs::remove_file(&paths.upgrade_marker)?;
     }
-    if found {
-        Ok(())
-    } else if let Some(e) = not_found_err {
-        Err(e)
-    } else {
-        Err(InstanceNotFound(anyhow::anyhow!("instance not found")).into())
-    }
+
+    Ok(found)
 }
 
-fn do_destroy(options: &Command, opts: &Options, name: &InstanceName) -> anyhow::Result<()> {
-    match name {
+fn do_destroy(options: &Command, opts: &Options, instance: &InstanceName) -> anyhow::Result<()> {
+    match instance {
         InstanceName::Local(name) => {
-            if cfg!(windows) {
-                windows::destroy(options, name)
+            let mut found = if cfg!(windows) {
+                windows::destroy(options, name)?
             } else {
-                destroy_local(name)
+                destroy_local(name)?
+            };
+            if credentials::exists(&instance)? {
+                found = true;
+                credentials::delete(&instance)?;
+            } else {
+                log::warn!("Credentials unexpectedly missing for {:#}", instance);
             }
+            if !found {
+                msg!("{} Could not find {:#}", print::err_marker(), instance);
+                return Err(ExitCode::new(exit_codes::INSTANCE_NOT_FOUND).into());
+            }
+            Ok(())
         }
         InstanceName::Cloud(name) => {
-            log::info!("Removing {BRANDING_CLOUD} instance {}", name);
+            log::info!("Removing {name:#}");
             if let Err(e) = crate::cloud::ops::destroy_cloud_instance(name, &opts.cloud_options) {
                 let msg = format!("Could not destroy {BRANDING_CLOUD} instance: {e:#}");
                 if options.force {

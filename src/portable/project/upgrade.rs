@@ -134,7 +134,7 @@ pub fn update_toml(
         let database = project::database_name(&stash_dir)?;
         let client = CloudClient::new(&opts.cloud_options)?;
         let mut inst = project::Handle::probe(&name, &project.location.root, &schema_dir, &client)?;
-        inst.database = database;
+        inst.database = database.name().map(|s| s.to_string());
 
         let result = match inst.instance {
             project::InstanceKind::Remote => anyhow::bail!("remote instances cannot be upgraded"),
@@ -231,7 +231,7 @@ pub fn upgrade_instance(cmd: &Command, opts: &crate::options::Options) -> anyhow
     let client = CloudClient::new(&opts.cloud_options)?;
     let mut inst =
         project::Handle::probe(&instance_name, &project.location.root, &schema_dir, &client)?;
-    inst.database = database;
+    inst.database = database.name().map(|s| s.to_string());
     let result = match inst.instance {
         project::InstanceKind::Remote => anyhow::bail!("remote instances cannot be upgraded"),
         project::InstanceKind::Portable(inst) => upgrade_local(cmd, &project, inst, cfg_ver, opts),

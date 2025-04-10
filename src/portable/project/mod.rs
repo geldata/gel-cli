@@ -15,7 +15,7 @@ use fn_error_context::context;
 use gel_tokio::Builder;
 use gel_tokio::CloudName;
 use gel_tokio::InstanceName;
-use gel_tokio::dsn::ProjectDir;
+use gel_tokio::dsn::{DatabaseBranch, ProjectDir};
 use tokio::task::spawn_blocking;
 
 use crate::branding::QUERY_TAG;
@@ -301,15 +301,15 @@ pub fn instance_name(stash_dir: &Path) -> anyhow::Result<InstanceName> {
 }
 
 #[context("cannot read database name of {:?}", stash_dir)]
-pub fn database_name(stash_dir: &Path) -> anyhow::Result<Option<String>> {
+pub fn database_name(stash_dir: &Path) -> anyhow::Result<DatabaseBranch> {
     let inst = match fs::read_to_string(stash_dir.join("database")) {
         Ok(text) => text,
         Err(e) if e.kind() == io::ErrorKind::NotFound => {
-            return Ok(None);
+            return Ok(DatabaseBranch::Default);
         }
         Err(e) => return Err(e)?,
     };
-    Ok(Some(inst.trim().into()))
+    Ok(DatabaseBranch::Ambiguous(inst.trim().into()))
 }
 
 #[derive(Debug, Clone)]
@@ -326,7 +326,7 @@ pub struct Location {
 
 pub fn get_stash_path(path: &Path) -> anyhow::Result<PathBuf> {
     Ok(
-        gel_dsn::gel::ProjectSearchResult::find(ProjectDir::Exact(path.join("gel.toml")))?
+        gel_tokio::dsn::ProjectSearchResult::find(ProjectDir::Exact(path.join("gel.toml")))?
             .ok_or_else(|| anyhow::anyhow!("No project file found"))?
             .stash_path,
     )
@@ -338,7 +338,7 @@ pub async fn find_project_async(override_dir: Option<&Path>) -> anyhow::Result<O
 }
 
 pub fn find_project(override_dir: Option<&Path>) -> anyhow::Result<Option<Location>> {
-    let manifest = gel_dsn::gel::ProjectSearchResult::find(if let Some(dir) = override_dir {
+    let manifest = gel_tokio::dsn::ProjectSearchResult::find(if let Some(dir) = override_dir {
         ProjectDir::Search(dir.to_path_buf())
     } else {
         ProjectDir::SearchCwd

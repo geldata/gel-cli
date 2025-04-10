@@ -11,6 +11,7 @@ use std::sync::LazyLock;
 
 use anyhow::Context;
 use gel_tokio::InstanceName;
+use gel_tokio::dsn::DatabaseBranch;
 use tokio::io::AsyncWriteExt;
 use tokio::io::{self, AsyncBufReadExt, AsyncRead, AsyncReadExt, BufReader};
 use tokio::process::Command;
@@ -149,6 +150,12 @@ impl IntoArg for &usize {
 impl IntoArg for &InstanceName {
     fn add_arg(self, process: &mut Native) {
         process.arg(self.to_string());
+    }
+}
+
+impl IntoArg for &DatabaseBranch {
+    fn add_arg(self, process: &mut Native) {
+        process.arg(self.name().unwrap_or("").to_string());
     }
 }
 

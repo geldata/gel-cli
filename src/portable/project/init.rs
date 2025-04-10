@@ -6,6 +6,7 @@ use anyhow::Context;
 use clap::ValueHint;
 use const_format::concatcp;
 use gel_cli_instance::cloud::CloudInstanceCreate;
+use gel_tokio::dsn::{DEFAULT_BRANCH_NAME_CREATE, DEFAULT_DATABASE_NAME, DatabaseBranch};
 use gel_tokio::{CloudName, InstanceName, PROJECT_FILES};
 use rand::{Rng, thread_rng};
 
@@ -173,15 +174,16 @@ pub fn init_existing(
 
         if matches!(name, InstanceName::Cloud { .. }) {
             if options.non_interactive {
-                inst.database = Some(options.database.clone().unwrap_or(
-                    get_default_branch_or_database(specific_version, &project.location.root),
-                ));
+                inst.database = Some(
+                    options
+                        .database
+                        .clone()
+                        .unwrap_or(get_default_branch_or_database(specific_version)),
+                );
             } else {
-                inst.database = Some(ask_database_or_branch(
-                    specific_version,
-                    &project.location.root,
-                    options,
-                )?);
+                inst.database = ask_database_or_branch(specific_version)?
+                    .name()
+                    .map(|s| s.to_string());
             }
         } else {
             inst.database.clone_from(&options.database);
@@ -196,7 +198,7 @@ pub fn init_existing(
             let ver = cloud::versions::get_version(&ver_query, &client)
                 .with_context(|| "could not initialize project")?;
             ver::print_version_hint(&ver, &ver_query);
-            let database = ask_database(&project.location.root, options)?;
+            let database = ask_database()?;
 
             table::settings(&[
                 (
@@ -238,7 +240,7 @@ pub fn init_existing(
                 &stash_dir,
                 &project,
                 &ver,
-                &database,
+                database,
                 options,
                 &client,
             )
@@ -256,9 +258,9 @@ pub fn init_existing(
             let specific_version = &pkg.version.specific();
             ver::print_version_hint(specific_version, &ver_query);
 
-            let mut branch: Option<String> = None;
+            let mut branch = DatabaseBranch::default();
             if !options.non_interactive && specific_version.major >= 5 {
-                branch = Some(ask_branch()?);
+                branch = ask_branch()?;
             }
 
             let meth = if cfg!(windows) {
@@ -291,8 +293,8 @@ pub fn init_existing(
                 ("Instance name", name.clone()),
             ];
 
-            if let Some(branch) = branch.clone() {
-                rows.push(("Branch", branch))
+            if let Some(branch) = branch.branch_for_create() {
+                rows.push(("Branch", branch.to_string()))
             }
 
             table::settings(rows.as_slice());
@@ -304,14 +306,7 @@ pub fn init_existing(
                 )?;
             }
 
-            do_init(
-                name,
-                &pkg,
-                &stash_dir,
-                &project,
-                &branch.unwrap_or(create::get_default_branch_name(specific_version)),
-                options,
-            )
+            do_init(name, &pkg, &stash_dir, &project, branch, options)
         }
     }
 }
@@ -321,7 +316,7 @@ fn do_init(
     pkg: &PackageInfo,
     stash_dir: &Path,
     project: &project::Context,
-    database: &str,
+    database: DatabaseBranch,
     options: &Command,
 ) -> anyhow::Result<project::ProjectInfo> {
     let port = allocate_port(name)?;
@@ -354,11 +349,10 @@ fn do_init(
                 default_user: None,
                 non_interactive: true,
                 cloud_opts: options.cloud_opts.clone(),
-                default_branch: Some(database.to_string()),
+                default_branch: database.name().map(|s| s.to_string()),
             },
             name,
             port,
-            &paths,
         )?;
         create::create_service(&InstanceInfo {
             name: name.into(),
@@ -433,7 +427,7 @@ fn do_cloud_init(
     stash_dir: &Path,
     project: &project::Context,
     version: &ver::Specific,
-    database: &str,
+    database: DatabaseBranch,
     options: &Command,
     client: &CloudClient,
 ) -> anyhow::Result<project::ProjectInfo> {
@@ -454,7 +448,7 @@ fn do_cloud_init(
         project_dir: project.location.root.clone(),
         schema_dir: project.resolve_schema_dir()?,
         instance: project::InstanceKind::Remote,
-        database: Some(database.to_owned()),
+        database: database.name().map(|s| s.to_string()),
     };
 
     let mut stash = project::StashDir::new(&project.location.root, &full_name);
@@ -520,10 +514,10 @@ fn link(
                 options
                     .database
                     .clone()
-                    .unwrap_or(directory_to_name(&project.location.root, "edgedb").to_owned()),
+                    .unwrap_or(DEFAULT_DATABASE_NAME.to_string()),
             )
         } else {
-            inst.database = Some(ask_database(&project.location.root, options)?);
+            inst.database = ask_database()?.database().map(|s| s.to_string());
         }
     } else {
         inst.database.clone_from(&options.database);
@@ -571,14 +565,17 @@ fn do_link(
     })
 }
 
-fn directory_to_name(path: &Path, default: &str) -> String {
-    let path_stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or(default);
+fn directory_to_name(path: &Path, default: InstanceName) -> InstanceName {
+    let path_stem = path.file_stem().and_then(|s| s.to_str());
+    let Some(path_stem) = path_stem else {
+        return default;
+    };
     let stem = path_stem.replace(|c: char| !c.is_ascii_alphanumeric(), "_");
     let stem = stem.trim_matches('_');
     if stem.is_empty() {
-        default.into()
+        default
     } else {
-        stem.into()
+        InstanceName::Local(stem.to_string())
     }
 }
 
@@ -640,15 +637,16 @@ fn init_new(
         }
         if matches!(inst_name, InstanceName::Cloud { .. }) {
             if options.non_interactive {
-                inst.database = Some(options.database.clone().unwrap_or(
-                    get_default_branch_or_database(specific_version, &ctx.location.root),
-                ));
+                inst.database = Some(
+                    options
+                        .database
+                        .clone()
+                        .unwrap_or(get_default_branch_or_database(specific_version)),
+                );
             } else {
-                inst.database = Some(ask_database_or_branch(
-                    specific_version,
-                    &ctx.location.root,
-                    options,
-                )?);
+                inst.database = ask_database_or_branch(specific_version)?
+                    .name()
+                    .map(|s| s.to_string());
             }
         } else {
             inst.database.clone_from(&options.database);
@@ -663,7 +661,7 @@ fn init_new(
 
             let (ver_query, version) = ask_cloud_version(options, &client)?;
             ver::print_version_hint(&version, &ver_query);
-            let database = ask_database_or_branch(&version, &location.root, options)?;
+            let database = ask_database_or_branch(&version)?;
             table::settings(&[
                 ("Project directory", location.root.display().to_string()),
                 ("Project config", location.manifest.display().to_string()),
@@ -709,7 +707,7 @@ fn init_new(
                 &stash_dir,
                 &ctx,
                 &version,
-                &database,
+                database,
                 options,
                 &client,
             )
@@ -720,9 +718,9 @@ fn init_new(
             let specific_version = &pkg.version.specific();
             ver::print_version_hint(specific_version, &ver_query);
 
-            let mut branch: Option<String> = None;
+            let mut branch = DatabaseBranch::Default;
             if !options.non_interactive && specific_version.major >= 5 {
-                branch = Some(ask_branch()?);
+                branch = ask_branch()?;
             }
 
             let meth = if cfg!(windows) {
@@ -749,8 +747,8 @@ fn init_new(
                 ("Instance name", name.clone()),
             ];
 
-            if let Some(branch) = branch.clone() {
-                rows.push(("Branch", branch))
+            if let Some(branch) = branch.branch_for_create() {
+                rows.push(("Branch", branch.to_string()))
             }
 
             table::settings(rows.as_slice());
@@ -773,14 +771,7 @@ fn init_new(
                 )?;
             }
 
-            do_init(
-                name,
-                &pkg,
-                &stash_dir,
-                &project,
-                &branch.unwrap_or(create::get_default_branch_name(specific_version)),
-                options,
-            )
+            do_init(name, &pkg, &stash_dir, &project, branch, options)
         }
     }
 }
@@ -794,17 +785,21 @@ fn ask_name(
     let default_name = if let Some(name) = &options.server_instance {
         name.clone()
     } else {
-        let base_name = directory_to_name(dir, "instance");
+        let base_name = directory_to_name(dir, InstanceName::Local("instance".to_string()));
         let mut name = base_name.clone();
 
-        while instances.contains(&name) {
-            name = format!("{}_{:04}", base_name, thread_rng().gen_range(0..10000));
+        while credentials::exists(&name)? {
+            name = InstanceName::Local(format!(
+                "{}_{:04}",
+                base_name,
+                thread_rng().gen_range(0..10000)
+            ));
         }
-        InstanceName::Local(name)
+        name
     };
     if options.non_interactive {
         let exists = match &default_name {
-            InstanceName::Local(name) => instances.contains(name),
+            InstanceName::Local(_) => instances.contains(&default_name),
             InstanceName::Cloud(name) => {
                 cloud_client.ensure_authenticated()?;
                 let inst = crate::cloud::ops::find_cloud_instance_by_name(name, cloud_client)?;
@@ -838,7 +833,7 @@ fn ask_name(
             }
         };
         let exists = match &inst_name {
-            InstanceName::Local(name) => instances.contains(name),
+            InstanceName::Local(_) => instances.contains(&inst_name),
             InstanceName::Cloud(name) => {
                 if !cloud_client.is_logged_in {
                     if let Err(e) = crate::cloud::ops::prompt_cloud_login(cloud_client) {
@@ -863,50 +858,42 @@ fn ask_name(
     }
 }
 
-fn get_default_branch_or_database(version: &Specific, project_dir: &Path) -> String {
+fn get_default_branch_or_database(version: &Specific) -> String {
     if version.major >= 5 {
-        return String::from("main");
+        return String::from(DEFAULT_BRANCH_NAME_CREATE);
     }
 
-    directory_to_name(project_dir, "edgedb")
+    String::from(DEFAULT_DATABASE_NAME)
 }
 
-fn ask_database_or_branch(
-    version: &Specific,
-    project_dir: &Path,
-    options: &Command,
-) -> anyhow::Result<String> {
+fn ask_database_or_branch(version: &Specific) -> anyhow::Result<DatabaseBranch> {
     if version.major >= 5 {
         return ask_branch();
     }
 
-    ask_database(project_dir, options)
+    ask_database()
 }
 
-fn ask_database(project_dir: &Path, options: &Command) -> anyhow::Result<String> {
-    if let Some(name) = &options.database {
-        return Ok(name.clone());
-    }
-    let default = directory_to_name(project_dir, "edgedb");
-    let mut q = question::String::new("Specify database name:").default(&default);
+fn ask_database() -> anyhow::Result<DatabaseBranch> {
+    let mut q = question::String::new("Specify database name:").default(DEFAULT_DATABASE_NAME);
     loop {
         let name = q.ask()?;
         if name.trim().is_empty() {
             print::error!("Non-empty name is required");
         } else {
-            return Ok(name.trim().into());
+            return Ok(DatabaseBranch::Database(name.trim().to_string()));
         }
     }
 }
 
-fn ask_branch() -> anyhow::Result<String> {
-    let mut q = question::String::new("Specify branch name:").default("main");
+fn ask_branch() -> anyhow::Result<DatabaseBranch> {
+    let mut q = question::String::new("Specify branch name:").default(DEFAULT_BRANCH_NAME_CREATE);
     loop {
         let name = q.ask()?;
         if name.trim().is_empty() {
             print::error!("Non-empty name is required");
         } else {
-            return Ok(name.trim().into());
+            return Ok(DatabaseBranch::Branch(name.trim().to_string()));
         }
     }
 }
@@ -998,7 +985,7 @@ fn ask_existing_instance_name(cloud_client: &mut CloudClient) -> anyhow::Result<
             }
         };
         let exists = match &inst_name {
-            InstanceName::Local(name) => instances.contains(name),
+            InstanceName::Local(_) => instances.contains(&inst_name),
             InstanceName::Cloud(name) => {
                 if !cloud_client.is_logged_in {
                     if let Err(e) = crate::cloud::ops::prompt_cloud_login(cloud_client) {

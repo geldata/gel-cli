@@ -15,7 +15,6 @@ use gel_tokio::{Builder, Config, InstanceName};
 
 use crate::branding::BRANDING;
 use crate::bug;
-use crate::credentials;
 use crate::hint::HintExt;
 use crate::platform::{cache_dir, config_dir, data_dir, portable_dir};
 use crate::portable::repository::PackageHash;
@@ -26,7 +25,6 @@ const MIN_PORT: u16 = 10700;
 
 #[derive(Debug)]
 pub struct Paths {
-    pub credentials: PathBuf,
     pub data_dir: PathBuf,
     pub service_files: Vec<PathBuf>,
     pub dump_path: PathBuf,
@@ -273,7 +271,6 @@ impl Paths {
     pub fn get(name: &str) -> anyhow::Result<Paths> {
         let base = data_dir()?;
         Ok(Paths {
-            credentials: credentials::path(name)?,
             data_dir: base.join(name),
             dump_path: base.join(format!("{name}.dump")),
             backup_dir: base.join(format!("{name}.backup")),
@@ -291,9 +288,6 @@ impl Paths {
         })
     }
     pub fn check_exists(&self) -> anyhow::Result<()> {
-        if self.credentials.exists() {
-            anyhow::bail!("Credentials file {:?} already exists", self.credentials);
-        }
         if self.data_dir.exists() {
             anyhow::bail!("Data directory {:?} already exists", self.data_dir);
         }
