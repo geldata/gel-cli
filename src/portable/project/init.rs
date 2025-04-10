@@ -1153,9 +1153,6 @@ async fn create_database_async(inst: &project::Handle<'_>) -> anyhow::Result<()>
         return Ok(());
     };
     let config = inst.get_default_builder()?.build()?;
-    if name == config.database().unwrap_or_default() {
-        return Ok(());
-    }
     let mut conn = Connection::connect(&config, QUERY_TAG).await?;
     ensure_database(&mut conn, name).await?;
     Ok(())

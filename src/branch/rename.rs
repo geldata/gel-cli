@@ -14,7 +14,11 @@ pub async fn run(
     let current_branch = context.get_current_branch(connection).await?;
 
     if options.old_name == current_branch
-        || connection.database().branch().unwrap_or_default() == options.old_name
+        || connection
+            .database()
+            .branch_for_connect()
+            .unwrap_or_default()
+            == options.old_name
     {
         let mut modify_connection =
             get_connection_to_modify(&options.old_name, cli_opts, connection).await?;
@@ -30,7 +34,12 @@ pub async fn run(
         options.old_name, options.new_name
     );
 
-    if connection.database().branch().unwrap_or_default() == options.old_name {
+    if connection
+        .database()
+        .branch_for_connect()
+        .unwrap_or_default()
+        == options.old_name
+    {
         return Ok(branch::CommandResult {
             new_branch: Some(options.new_name.clone()),
         });

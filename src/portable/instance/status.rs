@@ -942,7 +942,7 @@ impl RemoteStatus {
             } else if let Some(branch) = creds.branch.as_ref() {
                 println!("  Branch: {branch}");
             } else {
-                println!("  Branch: {}", DEFAULT_BRANCH.branch().unwrap_or_default());
+                println!("  Branch: (default)");
             }
         }
         if let Some(ConnectionStatus::Error(e)) = &self.connection {
