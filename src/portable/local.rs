@@ -10,7 +10,7 @@ use std::time::SystemTime;
 use anyhow::Context;
 use fn_error_context::context;
 
-use gel_dsn::gel::UnixPath;
+use gel_tokio::dsn::UnixPath;
 use gel_tokio::{Builder, Config, InstanceName};
 
 use crate::branding::BRANDING;

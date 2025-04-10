@@ -4,7 +4,7 @@ use std::str::FromStr;
 
 use clap::{CommandFactory, FromArgMatches};
 use const_format::concatcp;
-use gel_dsn::gel::DatabaseBranch;
+use gel_tokio::dsn::DatabaseBranch;
 use prettytable::{Cell, Row, Table};
 use regex::Regex;
 use std::sync::LazyLock;

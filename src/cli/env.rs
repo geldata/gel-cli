@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use gel_dsn::gel::CloudCerts;
+use gel_tokio::dsn::CloudCerts;
 
 macro_rules! define_env {
     (

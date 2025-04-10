@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use color_print::cformat;
 use const_format::concatcp;
-use gel_dsn::gel::{TlsSecurity, UnixPath};
 use gel_errors::{ClientNoCredentialsError, NoCloudConfigFound};
 use gel_protocol::model;
+use gel_tokio::dsn::{TlsSecurity, UnixPath};
 use gel_tokio::{Builder, InstanceName};
 use log::warn;
 use std::io::IsTerminal;
