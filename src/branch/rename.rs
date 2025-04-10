@@ -13,13 +13,14 @@ pub async fn run(
 ) -> anyhow::Result<branch::CommandResult> {
     let current_branch = context.get_current_branch(connection).await?;
 
-    if options.old_name == current_branch
+    let rename_current = options.old_name == current_branch
         || connection
             .database()
             .branch_for_connect()
             .unwrap_or_default()
-            == options.old_name
-    {
+            == options.old_name;
+
+    if rename_current {
         let mut modify_connection =
             get_connection_to_modify(&options.old_name, cli_opts, connection).await?;
         rename(&mut modify_connection.connection, options).await?;
@@ -34,12 +35,7 @@ pub async fn run(
         options.old_name, options.new_name
     );
 
-    if connection
-        .database()
-        .branch_for_connect()
-        .unwrap_or_default()
-        == options.old_name
-    {
+    if rename_current {
         return Ok(branch::CommandResult {
             new_branch: Some(options.new_name.clone()),
         });
