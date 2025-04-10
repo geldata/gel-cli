@@ -7,7 +7,7 @@ use anyhow::Context;
 use fn_error_context::context;
 use fs_err as fs;
 
-use gel_dsn::gel::CredentialsFile;
+use gel_tokio::dsn::CredentialsFile;
 use gel_tokio::{Config, InstanceName};
 
 use crate::platform::{config_dir, tmp_file_name};

@@ -7,7 +7,7 @@ use gel_cli_instance::cloud::{
     CloudInstance, CloudInstanceCreate, CloudInstanceResize, CloudInstanceUpgrade, CloudOperation,
     OperationStatus, Org, Prices, Region, Version,
 };
-use gel_dsn::gel::CredentialsFile;
+use gel_tokio::dsn::CredentialsFile;
 use gel_tokio::{Builder, CloudName, InstanceName};
 use indicatif::ProgressBar;
 use tokio::time::{sleep, timeout};

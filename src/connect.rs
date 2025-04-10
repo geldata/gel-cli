@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use bytes::Bytes;
 
-use gel_dsn::gel::DatabaseBranch;
+use gel_tokio::dsn::DatabaseBranch;
 use tokio::time::sleep;
 use tokio_stream::Stream;
 

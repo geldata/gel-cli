@@ -9,7 +9,7 @@ use gel_cli_derive::IntoArgs;
 
 use color_print::cformat;
 use gel_cli_instance::cloud::{CloudInstanceCreate, CloudInstanceResourceRequest, CloudTier};
-use gel_dsn::gel::{CredentialsFile, DEFAULT_PORT};
+use gel_tokio::dsn::{CredentialsFile, DEFAULT_PORT};
 use gel_tokio::{CloudName, InstanceName};
 use serde::{Deserialize, Serialize};
 

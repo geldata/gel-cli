@@ -12,10 +12,10 @@ use std::str::FromStr;
 
 use fn_error_context::context;
 
-use gel_dsn::gel::ProjectDir;
 use gel_tokio::Builder;
 use gel_tokio::CloudName;
 use gel_tokio::InstanceName;
+use gel_tokio::dsn::ProjectDir;
 use tokio::task::spawn_blocking;
 
 use crate::branding::QUERY_TAG;

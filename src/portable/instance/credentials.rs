@@ -1,5 +1,5 @@
-use gel_dsn::gel::{Authentication, DatabaseBranch};
 use gel_tokio::Config;
+use gel_tokio::dsn::{Authentication, DatabaseBranch};
 use std::io::{Write, stdout};
 
 use crate::options::{ConnectionOptions, Options};

@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use bytes::BytesMut;
-use gel_dsn::gel::DatabaseBranch;
+use gel_tokio::dsn::DatabaseBranch;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 

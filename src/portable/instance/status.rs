@@ -13,7 +13,7 @@ use std::time::Duration;
 use anyhow::Context;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
-use gel_dsn::gel::{CredentialsFile, DEFAULT_BRANCH, DEFAULT_PORT, DEFAULT_USER};
+use gel_tokio::dsn::{CredentialsFile, DEFAULT_PORT, DEFAULT_USER};
 use humantime::format_duration;
 use std::io::IsTerminal;
 use tokio::join;
@@ -942,7 +942,7 @@ impl RemoteStatus {
             } else if let Some(branch) = creds.branch.as_ref() {
                 println!("  Branch: {branch}");
             } else {
-                println!("  Branch: {}", DEFAULT_BRANCH.branch().unwrap_or_default());
+                println!("  Branch: (default)");
             }
         }
         if let Some(ConnectionStatus::Error(e)) = &self.connection {

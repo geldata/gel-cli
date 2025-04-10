@@ -2,8 +2,8 @@ use std::fmt;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use gel_dsn::gel::DatabaseBranch;
 use gel_tokio::builder::CertCheck;
+use gel_tokio::dsn::DatabaseBranch;
 
 use gel_errors::{
     ClientConnectionFailedError, ClientNoCredentialsError, Error, ErrorKind, PasswordRequired,
