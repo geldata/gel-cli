@@ -489,7 +489,7 @@ fn create_cloud(
     }?;
 
     let request = CloudInstanceCreate {
-        name: name.to_string(),
+        name: name.name.clone(),
         version: server_ver.to_string(),
         region: Some(region),
         requested_resources: Some(req_resources),
