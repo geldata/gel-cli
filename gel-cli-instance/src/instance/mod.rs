@@ -2,12 +2,23 @@ use crate::{
     cloud::{CloudApi, CloudHttp, CloudInstanceHandle},
     local::LocalInstanceHandle,
 };
-use gel_dsn::gel::CloudName;
-use std::pin::Pin;
+use gel_dsn::gel::{Builder, CloudName};
+use std::{path::PathBuf, pin::Pin, sync::Arc};
+use tokio::task::JoinError;
 
 pub mod backup;
 
 pub type Operation<T> = Pin<Box<dyn Future<Output = Result<T, anyhow::Error>>>>;
+
+pub fn map_join_error<T, E: Into<anyhow::Error>>(
+    result: Result<Result<T, E>, JoinError>,
+) -> Result<T, anyhow::Error> {
+    match result {
+        Ok(Ok(t)) => Ok(t),
+        Ok(Err(e)) => Err(e.into()),
+        Err(e) => Err(e.into()),
+    }
+}
 
 #[derive(thiserror::Error, Debug)]
 pub enum InstanceOpError {
@@ -43,9 +54,22 @@ pub fn get_cloud_instance<H: CloudHttp>(
     })
 }
 
-pub fn get_local_instance(name: &str) -> Result<InstanceHandle, InstanceOpError> {
-    let instance = LocalInstanceHandle {
+pub fn get_local_instance(
+    name: &str,
+    bin_dir: PathBuf,
+    run_dir: PathBuf,
+    version: String,
+) -> Result<InstanceHandle, InstanceOpError> {
+    let paths = Builder::default().with_system().stored_info().paths();
+    let instance_paths = paths
+        .for_instance(name)
+        .ok_or_else(|| InstanceOpError::Unsupported(name.to_string()))?;
+    let instance: LocalInstanceHandle = LocalInstanceHandle {
         name: name.to_string(),
+        paths: Arc::new(instance_paths),
+        bin_dir,
+        run_dir,
+        version,
     };
     Ok(InstanceHandle {
         instance: Box::new(instance),

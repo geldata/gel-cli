@@ -1617,12 +1617,14 @@ dependencies = [
  "gel-dsn",
  "humantime-serde",
  "log",
+ "memchr",
  "rstest",
  "scopeguard",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -4745,6 +4747,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot 0.12.3",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",

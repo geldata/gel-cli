@@ -1,10 +1,10 @@
 use std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     future::Future,
     pin::Pin,
     process::{Command, ExitStatus, Stdio},
-    sync::Mutex,
+    sync::{Arc, Mutex},
     task::{Context, Poll, ready},
 };
 
@@ -27,7 +27,7 @@ pub struct ProcessError {
 
 #[derive(Debug, thiserror::Error)]
 pub enum ProcessErrorType {
-    #[error("command failed: {0}")]
+    #[error("command failed: {0} ({1})")]
     CommandFailed(ExitStatus, String),
     #[error("encoding error: {0}")]
     EncodingError(Box<dyn std::error::Error + Send + Sync + 'static>),
@@ -56,6 +56,14 @@ impl From<tokio::sync::oneshot::error::RecvError> for ProcessErrorType {
     }
 }
 
+impl From<tokio::sync::mpsc::error::TryRecvError> for ProcessErrorType {
+    fn from(_: tokio::sync::mpsc::error::TryRecvError) -> Self {
+        Self::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Task failed to communicate unexpectedly",
+        ))
+    }
+}
 impl From<(Command, ProcessErrorType)> for ProcessError {
     fn from((command, kind): (Command, ProcessErrorType)) -> Self {
         Self { command, kind }
@@ -108,6 +116,41 @@ impl<P: ProcessRunner> Processes<P> {
         .await
     }
 
+    pub async fn run_lines(
+        &self,
+        command: Command,
+        line_handler: impl Fn(&str) + Send + Sync + 'static,
+    ) -> Result<(), ProcessError> {
+        Self::with_cmd(command, |cmd| async move {
+            let last_output = Arc::new(Mutex::new(VecDeque::new()));
+            let last_output_clone = last_output.clone();
+            let line_handler = Arc::new(move |line: &str| {
+                let mut lock = last_output_clone.lock().unwrap();
+                lock.push_back(line.to_string());
+                if lock.len() > 10 {
+                    lock.pop_front();
+                }
+                line_handler(line);
+            });
+            let stdout = StreamCollector::Line(line_handler.clone());
+            let stderr = StreamCollector::Line(line_handler);
+            let handle = self
+                .runner
+                .run_process(cmd, OutputCollector { stdout, stderr })?;
+            let status = handle.await?;
+            if status.success() {
+                Ok(())
+            } else {
+                let lines = std::mem::take(&mut *last_output.lock().unwrap());
+                Err(ProcessErrorType::CommandFailed(
+                    status,
+                    lines.into_iter().collect::<Vec<_>>().join("\n"),
+                ))
+            }
+        })
+        .await
+    }
+
     /// Run a command and return the output as a JSON value.
     #[allow(unused)]
     pub async fn run_json<T: for<'a> serde::Deserialize<'a>>(
@@ -154,11 +197,11 @@ pub enum StreamCollector {
     /// Print the stream to `stdout`.
     Print,
     /// Call a function for each line.
-    Line(Box<dyn Fn(&str) + Send + Sync + 'static>),
+    Line(Arc<dyn Fn(&str) + Send + Sync + 'static>),
     /// Call a function for each chunk (each chunk is an undefined size).
-    Chunk(Box<dyn Fn(&[u8]) + Send + Sync + 'static>),
+    Chunk(Arc<dyn Fn(&[u8]) + Send + Sync + 'static>),
     /// Call a function for the entire stream.
-    Entire(Box<dyn Fn(Vec<u8>) + Send + Sync + 'static>),
+    Entire(Arc<dyn Fn(Vec<u8>) + Send + Sync + 'static>),
 }
 
 impl StreamCollector {
@@ -170,7 +213,7 @@ impl StreamCollector {
         let tx = Mutex::new(Some(tx));
 
         (
-            StreamCollector::Entire(Box::new(move |s| {
+            StreamCollector::Entire(Arc::new(move |s| {
                 if let Ok(mut tx) = tx.lock() {
                     if let Some(tx) = tx.take() {
                         _ = tx.send(s);
@@ -204,13 +247,51 @@ impl StreamCollector {
                 let mut reader = BufReader::new(stream);
                 loop {
                     let mut line = vec![];
-                    if reader.read_until(b'\n', &mut line).await? == 0 {
+                    let bytes_read = {
+                        let mut read = 0;
+                        loop {
+                            let available = match reader.fill_buf().await {
+                                Ok(buf) => buf,
+                                Err(e) => return Err(e),
+                            };
+
+                            if available.is_empty() {
+                                break read; // EOF reached
+                            }
+
+                            let r_pos = memchr::memchr(b'\r', available);
+                            let n_pos = memchr::memchr(b'\n', available);
+
+                            let pos = match (r_pos, n_pos) {
+                                (Some(r), Some(n)) => Some(r.min(n)),
+                                (Some(r), None) => Some(r),
+                                (None, Some(n)) => Some(n),
+                                (None, None) => None,
+                            };
+
+                            if let Some(i) = pos {
+                                line.extend_from_slice(&available[..=i]);
+                                reader.consume(i + 1);
+                                read += i + 1;
+                                break read;
+                            } else {
+                                line.extend_from_slice(available);
+                                let len = available.len();
+                                reader.consume(len);
+                                read += len;
+                            }
+                        }
+                    };
+
+                    if bytes_read == 0 {
                         break;
                     }
                     // Pass the function to the thread and then take it back.
                     f = tokio::task::spawn_blocking(move || {
                         for chunk in line.utf8_chunks() {
                             let valid = chunk.valid();
+                            // Trim \r or \n from the end of the line.
+                            let valid = valid.trim_end_matches(|c| c == '\r' || c == '\n');
                             f(valid);
                         }
                         f
@@ -501,7 +582,7 @@ mod tests {
             .run_process(
                 Command::new("hi"),
                 OutputCollector {
-                    stdout: StreamCollector::Entire(Box::new(move |s| {
+                    stdout: StreamCollector::Entire(Arc::new(move |s| {
                         tx.send(s.to_vec()).unwrap()
                     })),
                     stderr: StreamCollector::Log,
@@ -518,5 +599,34 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(json, json!({"command": "echo"}));
+    }
+
+    #[tokio::test]
+    async fn test_run_lines() {
+        let runner = Box::new(&|_: &Command| {
+            Ok((
+                "a\rb\rc\rd".as_bytes(),
+                "".as_bytes(),
+                ExitStatus::default(),
+            ))
+        });
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let handle = runner
+            .run_process(
+                Command::new("hi"),
+                OutputCollector {
+                    stdout: StreamCollector::Line(Arc::new(move |s| {
+                        tx.send(s.to_string()).unwrap()
+                    })),
+                    stderr: StreamCollector::Log,
+                },
+            )
+            .unwrap();
+        assert_eq!(handle.await.unwrap(), ExitStatus::default());
+
+        for line in ["a", "b", "c", "d"] {
+            let stdout = rx.recv().await.unwrap();
+            assert_eq!(stdout, line);
+        }
     }
 }
