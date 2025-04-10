@@ -1,6 +1,5 @@
 use gel_cli_derive::IntoArgs;
-use gel_tokio::InstanceName;
-use gel_tokio::dsn::{CredentialsFile, DEFAULT_USER};
+use gel_tokio::{InstanceName, dsn::DEFAULT_USER};
 use rand::{Rng, SeedableRng};
 
 use edgeql_parser::helpers::{quote_name, quote_string};

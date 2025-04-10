@@ -14,6 +14,7 @@ use anyhow::Context;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 use gel_tokio::dsn::{CredentialsFile, DEFAULT_PORT, DEFAULT_USER};
+use gel_tokio::{Builder, CloudName, InstanceName};
 use humantime::format_duration;
 use std::io::IsTerminal;
 use tokio::join;
@@ -21,10 +22,6 @@ use tokio::time::sleep;
 
 use crate::connect::Connection;
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
-use gel_tokio::{
-    Builder, CloudName, InstanceName,
-    dsn::{CredentialsFile, DEFAULT_PORT, DEFAULT_USER},
-};
 
 use crate::branding::{BRANDING_CLOUD, QUERY_TAG};
 use crate::cloud;
