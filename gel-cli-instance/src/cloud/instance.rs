@@ -1,11 +1,13 @@
 use futures::FutureExt;
 use gel_dsn::gel::{CloudName, InstanceName};
 use std::time::Duration;
-use tokio::task::JoinError;
 
 use crate::instance::{
     Instance, InstanceOpError, Operation,
-    backup::{Backup, BackupId, BackupType, Error, InstanceBackup, ProgressCallback, RestoreType},
+    backup::{
+        Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback, RestoreType,
+    },
+    map_join_error,
 };
 
 use super::{CloudApi, CloudError, CloudHttp, schema};
@@ -20,14 +22,6 @@ struct CloudInstanceBackup<H: CloudHttp> {
     instance: CloudInstanceHandle<H>,
 }
 
-fn map_join_error<T>(result: Result<Result<T, CloudError>, JoinError>) -> Result<T, Error> {
-    match result {
-        Ok(Ok(t)) => Ok(t),
-        Ok(Err(e)) => Err(e.into()),
-        Err(e) => Err(e.into()),
-    }
-}
-
 impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
     fn backup(&self, callback: ProgressCallback) -> Operation<Option<BackupId>> {
         let api = self.instance.api.clone();
@@ -39,7 +33,7 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
                 .await?;
             Ok(None)
         })
-        .map(map_join_error)
+        .map(map_join_error::<_, CloudError>)
         .boxed()
     }
 
@@ -114,10 +108,11 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
                         _ => BackupType::Unknown(b.r#type),
                     },
                     server_version: b.edgedb_version,
+                    backup_strategy: BackupStrategy::Full,
                 })
                 .collect())
         })
-        .map(map_join_error)
+        .map(map_join_error::<_, CloudError>)
         .boxed()
     }
 }
