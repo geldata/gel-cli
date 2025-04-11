@@ -7,7 +7,7 @@ edition.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-gel-dsn = { workspace = true, features = ["gel"] }
+gel-dsn = { workspace = true, features = ["gel", "unstable"] }
 
 tokio = { version = "1", features = ["process"] }
 futures = "0.3"
@@ -19,8 +19,11 @@ serde = { version = "1", features = ["derive"] }
 thiserror = "2"
 derive_more = { version = "2", features = ["error", "display"] }
 humantime-serde = "1.1.1"
-clap = "4"
+clap = { version = "4", features = ["derive"] }
 anyhow = "1"
+memchr = "2.7"
+uuid = { version = "1", default-features = false, features = ["std", "v7"] }
 
 [dev-dependencies]
 rstest = "0.25"
+tokio = { version = "1", features = ["full"] }

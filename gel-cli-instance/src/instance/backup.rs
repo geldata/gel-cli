@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::SystemTime};
 
 use gel_dsn::gel::InstanceName;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::Operation;
 
@@ -32,12 +32,23 @@ impl std::ops::Deref for ProgressCallback {
     }
 }
 
-#[derive(Debug, Clone, derive_more::Display, Serialize)]
+#[derive(Debug, Clone, derive_more::Display, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum BackupType {
     #[serde(rename = "automated")]
     Automated,
     #[serde(rename = "manual")]
     Manual,
+    Unknown(String),
+}
+
+#[derive(Debug, Clone, derive_more::Display, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum BackupStrategy {
+    #[serde(rename = "full")]
+    Full,
+    #[serde(rename = "incremental")]
+    Incremental,
+    #[serde(rename = "differential")]
+    Differential,
     Unknown(String),
 }
 
@@ -68,6 +79,7 @@ pub struct Backup {
     pub backup_type: BackupType,
     pub status: String,
     pub server_version: String,
+    pub backup_strategy: BackupStrategy,
 }
 
 pub trait InstanceBackup {
