@@ -8,7 +8,7 @@ use gel_tokio::InstanceName;
 use crate::branding::BRANDING_CLI_CMD;
 use crate::cloud;
 use crate::options::CloudOptions;
-use crate::portable::local::{InstanceInfo, Paths};
+use crate::portable::local::InstanceInfo;
 use crate::print::msg;
 use crate::question;
 
@@ -113,12 +113,10 @@ fn get_instance(
                 return Err(anyhow::anyhow!("Instance {} not installed", name));
             };
             let bin_dir = install_info.base_path()?.join("bin");
-            let run_dir = Paths::get(&name)?.runstate_dir;
 
             Ok(get_local_instance(
                 name,
                 bin_dir,
-                run_dir,
                 install_info.version.specific().to_string(),
             )?)
         }

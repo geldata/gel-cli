@@ -5,6 +5,7 @@ use std::{
 use anyhow::bail;
 use futures::FutureExt;
 use gel_dsn::gel::InstanceName;
+use log::info;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -45,6 +46,23 @@ struct BackupMetadata {
     server_version: String,
 }
 
+impl BackupMetadata {
+    fn is_incomplete(&self) -> bool {
+        self.completed_at.is_none() && self.last_updated_at.elapsed().unwrap_or(Duration::MAX) > BACKUP_TIMEOUT
+    }
+
+    fn from_file(path: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
+        let file = File::open(path.as_ref())?;
+        let metadata: Self = serde_json::from_reader(file)?;
+
+        if metadata.completed_at.is_none() && metadata.last_updated_at.elapsed().unwrap_or(Duration::MAX) > BACKUP_TIMEOUT {
+            return Err(anyhow::anyhow!("Backup {} timed out.", path.as_ref().display()));
+        }
+
+        Ok(metadata)
+    }
+}
+
 impl InstanceBackup for LocalBackup {
     fn backup(&self, callback: ProgressCallback) -> Operation<Option<BackupId>> {
         let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
@@ -64,7 +82,7 @@ impl InstanceBackup for LocalBackup {
 
         let target_dir = backups_dir.join(&backup_id);
         let temp_dir = backups_dir.join(format!(".{backup_id}.tmp"));
-        let run_dir = self.handle.paths.run_dir.clone();
+        let run_dir = self.handle.paths.runstate_path.clone();
 
         tokio::spawn(async move {
             let metadata_file = temp_dir.join("backup.json");
@@ -94,6 +112,14 @@ impl InstanceBackup for LocalBackup {
                 _ = std::fs::remove_dir_all(&temp_dir);
             });
 
+            // TODO: we should trigger the server to start if it's not running
+            if !run_dir.join(".s.PGSQL.5432").exists() {
+                return Err(anyhow::anyhow!(
+                    "PostgreSQL socket not found at {}. Is the instance stopped or sleeping?",
+                    run_dir.join(".s.PGSQL.5432").display()
+                ));
+            }
+
             pg_backup
                 .pg_basebackup(&temp_dir.join("data"), run_dir, "postgres", callback)
                 .await?;
@@ -103,7 +129,8 @@ impl InstanceBackup for LocalBackup {
             task.abort();
             _ = task.await;
 
-            metadata.completed_at = Some(SystemTime::now());
+            metadata.last_updated_at = SystemTime::now();
+            metadata.completed_at = Some(metadata.last_updated_at);
             std::fs::write(metadata_file, serde_json::to_string_pretty(&metadata)?)?;
             std::fs::rename(temp_dir, target_dir)?;
             Ok(Some(BackupId::new(backup_id)))
@@ -129,8 +156,28 @@ impl InstanceBackup for LocalBackup {
 
         let mut restore_tmpdir2 = self.handle.paths.data_dir.clone();
         restore_tmpdir2.set_file_name(".restore.old_data.tmp");
+        let run_dir = self.handle.paths.runstate_path.clone();
 
         async move {
+            if restore_tmpdir.exists() {
+                let restore_tmpdir = restore_tmpdir.clone();
+                callback.progress(None, "Removing existing restore directory...");
+                tokio::task::spawn_blocking(move || {
+                    std::fs::remove_dir_all(&restore_tmpdir)?;
+                    Ok::<_, std::io::Error>(())
+                }).await??;
+            }
+            if restore_tmpdir2.exists() {
+                bail!("Restore directory {} already exists from an incomplete restore, please remove it manually.", restore_tmpdir2.display());
+            }
+
+            if run_dir.join(".s.PGSQL.5432").exists() {
+                return Err(anyhow::anyhow!(
+                    "PostgreSQL socket found at {}. Stop the server before restoring.",
+                    run_dir.join(".s.PGSQL.5432").display()
+                ));
+            }
+
             if instance.is_some() {
                 bail!("`instance restore` from another instance is not yet implemented.")
             }
@@ -154,26 +201,59 @@ impl InstanceBackup for LocalBackup {
                 }
             };
 
+            info!("Restoring backup {backup_id} from {backups_dir:?}");
+
             let backup_path = backups_dir.join(PathBuf::from(backup_id.to_string()));
             if !backup_path.try_exists()? {
                 bail!("Backup {} not found", backup_id);
             }
 
             let metadata_file = backup_path.join("backup.json");
+            let metadata = BackupMetadata::from_file(&metadata_file)?;
+            if metadata.is_incomplete() {
+                bail!("Backup {} is incomplete and cannot be restored.", backup_id);
+            }
+
             let backup_data_path = backup_path.join("data");
-            let data_file = backup_data_path.join("data.tar.gz");
+            let data_file = backup_data_path.join("base.tar.gz");
             let wal_file = backup_data_path.join("pg_wal.tar.gz");
             let backup_manifest = backup_data_path.join("backup_manifest");
+            {
+                let callback = callback.clone();
+                let restore_tmpdir = restore_tmpdir.clone();
+                tokio::task::spawn_blocking(move || {
+                    // Note to reader: tar files may contain multiple
+                    // concatenated gzip streams, so we need to use a
+                    // MultiGzDecoder to unpack them.
 
-            let mut data_tar = tar::Archive::new(File::open(data_file)?);
-            data_tar.unpack(&restore_tmpdir)?;
-            let mut wal_tar = tar::Archive::new(File::open(wal_file)?);
-            wal_tar.unpack(restore_tmpdir.join("pg_wal"))?;
+                    info!("Unpacking {data_file:?} to {restore_tmpdir:?}");
+                    callback.progress(None, "Unpacking data...");
+                    let mut data_tar = tar::Archive::new(flate2::read::MultiGzDecoder::new(File::open(data_file)?));
+                    data_tar.unpack(&restore_tmpdir)?;
 
-            pg_backup.pg_verifybackup(&restore_tmpdir, backup_manifest, callback).await?;
+                    let wal_dir = restore_tmpdir.join("pg_wal");
+                    info!("Unpacking {wal_file:?} to {wal_dir:?}");
+                    callback.progress(None, "Unpacking WAL...");
+                    let mut wal_tar = tar::Archive::new(flate2::read::MultiGzDecoder::new(File::open(wal_file)?));
+                    wal_tar.unpack(wal_dir)?;
 
-            std::fs::rename(&data_dir, &restore_tmpdir2)?;
-            std::fs::rename(&restore_tmpdir, &data_dir)?;
+                    Ok::<_, std::io::Error>(())
+                }).await??;
+            }
+            pg_backup.pg_verifybackup(&restore_tmpdir, backup_manifest, callback.clone()).await?;
+
+            callback.progress(None, "Finalizing restore...");
+
+            tokio::task::spawn_blocking(move || {
+                std::fs::rename(&data_dir, &restore_tmpdir2)?;
+                #[cfg(unix)] {
+                    use std::os::unix::fs::PermissionsExt                    ;
+                    std::fs::set_permissions(&restore_tmpdir, std::fs::Permissions::from_mode(0o700))?;
+                }
+                std::fs::rename(&restore_tmpdir, &data_dir)?;
+                std::fs::remove_dir_all(&restore_tmpdir2)?;
+                Ok::<_, std::io::Error>(())
+            }).await??;
 
             Ok(())
         }.boxed()
@@ -200,17 +280,9 @@ impl InstanceBackup for LocalBackup {
 
                 let path = entry.path();
                 let metadata_file = path.join("backup.json");
-                let Ok(metadata) = std::fs::read_to_string(metadata_file) else {
+                let Ok(metadata) = BackupMetadata::from_file(&metadata_file) else {
                     continue;
                 };
-                let Ok(metadata) = serde_json::from_str::<BackupMetadata>(&metadata) else {
-                    continue;
-                };
-
-                let elapsed = metadata.last_updated_at.elapsed().unwrap_or(Duration::MAX);
-                if elapsed > BACKUP_TIMEOUT {
-                    continue;
-                }
                 to_remove.pop();
 
                 let backup = Backup {
@@ -260,13 +332,6 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
             return Err(anyhow::anyhow!(
                 "Backups not supported for this server version. No `pg_basebackup` found at {}.",
                 self.portable_bin_path.join("pg_basebackup").display()
-            ));
-        }
-        // TODO: we should trigger the server to start if it's not running
-        if !unix_path.as_ref().join(".s.PGSQL.5432").exists() {
-            return Err(anyhow::anyhow!(
-                "PostgreSQL socket not found at {}. Is the instance sleeping?",
-                unix_path.as_ref().join(".s.PGSQL.5432").display()
             ));
         }
         let mut cmd = Command::new(self.portable_bin_path.join("pg_basebackup"));

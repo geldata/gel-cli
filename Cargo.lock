@@ -1613,6 +1613,7 @@ dependencies = [
  "bytes",
  "clap",
  "derive_more",
+ "flate2",
  "futures",
  "gel-dsn",
  "humantime-serde",
