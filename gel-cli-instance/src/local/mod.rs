@@ -12,7 +12,6 @@ pub struct LocalInstanceHandle {
     pub name: String,
     pub paths: Arc<InstancePaths>,
     pub bin_dir: PathBuf,
-    pub run_dir: PathBuf,
     pub version: String,
 }
 

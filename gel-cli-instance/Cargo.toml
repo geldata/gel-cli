@@ -23,6 +23,7 @@ clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 memchr = "2.7"
 uuid = { version = "1", default-features = false, features = ["std", "v7"] }
+tar = "0.4.44"
 
 [dev-dependencies]
 rstest = "0.25"

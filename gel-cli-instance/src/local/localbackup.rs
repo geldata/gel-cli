@@ -1,21 +1,17 @@
 use std::{
-    path::{Path, PathBuf},
-    process::Command,
-    time::{Duration, SystemTime},
+    fs::File, path::{Path, PathBuf}, process::Command, time::{Duration, SystemTime}
 };
 
 use anyhow::bail;
 use futures::FutureExt;
+use gel_dsn::gel::InstanceName;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    ProcessRunner, Processes, SystemProcessRunner,
     instance::{
-        Operation,
-        backup::{Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback},
-        map_join_error,
-    },
+        backup::{Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback, RestoreType}, map_join_error, Operation
+    }, ProcessRunner, Processes, SystemProcessRunner
 };
 
 use super::LocalInstanceHandle;
@@ -68,7 +64,7 @@ impl InstanceBackup for LocalBackup {
 
         let target_dir = backups_dir.join(&backup_id);
         let temp_dir = backups_dir.join(format!(".{backup_id}.tmp"));
-        let run_dir = self.handle.run_dir.clone();
+        let run_dir = self.handle.paths.run_dir.clone();
 
         tokio::spawn(async move {
             let metadata_file = temp_dir.join("backup.json");
@@ -114,6 +110,73 @@ impl InstanceBackup for LocalBackup {
         })
         .map(map_join_error::<_, anyhow::Error>)
         .boxed()
+    }
+
+    fn restore(
+        &self,
+        instance: Option<InstanceName>,
+        restore_type: RestoreType,
+        callback: ProgressCallback,
+    ) -> Operation<()> {
+        let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
+        let mut backups_dir = self.handle.paths.data_dir.clone();
+        backups_dir.set_extension("backups");
+
+        let data_dir = self.handle.paths.data_dir.clone();
+
+        let mut restore_tmpdir = self.handle.paths.data_dir.clone();
+        restore_tmpdir.set_file_name(".restore.new_data.tmp");
+
+        let mut restore_tmpdir2 = self.handle.paths.data_dir.clone();
+        restore_tmpdir2.set_file_name(".restore.old_data.tmp");
+
+        async move {
+            if instance.is_some() {
+                bail!("`instance restore` from another instance is not yet implemented.")
+            }
+            let backup_id = match restore_type {
+                RestoreType::Latest => {
+                    let mut latest = Uuid::nil();
+                    for entry in std::fs::read_dir(&backups_dir).into_iter().flatten().flatten() {
+                        let Ok(uuid) = Uuid::parse_str(&entry.file_name().to_string_lossy()) else {
+                            continue;
+                        };
+                        // UUID v7 is monotonically increasing, so we can just
+                        // compare the values.
+                        if uuid > latest {
+                            latest = uuid;
+                        }
+                    }
+                    BackupId::new(latest.to_string())
+                }
+                RestoreType::Specific(id) => {
+                    BackupId::new(id)
+                }
+            };
+
+            let backup_path = backups_dir.join(PathBuf::from(backup_id.to_string()));
+            if !backup_path.try_exists()? {
+                bail!("Backup {} not found", backup_id);
+            }
+
+            let metadata_file = backup_path.join("backup.json");
+            let backup_data_path = backup_path.join("data");
+            let data_file = backup_data_path.join("data.tar.gz");
+            let wal_file = backup_data_path.join("pg_wal.tar.gz");
+            let backup_manifest = backup_data_path.join("backup_manifest");
+
+            let mut data_tar = tar::Archive::new(File::open(data_file)?);
+            data_tar.unpack(&restore_tmpdir)?;
+            let mut wal_tar = tar::Archive::new(File::open(wal_file)?);
+            wal_tar.unpack(restore_tmpdir.join("pg_wal"))?;
+
+            pg_backup.pg_verifybackup(&restore_tmpdir, backup_manifest, callback).await?;
+
+            std::fs::rename(&data_dir, &restore_tmpdir2)?;
+            std::fs::rename(&restore_tmpdir, &data_dir)?;
+
+            Ok(())
+        }.boxed()
     }
 
     fn list_backups(&self) -> Operation<Vec<Backup>> {
@@ -170,15 +233,6 @@ impl InstanceBackup for LocalBackup {
         })
         .map(map_join_error::<_, anyhow::Error>)
         .boxed()
-    }
-
-    fn restore(
-        &self,
-        _instance: Option<gel_dsn::gel::InstanceName>,
-        _restore_type: crate::instance::backup::RestoreType,
-        _callback: ProgressCallback,
-    ) -> Operation<()> {
-        async { bail!("`instance restore` is not yet implemented for local instances") }.boxed()
     }
 }
 
@@ -241,7 +295,22 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
     //     unimplemented!()
     // }
 
-    // pub async fn pg_verifybackup(&self, callback: ProgressCallback) -> Result<(), ProcessError> {
-    //     unimplemented!()
-    // }
+    pub async fn pg_verifybackup(&self, backup_dir: impl AsRef<Path>, backup_manifest: impl AsRef<Path>, callback: ProgressCallback) -> Result<(), anyhow::Error> {
+        if !self.portable_bin_path.join("pg_verifybackup").exists() {
+            return Err(anyhow::anyhow!(
+                "Restores not supported for this server version. No `pg_verifybackup` found at {}.",
+                self.portable_bin_path.join("pg_verifybackup").display()
+            ));
+        }
+        let mut cmd = Command::new(self.portable_bin_path.join("pg_verifybackup"));
+        cmd.arg("--progress");
+        cmd.arg("--manifest-path").arg(backup_manifest.as_ref());
+        cmd.arg(backup_dir.as_ref());
+        self.runner
+            .run_lines(cmd, move |line| {
+                callback.progress(None, &format!("running pg_verifybackup: {}", line.trim()));
+            })
+            .await?;
+        Ok(())
+    }
 }

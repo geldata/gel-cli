@@ -1622,6 +1622,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "serde_json",
+ "tar",
  "thiserror 2.0.12",
  "tokio",
  "uuid",
@@ -1641,9 +1642,9 @@ dependencies = [
 
 [[package]]
 name = "gel-dsn"
-version = "0.2.11"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23add067c55429ae5371b3cab23b9f275722841b8d04a283df5ba639a7b99834"
+checksum = "591c592aa7be65a0391c2a9b3d9388db494778f1a26c0078cb38c7bd9faf6677"
 dependencies = [
  "base64 0.22.1",
  "crc16",
@@ -1749,9 +1750,9 @@ dependencies = [
 
 [[package]]
 name = "gel-tokio"
-version = "0.10.10"
+version = "0.10.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9aaac12541a8b478cafc83ed2ecf512c072b0b788e77ab8ba66209c40bc7dcec"
+checksum = "b0e985ac7a4450ec2d256411c5c672ae1391d06bd075253dad1b63b6b95ad19b"
 dependencies = [
  "anyhow",
  "arc-swap",

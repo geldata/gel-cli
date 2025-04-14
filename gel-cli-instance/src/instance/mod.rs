@@ -57,7 +57,6 @@ pub fn get_cloud_instance<H: CloudHttp>(
 pub fn get_local_instance(
     name: &str,
     bin_dir: PathBuf,
-    run_dir: PathBuf,
     version: String,
 ) -> Result<InstanceHandle, InstanceOpError> {
     let paths = Builder::default().with_system().stored_info().paths();
@@ -68,7 +67,6 @@ pub fn get_local_instance(
         name: name.to_string(),
         paths: Arc::new(instance_paths),
         bin_dir,
-        run_dir,
         version,
     };
     Ok(InstanceHandle {
