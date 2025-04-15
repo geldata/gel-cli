@@ -480,6 +480,8 @@ pub struct SubcommandOption {
 
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum Command {
+    /// Initialize project (alias for [`BRANDING_CLI_CMD`] project init)
+    Init(project::init::Command),
     #[command(flatten)]
     Common(Common),
     /// Execute EdgeQL query in quotes (e.g. `"select 9;"`)
@@ -488,8 +490,6 @@ pub enum Command {
     UI(UI),
     /// Show paths for [`BRANDING`] installation
     Info(Info),
-    /// Initialize project (alias for [`BRANDING_CLI_CMD`] project init)
-    Init(project::init::Command),
     /// Manage project installation
     Project(project::Command),
     /// Manage local [`BRANDING`] instances
