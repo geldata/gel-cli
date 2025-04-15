@@ -211,6 +211,7 @@ impl Native {
         self
     }
 
+    #[allow(dead_code)]
     pub fn quiet(&mut self) -> &mut Self {
         self.quiet = true;
         self
