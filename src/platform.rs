@@ -143,7 +143,7 @@ pub fn is_schema_file(filename: &str) -> bool {
 pub fn data_dir() -> anyhow::Result<PathBuf> {
     Ok(dirs::data_dir()
         .ok_or_else(|| anyhow::anyhow!("Can't determine data directory"))?
-        .join("edgedb")
+        .join(if cfg!(windows) { "EdgeDB" } else { "edgedb" })
         .join("data"))
 }
 
