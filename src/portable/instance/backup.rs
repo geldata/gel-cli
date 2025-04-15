@@ -5,9 +5,10 @@ use gel_cli_instance::instance::backup::{ProgressCallbackListener, RestoreType};
 use gel_cli_instance::instance::{InstanceHandle, get_cloud_instance, get_local_instance};
 use gel_tokio::InstanceName;
 
-use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
+use crate::branding::BRANDING_CLI_CMD;
 use crate::cloud;
 use crate::options::CloudOptions;
+use crate::portable::local::{InstanceInfo, Paths};
 use crate::print::msg;
 use crate::question;
 
@@ -103,7 +104,24 @@ fn get_instance(
     instance_name: &InstanceName,
 ) -> anyhow::Result<InstanceHandle> {
     match instance_name {
-        InstanceName::Local(name) => Ok(get_local_instance(name)?),
+        InstanceName::Local(name) => {
+            let instance_info = InstanceInfo::try_read(name)?;
+            let Some(instance_info) = instance_info else {
+                return Err(anyhow::anyhow!("Remote instances not supported"));
+            };
+            let Some(install_info) = instance_info.installation else {
+                return Err(anyhow::anyhow!("Instance {} not installed", name));
+            };
+            let bin_dir = install_info.base_path()?.join("bin");
+            let run_dir = Paths::get(&name)?.runstate_dir;
+
+            Ok(get_local_instance(
+                name,
+                bin_dir,
+                run_dir,
+                install_info.version.specific().to_string(),
+            )?)
+        }
         InstanceName::Cloud(name) => {
             let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
             client.ensure_authenticated()?;
@@ -154,7 +172,7 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
     let prompt = format!(
-        "Will create a backup for the {BRANDING_CLOUD} instance \"{inst_name}\".\
+        "Will create a backup for {inst_name:#}.\
         \n\nContinue?",
     );
 
@@ -166,9 +184,9 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
     let backup = backup.backup(progress_bar.into()).await?;
 
     if let Some(backup_id) = backup {
-        msg!("Successfully created a backup {backup_id} for {BRANDING_CLOUD} instance {inst_name}");
+        msg!("Successfully created a backup {backup_id} for {inst_name:#}");
     } else {
-        msg!("Successfully created a backup for {BRANDING_CLOUD} instance {inst_name}");
+        msg!("Successfully created a backup for {inst_name:#}");
     }
     Ok(())
 }
@@ -179,7 +197,7 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
     let prompt = format!(
-        "Will restore the {BRANDING_CLOUD} instance \"{inst_name}\" from the specified backup.\
+        "Will restore {inst_name:#} from the specified backup.\
         \n\nContinue?",
     );
 
@@ -204,7 +222,7 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
         )
         .await?;
 
-    msg!("{BRANDING_CLOUD} instance {inst_name} has been restored successfully.");
+    msg!("{inst_name:#} has been restored successfully.");
     msg!("To connect to the instance run:");
     msg!("  {BRANDING_CLI_CMD} -I {inst_name}");
     Ok(())

@@ -1616,12 +1616,14 @@ dependencies = [
  "gel-dsn",
  "humantime-serde",
  "log",
+ "memchr",
  "rstest",
  "scopeguard",
  "serde",
  "serde_json",
  "thiserror 2.0.12",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -1638,9 +1640,9 @@ dependencies = [
 
 [[package]]
 name = "gel-dsn"
-version = "0.2.10"
+version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "299df7202234e7e15016fa6bcc9c3647dd14f58713472dd88fcaf44ddc80b30f"
+checksum = "23add067c55429ae5371b3cab23b9f275722841b8d04a283df5ba639a7b99834"
 dependencies = [
  "base64 0.22.1",
  "crc16",
@@ -4744,6 +4746,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "parking_lot 0.12.3",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2",
