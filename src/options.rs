@@ -488,6 +488,8 @@ pub enum Command {
     UI(UI),
     /// Show paths for [`BRANDING`] installation
     Info(Info),
+    /// Initialize project (alias for [`BRANDING_CLI_CMD`] project init)
+    Init(project::init::Command),
     /// Manage project installation
     Project(project::Command),
     /// Manage local [`BRANDING`] instances
