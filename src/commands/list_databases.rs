@@ -8,7 +8,7 @@ use crate::print;
 pub async fn get_databases(cli: &mut Connection) -> anyhow::Result<Vec<String>> {
     let databases = cli
         .query(
-            "SELECT (SELECT sys::Database FILTER NOT .builtin).name",
+            "SELECT n := (SELECT sys::Database FILTER NOT .builtin).name ORDER by n",
             &(),
         )
         .await?;
