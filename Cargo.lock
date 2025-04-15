@@ -1643,9 +1643,9 @@ dependencies = [
 
 [[package]]
 name = "gel-dsn"
-version = "0.2.12"
+version = "0.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "591c592aa7be65a0391c2a9b3d9388db494778f1a26c0078cb38c7bd9faf6677"
+checksum = "cb0c27dda7e5d5e1364552ba8912b2c247c3c63c08189987c17e7fda927280c2"
 dependencies = [
  "base64 0.22.1",
  "crc16",

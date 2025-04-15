@@ -1,5 +1,8 @@
 use std::{
-    fs::File, path::{Path, PathBuf}, process::Command, time::{Duration, SystemTime}
+    fs::File,
+    path::{Path, PathBuf},
+    process::Command,
+    time::{Duration, SystemTime},
 };
 
 use anyhow::bail;
@@ -10,9 +13,15 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
+    ProcessRunner, Processes, SystemProcessRunner,
     instance::{
-        backup::{Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback, RestoreType}, map_join_error, Operation
-    }, ProcessRunner, Processes, SystemProcessRunner
+        Operation,
+        backup::{
+            Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback,
+            RestoreType,
+        },
+        map_join_error,
+    },
 };
 
 use super::LocalInstanceHandle;
@@ -48,15 +57,21 @@ struct BackupMetadata {
 
 impl BackupMetadata {
     fn is_incomplete(&self) -> bool {
-        self.completed_at.is_none() && self.last_updated_at.elapsed().unwrap_or(Duration::MAX) > BACKUP_TIMEOUT
+        self.completed_at.is_none()
+            && self.last_updated_at.elapsed().unwrap_or(Duration::MAX) > BACKUP_TIMEOUT
     }
 
     fn from_file(path: impl AsRef<Path>) -> Result<Self, anyhow::Error> {
         let file = File::open(path.as_ref())?;
         let metadata: Self = serde_json::from_reader(file)?;
 
-        if metadata.completed_at.is_none() && metadata.last_updated_at.elapsed().unwrap_or(Duration::MAX) > BACKUP_TIMEOUT {
-            return Err(anyhow::anyhow!("Backup {} timed out.", path.as_ref().display()));
+        if metadata.completed_at.is_none()
+            && metadata.last_updated_at.elapsed().unwrap_or(Duration::MAX) > BACKUP_TIMEOUT
+        {
+            return Err(anyhow::anyhow!(
+                "Backup {} timed out.",
+                path.as_ref().display()
+            ));
         }
 
         Ok(metadata)
@@ -360,7 +375,12 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
     //     unimplemented!()
     // }
 
-    pub async fn pg_verifybackup(&self, backup_dir: impl AsRef<Path>, backup_manifest: impl AsRef<Path>, callback: ProgressCallback) -> Result<(), anyhow::Error> {
+    pub async fn pg_verifybackup(
+        &self,
+        backup_dir: impl AsRef<Path>,
+        backup_manifest: impl AsRef<Path>,
+        callback: ProgressCallback,
+    ) -> Result<(), anyhow::Error> {
         if !self.portable_bin_path.join("pg_verifybackup").exists() {
             return Err(anyhow::anyhow!(
                 "Restores not supported for this server version. No `pg_verifybackup` found at {}.",
