@@ -126,7 +126,7 @@ backtrace = "0.3.61"
 arc-swap = "1.4.0"
 ctrlc = "3.2.0"
 crossbeam-utils = "0.8.5"
-tar = "0.4.37"
+tar = "0.4.44"
 zstd = "0.13"
 semver = {version="1.0.4", features=["serde"]}
 fd-lock = "4.0.2"
