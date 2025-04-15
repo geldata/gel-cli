@@ -12,6 +12,7 @@ use fn_error_context::context;
 
 use gel_tokio::dsn::UnixPath;
 use gel_tokio::{Builder, Config, InstanceName};
+use libc::system;
 
 use crate::branding::BRANDING;
 use crate::bug;
@@ -272,7 +273,8 @@ pub fn instance_data_dir(name: &str) -> anyhow::Result<PathBuf> {
 impl Paths {
     pub fn get(name: &str) -> anyhow::Result<Paths> {
         let base = data_dir()?;
-        Ok(Paths {
+
+        let res = Paths {
             credentials: credentials::path(name)?,
             data_dir: base.join(name),
             dump_path: base.join(format!("{name}.dump")),
@@ -288,7 +290,25 @@ impl Paths {
             } else {
                 Vec::new()
             },
-        })
+        };
+
+        let paths = Builder::default().with_system().stored_info().paths();
+        let system_paths = paths.for_system();
+        let instance_paths = paths.for_instance(name).unwrap();
+
+        assert_eq!(system_paths.cache_dir, cache_dir().ok());
+        assert_eq!(
+            system_paths.data_dir.unwrap().join("data"),
+            data_dir().unwrap()
+        );
+        assert_eq!(system_paths.config_dir, config_dir().ok());
+        assert_eq!(system_paths.home_dir, crate::platform::home_dir().ok());
+
+        assert_eq!(instance_paths.data_dir, res.data_dir);
+        assert_eq!(instance_paths.credentials_path, credentials::path(name)?);
+        assert_eq!(instance_paths.runstate_path, res.runstate_dir);
+
+        Ok(res)
     }
     pub fn check_exists(&self) -> anyhow::Result<()> {
         if self.credentials.exists() {
