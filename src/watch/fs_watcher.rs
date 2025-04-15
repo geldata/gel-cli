@@ -8,6 +8,11 @@ use tokio::time::Duration;
 
 const STABLE_TIME: Duration = Duration::from_millis(100);
 
+#[derive(Debug, Default, Clone)]
+pub struct WatchOptions {
+    pub exit_with_parent: bool,
+}
+
 pub struct FsWatcher {
     rx: mpsc::UnboundedReceiver<Vec<PathBuf>>,
     inner: notify::RecommendedWatcher,
@@ -16,7 +21,7 @@ pub struct FsWatcher {
 }
 
 impl FsWatcher {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new(options: WatchOptions) -> anyhow::Result<Self> {
         let (tx, rx) = mpsc::unbounded_channel::<Vec<PathBuf>>();
         let handler = WatchHandler { tx };
         let watch = notify::recommended_watcher(handler)?;
@@ -41,7 +46,7 @@ impl FsWatcher {
             }));
         }
         #[cfg(unix)]
-        {
+        if options.exit_with_parent {
             use std::os::unix::process::*;
 
             // On unix, detect parent death via reparenting.
@@ -54,10 +59,12 @@ impl FsWatcher {
             let initial_pid = parent_id();
             let abort_tx = abort_tx.clone();
             abort_tasks.push(tokio::spawn(async move {
-                while parent_id() != initial_pid {
+                while parent_id() == initial_pid {
                     tokio::time::sleep(Duration::from_millis(1000)).await;
                 }
-                log::warn!("Parent process exited, exiting watch mode.");
+                log::warn!(
+                    "Parent process exited, exiting watch mode. Pass `--no-exit-with-parent` to prevent this.",
+                );
                 _ = abort_tx.send(());
             }));
         }
