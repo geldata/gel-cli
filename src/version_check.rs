@@ -71,9 +71,44 @@ fn newer_warning(ver: &ver::Semver) {
     }
 }
 
+/// Check the modification and creation time of the CLI binary. If either of
+/// them is younger than 1 day, skip the version check. This prevents the
+/// version check from being run on the first download which _may_ trigger
+/// Windows anti-virus.
+fn _check_newly_installed() -> anyhow::Result<bool> {
+    let metadata = fs::metadata(std::env::current_exe()?)?;
+    let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+    let created = metadata.created().unwrap_or(SystemTime::UNIX_EPOCH);
+    log::trace!(
+        "Checking CLI binary dates: modified: {:?}, created: {:?}",
+        modified,
+        created
+    );
+    let now = SystemTime::now();
+    if modified > now || created > now {
+        log::trace!("CLI binary date is in the future, can't skip version check");
+        return Ok(false);
+    }
+    if modified.elapsed().unwrap_or(Duration::MAX) < Duration::from_secs(86400) {
+        log::trace!("Modified date is in the past and less than 1 day old, skipping version check");
+        return Ok(true);
+    }
+    if created.elapsed().unwrap_or(Duration::MAX) < Duration::from_secs(86400) {
+        log::trace!("Created date is in the past and less than 1 day old, skipping version check");
+        return Ok(true);
+    }
+    log::trace!("Neither date is less than 1 day old");
+    Ok(false)
+}
+
 fn _check(cache_dir: &Path, strict: bool) -> anyhow::Result<()> {
     let self_version = cli::upgrade::self_version()?;
     let channel = cli::upgrade::channel();
+
+    if _check_newly_installed().unwrap_or(true) {
+        return Ok(());
+    }
+
     match read_cache(cache_dir) {
         Ok(cache) if cache.expires > SystemTime::now() && cache.channel_matches(&channel) => {
             log::debug!("Cached version {:?}", cache.version);
