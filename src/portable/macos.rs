@@ -139,16 +139,25 @@ fn plist_data(name: &str, info: &InstanceInfo) -> anyhow::Result<String> {
     ))
 }
 
+fn create_dir_all_if_not_exists<P: AsRef<fs::Path>>(path: P) -> std::io::Result<()> {
+    let path = path.as_ref();
+    if path.exists() {
+        Ok(())
+    } else {
+        fs::create_dir_all(path)
+    }
+}
+
 fn _create_service(info: &InstanceInfo) -> anyhow::Result<()> {
     let name = &info.name;
 
     let plist_dir_path = plist_dir()?;
-    fs::create_dir_all(&plist_dir_path)?;
+    create_dir_all_if_not_exists(&plist_dir_path)?;
     let plist_path = plist_dir_path.join(plist_name(name));
     let unit_name = launchd_name(name);
     fs::write(&plist_path, plist_data(name, info)?)?;
     if let Some(dir) = runstate_dir(name)?.parent() {
-        fs::create_dir_all(dir)?;
+        create_dir_all_if_not_exists(dir)?;
     }
 
     // Clear the disabled status of the unit name, in case the user disabled
