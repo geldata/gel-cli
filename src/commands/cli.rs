@@ -1,7 +1,6 @@
 use std::io::IsTerminal;
 
 use crate::cli;
-use crate::cli::directory_check;
 use crate::cloud::main::cloud_main;
 use crate::commands;
 use crate::commands::parser::Common;
@@ -27,7 +26,6 @@ pub fn main(options: &Options) -> Result<(), anyhow::Error> {
     match options.subcommand.as_ref().expect("subcommand is present") {
         Command::Common(cmd) => {
             let cmdopt = init_command_opts(options)?;
-            directory_check::check_and_warn();
             match cmd.as_migration() {
                 // Process commands that don't need connection first
                 Some(Migration {
@@ -46,30 +44,12 @@ pub fn main(options: &Options) -> Result<(), anyhow::Error> {
                 _ => common_cmd(options, cmdopt, cmd),
             }
         }
-        Command::Server(cmd) => {
-            directory_check::check_and_error()?;
-            portable::server::run(cmd)
-        }
-        Command::Extension(cmd) => {
-            directory_check::check_and_error()?;
-            portable::extension::run(cmd, options)
-        }
-        Command::Instance(cmd) => {
-            directory_check::check_and_error()?;
-            portable::instance::run(cmd, options)
-        }
-        Command::Init(cmd) => {
-            directory_check::check_and_error()?;
-            portable::project::init::run(cmd, options)
-        }
-        Command::Project(cmd) => {
-            directory_check::check_and_error()?;
-            portable::project::run(cmd, options)
-        }
-        Command::Query(q) => {
-            directory_check::check_and_warn();
-            non_interactive::noninteractive_main(q, options)
-        }
+        Command::Server(cmd) => portable::server::run(cmd),
+        Command::Extension(cmd) => portable::extension::run(cmd, options),
+        Command::Instance(cmd) => portable::instance::run(cmd, options),
+        Command::Project(cmd) => portable::project::run(cmd, options),
+        Command::Query(q) => non_interactive::noninteractive_main(q, options),
+        Command::Init(cmd) => portable::project::init::run(cmd, options),
         Command::_SelfInstall(s) => cli::install::run(s),
         Command::_GenCompletions(s) => cli::gen_completions::run(s),
         Command::Cli(c) => cli::run(c),
