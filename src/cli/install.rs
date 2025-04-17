@@ -15,7 +15,6 @@ use prettytable::{Cell, Row, Table};
 use crate::branding::{
     BRANDING, BRANDING_CLI_CMD, BRANDING_CLI_CMD_ALT_FILE, BRANDING_CLI_CMD_FILE,
 };
-use crate::cli::env::Env;
 use crate::cli::logo::print_logo;
 use crate::cli::upgrade;
 use crate::commands::ExitCode;
@@ -627,7 +626,7 @@ fn copy_to_alternative_executable<P: AsRef<Path>>(installation_path: P) -> anyho
 
 pub fn check_executables() {
     if cfg!(windows) {
-        if matches!(Env::_from_windows(), Ok(None)) {
+        if crate::portable::windows::is_wrapped() {
             return;
         }
     }

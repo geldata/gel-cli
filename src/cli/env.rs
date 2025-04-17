@@ -114,7 +114,7 @@ define_env! {
 
     /// Flag indicating Windows wrapper
     #[env(_GEL_FROM_WINDOWS, _EDGEDB_FROM_WINDOWS)]
-    _from_windows: bool,
+    _from_windows: u8,
 
     /// Package repository root URL
     #[env(GEL_PKG_ROOT, EDGEDB_PKG_ROOT)]

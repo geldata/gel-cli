@@ -769,7 +769,7 @@ pub fn external_status(_inst: &InstanceInfo) -> anyhow::Result<()> {
 }
 
 pub fn is_wrapped() -> bool {
-    Env::_from_windows().unwrap_or_default().unwrap_or_default()
+    Env::_from_windows().unwrap_or_default().unwrap_or_default() != 0
 }
 
 pub fn install(options: &server::install::Command) -> anyhow::Result<()> {
