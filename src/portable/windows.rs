@@ -348,6 +348,7 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
         .arg("edgedb")
         .arg("--distribution")
         .arg(distro)
+        .arg("_EDGEDB_FROM_WINDOWS=1")
         .arg("/usr/bin/edgedb")
         .arg("--version")
         .get_stdout_text()?;
@@ -709,6 +710,7 @@ fn create_and_start(wsl: &Wsl, name: &str) -> anyhow::Result<()> {
         format!(
             "wsl \
         --distribution {} --user edgedb \
+        _EDGEDB_FROM_WINDOWS=1 \
         /usr/bin/edgedb instance start -I {}",
             &wsl.distribution, &name
         ),
