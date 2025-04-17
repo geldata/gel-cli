@@ -336,7 +336,12 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
         .arg("edgedb")
         .arg("--distribution")
         .arg(distro)
+<<<<<<< HEAD
         .arg(USR_BIN_EXE)
+=======
+        .arg("_EDGEDB_FROM_WINDOWS=1")
+        .arg("/usr/bin/edgedb")
+>>>>>>> 911ed87 (Missed two _EDGEDB_FROM_WINDOWS)
         .arg("--version")
         .get_stdout_text()?;
     let version = data
@@ -696,6 +701,7 @@ fn create_and_start(wsl: &Wsl, name: &str) -> anyhow::Result<()> {
         format!(
             "wsl \
             --distribution {} --user edgedb \
+            _EDGEDB_FROM_WINDOWS=1 \
             {USR_BIN_EXE} instance start -I {name}",
             &wsl.distribution,
         ),
