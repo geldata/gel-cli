@@ -599,10 +599,8 @@ fn copy_to_alternative_executable<P: AsRef<Path>>(installation_path: P) -> anyho
 }
 
 pub fn check_executables() {
-    if cfg!(windows) {
-        if crate::portable::windows::is_wrapped() {
-            return;
-        }
+    if crate::portable::windows::is_wrapped() {
+        return;
     }
 
     let exe_path = current_exe().unwrap();
