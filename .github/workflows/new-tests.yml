@@ -30,10 +30,12 @@ jobs:
       - name: Write .cargo/config.toml
         if: runner.os == 'Windows'
         run: |
-          echo '[target.x86_64-pc-windows-msvc]' > ${{ env.CARGO_HOME }}/config.toml
           # Use rust-lld as linker for Windows for faster builds
+          echo '[target.x86_64-pc-windows-msvc]' > ${{ env.CARGO_HOME }}/config.toml
           echo 'linker = "rust-lld.exe"' >> ${{ env.CARGO_HOME }}/config.toml
+
           # Use opt-level 1 to avoid smashing the stack with large futures
+          echo '[profile.dev]' >> ${{ env.CARGO_HOME }}/config.toml
           echo 'opt-level = 1' >> ${{ env.CARGO_HOME }}/config.toml
 
       - name: Cache Rust files
