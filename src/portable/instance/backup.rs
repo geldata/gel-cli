@@ -104,7 +104,7 @@ fn get_instance(
     instance_name: &InstanceName,
 ) -> anyhow::Result<InstanceHandle> {
     match instance_name {
-        gel_dsn::gel::InstanceName::Local(name) => {
+        InstanceName::Local(name) => {
             let instance_info = InstanceInfo::try_read(name)?;
             let Some(instance_info) = instance_info else {
                 return Err(anyhow::anyhow!("Remote instances not supported"));
@@ -120,7 +120,7 @@ fn get_instance(
                 install_info.version.specific().to_string(),
             )?)
         }
-        gel_dsn::gel::InstanceName::Cloud(name) => {
+        InstanceName::Cloud(name) => {
             let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
             client.ensure_authenticated()?;
             Ok(get_cloud_instance(name.clone(), client.api)?)
