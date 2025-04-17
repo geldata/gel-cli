@@ -1,0 +1,29 @@
+# Ensure we can run under all supported Ubuntu versions
+
+$ docker build --build-arg codename=$VERSION -t edgedb-cli-test .
+*
+
+$ docker rm -f edgedb-cli-test
+*
+
+$ docker run --detach --name edgedb-cli-test edgedb-cli-test sleep 300
+*
+
+$ docker cp $GEL_BINARY edgedb-cli-test:/usr/bin/gel
+*
+
+$ docker exec edgedb-cli-test gel server install
+*
+
+$ docker exec edgedb-cli-test gel instance create test1 1.1
+*
+
+$ docker exec edgedb-cli-test gel -Itest1 --wait-until-available=60s \
+    query "SELECT 1+1"
+! 2
+
+$ docker exec edgedb-cli-test gel -Itest1 list scalars --system
+*
+
+$ docker rm -f edgedb-cli-test
+*

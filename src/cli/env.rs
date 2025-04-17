@@ -100,6 +100,10 @@ define_env! {
     #[env(GEL_CLOUD_API_ENDPOINT, EDGEDB_CLOUD_API_ENDPOINT)]
     cloud_api_endpoint: String,
 
+    /// Skip WSL binary update
+    #[env(_GEL_WSL_SKIP_UPDATE)]
+    _wsl_skip_update: bool,
+
     /// WSL distro name
     #[env(_GEL_WSL_DISTRO, _EDGEDB_WSL_DISTRO)]
     _wsl_distro: String,

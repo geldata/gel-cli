@@ -1,0 +1,234 @@
+# Functional tests for project linking
+# Key:
+#   - # <comment>
+#   - $ <command>
+#   - ? <grok pattern>
+#   - ! <literal>
+#   - repeat { ... }
+#   - option { ... }
+#   - ignore { ... }
+#   - choice { ... }
+#   - unordered { ... }
+
+#pattern VERSION \d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local)
+#test %{VERSION} "Gel CLI 7.2.0-dev.1306+7d4a485"
+ignore {
+    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
+    ? WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ? CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+}
+
+$ gel instance destroy -I inst1 --force
+%ALLOW_FAILURE
+*
+
+$ gel instance destroy -I project2 --force
+%ALLOW_FAILURE
+*
+
+$ gel --version
+? Gel CLI %{VERSION}
+
+$ gel server list-versions
+? ┌%{DATA}┬%{DATA}┬%{DATA}┐
+? │%{DATA}│%{DATA}│%{DATA}│
+repeat {
+    choice {
+        ? │ stable %{DATA}
+        ? │ nightly %{DATA}
+        ? │ testing %{DATA}
+    }
+}
+? └%{DATA}┴%{DATA}┴%{DATA}┘
+
+$ gel instance create inst1
+choice {
+    sequence {
+        ? Downloading package...
+        ? %{DATA}
+        ? Successfully installed %{VERSION}
+    }
+    ? Version %{VERSION} is already downloaded
+}
+! Initializing Gel instance...
+choice {
+    ! Gel will not start on next login. Trying to start database in the background...
+    repeat {
+        ? Created symlink %{GREEDYDATA}
+    }
+}
+! Instance inst1 is up and running.
+! To connect to the instance run:
+!   gel -I inst1
+
+$ gel project info --instance-name --project-dir=tests/proj/project1
+%EXIT 1
+! gel error: Project is not initialized. Run `gel project init`.
+
+$ gel project init --link --server-instance=inst1 --non-interactive --project-dir=tests/proj/project1
+! Found `edgedb.toml` in tests/proj/project1
+! Linking project...
+? WARNING: existing instance has version %{DATA}, but nightly is required by `gel.toml` \(or `edgedb.toml`\)
+! Applying migrations...
+? Everything is up to date. Revision %{DATA}
+! Project linked
+! To connect to inst1, navigate to tests/proj/project1 and run `gel`
+
+$ gel project info --instance-name --project-dir=tests/proj/project1
+! inst1
+
+$ cd tests/proj/project1 && gel query "SELECT 1"
+! 1
+
+$ gel project init --non-interactive --project-dir=tests/proj/project2
+! Found `gel.toml` in tests/proj/project2
+! Initializing project...
+! Checking Gel versions...
+? ┌%{GREEDYDATA}┐
+repeat {
+    ? │%{GREEDYDATA}│
+}
+? └%{GREEDYDATA}┘
+? Version %{VERSION} is already downloaded
+! Initializing Gel instance...
+choice {
+    ! Gel will not start on next login. Trying to start database in the background...
+    repeat {
+        ? Created symlink %{GREEDYDATA}
+    }
+}
+! Applying migrations...
+! Everything is up to date. Revision initial
+! Project initialized.
+! To connect to project2, navigate to tests/proj/project2 and run `gel`
+
+$ gel project info --instance-name --project-dir=tests/proj/project2
+! project2
+
+$ cd tests/proj/project2 && gel query "SELECT 1"
+! 1
+
+$ gel project upgrade --force --project-dir=tests/proj/project2
+? Version %{VERSION} is already downloaded
+! The schema is forward compatible. Ready for upgrade.
+? Upgrading to a major version %{VERSION}
+! Dumping the database...
+! Starting dump for database `'main'`...
+repeat {
+    ? Removed %{DATA}\.
+}
+! Restoring the database...
+!
+? Restoring database from file `%{DATA}`. Total size: %{DATA}
+! Restore completed
+repeat {
+    ? Created symlink %{GREEDYDATA}
+}
+? Stopping %{DATA}, but its triggering units are still active:
+? edgedb-server@project2.socket
+? Instance project2 successfully upgraded to %{VERSION}
+
+$ cd tests/proj/project2 && gel query "SELECT 1"
+! 1
+
+$ gel instance destroy --instance=project2 --non-interactive
+%EXIT 2
+!!!
+Instance "project2" is used by the following project:
+  tests/proj/project2
+If you really want to destroy the instance, run:
+  gel instance destroy -I "project2" --force
+!!!
+
+$ gel instance destroy --instance=inst1 --non-interactive
+%EXIT 2
+!!!
+Instance "inst1" is used by the following project:
+  tests/proj/project1
+If you really want to destroy the instance, run:
+  gel instance destroy -I "inst1" --force
+!!!
+
+$ gel instance destroy --instance=project1 --non-interactive
+%EXIT 8
+*
+! gel error: instance not found
+
+$ gel instance list
+*
+? │ local %{GREEDYDATA} inst1
+*
+? │ local %{GREEDYDATA} project2
+*
+
+$ gel instance destroy --instance=project2 --force
+!!!
+Unlinking tests/proj/project2
+Instance project2 is successfully deleted.
+!!!
+
+$ gel instance list
+*
+? │ local %{GREEDYDATA} inst1
+*
+
+$ gel project unlink -D --non-interactive --project-dir=tests/proj/project1
+
+$ gel instance list
+*
+
+$ gel project init --non-interactive --project-dir=tests/proj/project2
+! Found `gel.toml` in tests/proj/project2
+! Initializing project...
+! Checking Gel versions...
+? ┌%{GREEDYDATA}┐
+repeat {
+    ? │%{GREEDYDATA}│
+}
+? └%{GREEDYDATA}┘
+? Version %{VERSION} is already downloaded
+! Initializing Gel instance...
+*
+! Applying migrations...
+! Everything is up to date. Revision initial
+! Project initialized.
+! To connect to project2, navigate to tests/proj/project2 and run `gel`
+
+$ gel project upgrade --to-latest --force --project-dir=tests/proj/project2
+? Version %{VERSION} is already downloaded
+! The schema is forward compatible. Ready for upgrade.
+? Upgrading to a major version %{VERSION}
+! Dumping the database...
+! Starting dump for database `'main'`...
+repeat {
+    ? Removed %{DATA}\.
+}
+! Restoring the database...
+*
+! Restore completed
+*
+? Instance project2 successfully upgraded to %{VERSION}
+? Setting `server-version = "%{DATA}"` in `gel.toml`
+
+$ gel instance status --instance=project2 --extended
+???
+project2:
+  Status: running, pid %{NUMBER}
+  Pid: %{NUMBER}
+  Service/Container: exists
+  Credentials: exists
+  Version: %{VERSION}
+  Port: %{NUMBER}
+  Data directory: %{DATA}
+  Data status: normal
+  Backup: present, %{DATA}
+???
+$ gel instance revert --instance=project2 --no-confirm
+? Gel version: Ok\(Build\("%{VERSION}"\)\)
+? Backup timestamp: %{DATA}
+*
+? Starting Gel Ok\(Build\("%{VERSION}"\)\)...
+*
+? Instance project2 is successfully reverted to %{VERSION}
+
+$ gel project unlink -D --non-interactive --project-dir=tests/proj/project2

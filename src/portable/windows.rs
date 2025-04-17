@@ -529,6 +529,11 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
         wsl_simple_cmd(wsl, &distro, "useradd edgedb --uid 1000 --create-home")?;
     }
 
+    if Env::_wsl_skip_update()? == Some(true) {
+        update_cli = false;
+        certs_timestamp = None;
+    }
+
     if update_cli {
         msg!("Updating container CLI version...");
         if let Some(bin_path) = Env::_wsl_linux_binary()? {
