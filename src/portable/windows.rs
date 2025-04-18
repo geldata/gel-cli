@@ -696,6 +696,7 @@ fn create_and_start(wsl: &Wsl, name: &str) -> anyhow::Result<()> {
         .arg("-I")
         .arg(name)
         .run()?;
+    // TODO: This should probably use _EDGEDB_FROM_WINDOWS=1 and --foreground
     fs_err::write(
         service_file(name)?,
         format!(
