@@ -66,9 +66,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.CARGO_HOME }}/bin/clitest*
-          key: clitest-${{ matrix.os }}
+          key: clitest-${{ runner.os }}
           restore-keys: |
-            clitest-${{ matrix.os }}-
+            clitest-${{ runner.os }}-
 
       - name: Build clitest
         if: steps.clitest-cache.outputs.cache-hit != 'true'
@@ -80,21 +80,21 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.CARGO_HOME }}/bin/clitest*
-          key: clitest-${{ matrix.os }}
+          key: clitest-${{ runner.os }}
           restore-keys: |
-            clitest-${{ matrix.os }}-
+            clitest-${{ runner.os }}-
 
       - name: Upload artifacts (gel)
         uses: actions/upload-artifact@v4
         with:
-          name: debug-gel-cli-${{ matrix.os }}
+          name: debug-gel-cli-${{ runner.os }}
           path: target/debug/gel*
           if-no-files-found: error
 
       - name: Upload artifacts (clitest)
         uses: actions/upload-artifact@v4
         with:
-          name: debug-clitest-${{ matrix.os }}
+          name: debug-clitest-${{ runner.os }}
           path: ${{ env.CARGO_HOME }}/bin/clitest*
           if-no-files-found: error
 
@@ -104,7 +104,7 @@ jobs:
     timeout-minutes: 35
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-2025]
+        os: [ubuntu-latest, macos-latest, large-win-x64]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -132,13 +132,13 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           wsl --install --distribution Debian --name EdgeDB.WSL.1 --version 2
-          wsl cp artifacts/debug-gel-cli-ubuntu-latest/gel /usr/bin/edgedb
+          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/edgedb
           wsl --exec sh -c "useradd edgedb --uid 1000 --create-home"
 
       - name: Copy artifacts to PATH
         run: |
-          cp artifacts/debug-gel-cli-${{ matrix.os }}/gel* ${{ env.CARGO_HOME }}/bin/
-          cp artifacts/debug-clitest-${{ matrix.os }}/clitest* ${{ env.CARGO_HOME }}/bin/
+          cp artifacts/debug-gel-cli-${{ runner.os }}/gel* ${{ env.CARGO_HOME }}/bin/
+          cp artifacts/debug-clitest-${{ runner.os }}/clitest* ${{ env.CARGO_HOME }}/bin/
 
       - name: Set executable permissions
         if: runner.os != 'Windows'
