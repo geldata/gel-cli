@@ -128,17 +128,16 @@ jobs:
         run: |
           ls -lR artifacts
 
-      - name: Setup WSL
-        if: runner.os == 'Windows'
-        run: |
-          wsl --install --distribution Debian --name EdgeDB.WSL.1 --version 2
-          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/edgedb
-          wsl --exec sh -c "useradd edgedb --uid 1000 --create-home"
-
       - name: Copy artifacts to PATH
         run: |
           cp artifacts/debug-gel-cli-${{ runner.os }}/gel* ${{ env.CARGO_HOME }}/bin/
           cp artifacts/debug-clitest-${{ runner.os }}/clitest* ${{ env.CARGO_HOME }}/bin/
+
+      - name: Setup WSL
+        if: runner.os == 'Windows'
+        run: |
+          gel instance list
+          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/edgedb
 
       - name: Set executable permissions
         if: runner.os != 'Windows'
