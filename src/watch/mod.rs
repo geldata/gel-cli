@@ -2,7 +2,7 @@ mod fs_watcher;
 mod migrate;
 mod scripts;
 
-pub use fs_watcher::{Event, FsWatcher};
+pub use fs_watcher::{Event, FsWatcher, WatchOptions};
 pub use scripts::run_script;
 
 use std::collections::HashSet;
@@ -32,6 +32,11 @@ pub struct Command {
 
     #[arg(short = 'v', long)]
     pub verbose: bool,
+
+    #[cfg(unix)]
+    /// Do not exit when the parent process exits.
+    #[arg(long)]
+    pub no_exit_with_parent: bool,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -75,9 +80,15 @@ pub async fn run(options: &Options, cmd: &Command) -> anyhow::Result<()> {
     // these tasks wait for ExecutionOrders to be emitted into `tx`
     let (tx, join_handle) = start_executors(&matchers, &ctx).await?;
 
+    let mut watch_options = WatchOptions::default();
+    #[cfg(unix)]
+    if !cmd.no_exit_with_parent {
+        watch_options.exit_with_parent = true;
+    }
+
     // watch file system, debounce and match to globs
     // sends events to executors via tx channel
-    watch_and_match(&matchers, &tx, &ctx).await?;
+    watch_and_match(&matchers, &tx, &ctx, watch_options).await?;
 
     // close all tx
     for t in tx {
@@ -204,8 +215,9 @@ async fn watch_and_match(
     watchers: &[Arc<Watcher>],
     tx: &[UnboundedSender<ExecutionOrder>],
     ctx: &Arc<Context>,
+    watch_options: WatchOptions,
 ) -> anyhow::Result<()> {
-    let mut watcher = fs_watcher::FsWatcher::new()?;
+    let mut watcher = fs_watcher::FsWatcher::new(watch_options)?;
     // TODO: watch only directories that are needed, not the whole project
 
     watcher.watch(&ctx.project.location.root, notify::RecursiveMode::Recursive)?;
