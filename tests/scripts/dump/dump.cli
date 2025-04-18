@@ -1,0 +1,89 @@
+# Test dump and restore functionality
+
+ignore {
+    ? Newer version of gel tool exists %{GREEDYDATA}
+    ! database connection argument is deprecated in favor of 'branch'
+    ! 'database create' is deprecated in Gel 5+. Please use 'branch create'
+    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
+}
+
+$ mktemp -d
+%SET WORK_DIR
+*
+
+$ gel instance destroy -I dump_restore --force
+%EXIT any
+*
+
+$ gel instance create -I dump_restore
+*
+
+$ gel database create -I dump_restore dump_01
+! OK: CREATE DATABASE
+
+$ gel -I dump_restore --database dump_01 query "CREATE TYPE Hello { CREATE REQUIRED PROPERTY name -> str; }"
+! OK: CREATE TYPE
+$ gel -I dump_restore --database dump_01 query "INSERT Hello { name := 'world' }"
+? {"id": "%{UUID}"}
+
+$ mkdir -p $WORK_DIR/dump
+$ gel -I dump_restore --database dump_01 dump $WORK_DIR/dump/dump_01.dump
+*
+! Starting dump for database `'dump_01'`...
+
+$ gel -I dump_restore database create restore_01
+! OK: CREATE DATABASE
+$ gel -I dump_restore --database restore_01 restore $WORK_DIR/dump/dump_01.dump
+*
+! Restore completed
+
+$ gel -I dump_restore --database restore_01 query "SELECT Hello.name"
+! "world"
+
+# Test dump --all without format
+$ gel -I dump_restore dump --all dump01-dir
+%EXIT 1
+! gel error: `--format=dir` is required when using `--all`
+*
+
+# Test dump and restore all databases
+$ gel -I dump_restore database create dump_02
+! OK: CREATE DATABASE
+$ gel -I dump_restore --database dump_02 query "CREATE TYPE Hello { CREATE REQUIRED PROPERTY name -> str; }"
+! OK: CREATE TYPE
+$ gel -I dump_restore --database dump_02 query "INSERT Hello { name := 'world' }"
+? {"id": "%{UUID}"}
+
+# Ensure that the password between the two instances matches
+$ echo "password" | gel -I dump_restore instance reset-password --password-from-stdin
+! Password was successfully changed and saved.
+
+$ gel -I dump_restore dump --all --format=dir $WORK_DIR/dump_all
+repeat {
+    ? Starting dump for database %{GREEDYDATA}
+}
+
+# Start a new server instance for restore
+$ gel instance destroy -I dump_restore2 --force
+%EXIT any
+*
+
+$ gel instance create -I dump_restore2
+*
+
+# Ensure that the password between the two instances matches
+$ echo "password" | gel -I dump_restore2 instance reset-password --password-from-stdin
+! Password was successfully changed and saved.
+
+$ gel -I dump_restore2 restore --all $WORK_DIR/dump_all
+repeat {
+    !
+    ? Restoring database from file %{GREEDYDATA}
+    ! Restore completed
+}
+
+$ gel -I dump_restore2 --database dump_01 query "SELECT Hello.name"
+! "world"
+
+$ gel -I dump_restore2 --database dump_02 query "SELECT Hello.name"
+! "world"

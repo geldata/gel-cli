@@ -348,6 +348,7 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
         .arg("edgedb")
         .arg("--distribution")
         .arg(distro)
+        .arg("_EDGEDB_FROM_WINDOWS=1")
         .arg("/usr/bin/edgedb")
         .arg("--version")
         .get_stdout_text()?;
@@ -542,6 +543,11 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
         wsl_simple_cmd(&wsl, &distro, "useradd edgedb --uid 1000 --create-home")?;
     }
 
+    if Env::_wsl_skip_update()? == Some(true) {
+        update_cli = false;
+        certs_timestamp = None;
+    }
+
     if update_cli {
         msg!("Updating container CLI version...");
         if let Some(bin_path) = Env::_wsl_linux_binary()? {
@@ -699,6 +705,7 @@ fn create_and_start(wsl: &Wsl, name: &str) -> anyhow::Result<()> {
         .arg("-I")
         .arg(name)
         .run()?;
+    // TODO: This should probably use _EDGEDB_FROM_WINDOWS=1 and --foreground
     fs_err::write(
         service_file(name)?,
         format!(
@@ -771,7 +778,10 @@ pub fn external_status(_inst: &InstanceInfo) -> anyhow::Result<()> {
 }
 
 pub fn is_wrapped() -> bool {
-    Env::_from_windows().unwrap_or_default().unwrap_or_default()
+    let Ok(v) = Env::_from_windows() else {
+        return false;
+    };
+    v.is_some()
 }
 
 pub fn install(options: &server::install::Command) -> anyhow::Result<()> {
