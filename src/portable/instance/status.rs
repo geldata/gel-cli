@@ -372,7 +372,11 @@ async fn remote_status_with_feedback(
     name: &InstanceName,
     quiet: bool,
 ) -> anyhow::Result<RemoteStatus> {
-    Box::pin(intermediate_feedback(_remote_status(name, quiet), || "Trying to connect...")).await
+    Box::pin(intermediate_feedback(
+        _remote_status(name, quiet),
+        || "Trying to connect...",
+    ))
+    .await
 }
 
 async fn _remote_status(name: &InstanceName, quiet: bool) -> anyhow::Result<RemoteStatus> {

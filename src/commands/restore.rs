@@ -4,7 +4,7 @@ use std::ffi::OsString;
 use std::path::Path;
 use std::pin::Pin;
 use std::str;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::time::{Duration, Instant};
 
 use anyhow::Context as _;
@@ -22,11 +22,11 @@ use edgeql_parser::preparser::is_empty;
 use gel_errors::Error;
 
 use crate::branding::BRANDING;
+use crate::commands::Options;
 use crate::commands::list_databases;
 use crate::commands::parser::Restore as RestoreCmd;
-use crate::commands::Options;
 use crate::connect::Connection;
-use crate::statement::{read_statement, EndOfFile};
+use crate::statement::{EndOfFile, read_statement};
 
 type Input = Box<dyn AsyncRead + Unpin + Send>;
 
@@ -360,7 +360,8 @@ pub async fn restore_all(
                 .with_context(|| format!("error creating database {database:?}"))?;
         }
         conn_params.branch(&database)?;
-        let mut db_conn = Box::pin(conn_params.connect()).await
+        let mut db_conn = Box::pin(conn_params.connect())
+            .await
             .with_context(|| format!("cannot connect to database {database:?}"))?;
         params.path = path;
         restore_db(&mut db_conn, options, &params)

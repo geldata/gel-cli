@@ -4,14 +4,14 @@ use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fs;
-use std::future::{pending, Future};
+use std::future::{Future, pending};
 use std::path::{Path, PathBuf};
-use std::process::{exit, ExitStatus, Output, Stdio};
+use std::process::{ExitStatus, Output, Stdio, exit};
 use std::sync::LazyLock;
 
 use anyhow::Context;
-use gel_tokio::dsn::DatabaseBranch;
 use gel_tokio::InstanceName;
+use gel_tokio::dsn::DatabaseBranch;
 use tokio::io::AsyncWriteExt;
 use tokio::io::{self, AsyncBufReadExt, AsyncRead, AsyncReadExt, BufReader};
 use tokio::process::Command;

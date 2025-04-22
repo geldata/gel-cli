@@ -420,7 +420,7 @@ fn wsl_simple_cmd(wsl: &wslapi::Library, distro: &str, cmd: &str) -> anyhow::Res
 }
 
 fn utf16_contains(bytes: &[u8], needle: &str) -> bool {
-    use std::char::{decode_utf16, REPLACEMENT_CHARACTER};
+    use std::char::{REPLACEMENT_CHARACTER, decode_utf16};
     decode_utf16(
         bytes
             .chunks_exact(2)
@@ -433,8 +433,7 @@ fn utf16_contains(bytes: &[u8], needle: &str) -> bool {
 
 #[cfg(windows)]
 fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
-    static LIB: LazyLock<std::io::Result<wslapi::Library>> =
-        LazyLock::new(wslapi::Library::new);
+    static LIB: LazyLock<std::io::Result<wslapi::Library>> = LazyLock::new(wslapi::Library::new);
     match &*LIB {
         Ok(lib) => Ok(lib),
         Err(e) => anyhow::bail!("cannot initialize WSL (Windows Subsystem for Linux): {e:#}"),
