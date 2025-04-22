@@ -57,7 +57,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     let name = match &instance {
         InstanceName::Local(name) => {
             if cfg!(windows) {
-                return crate::portable::windows::reset_password(options, &name);
+                return crate::portable::windows::reset_password(options, name);
             } else {
                 name.clone()
             }

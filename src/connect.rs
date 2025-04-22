@@ -173,11 +173,11 @@ impl Connector {
         self
     }
     pub async fn connect(&self) -> Result<Connection, anyhow::Error> {
-        self._connect(false).await
+        Box::pin(self._connect(false)).await
     }
 
     pub async fn connect_interactive(&self) -> Result<Connection, anyhow::Error> {
-        self._connect(true).await
+        Box::pin(self._connect(true)).await
     }
 
     async fn _connect(&self, interactive: bool) -> Result<Connection, anyhow::Error> {
@@ -228,7 +228,7 @@ impl Connector {
     where
         R: QueryResult,
     {
-        let mut connection = self.connect().await?;
+        let mut connection = Box::pin(self.connect()).await?;
         let results = connection.query(query, &()).await?;
         Ok(results)
     }
@@ -247,17 +247,25 @@ impl Connection {
         }
     }
 
-    pub async fn connect(cfg: &Config, tag: impl ToString) -> Result<Connection, ConnectionError> {
+    pub fn connect(
+        cfg: &Config,
+        tag: impl ToString,
+    ) -> impl Future<Output = Result<Connection, ConnectionError>> + Unpin {
         let mut annotations = Annotations::new();
         annotations.insert("tag".to_string(), tag.to_string());
-        Ok(Connection {
-            inner: raw::Connection::connect(cfg)
+
+        Box::pin(async {
+            let inner = Box::pin(raw::Connection::connect(cfg))
                 .await
-                .map_err(Self::map_connection_err)?,
-            state: State::empty(),
-            server_version: None,
-            config: cfg.clone(),
-            annotations: Arc::new(annotations),
+                .map_err(Self::map_connection_err)?;
+
+            Ok(Connection {
+                inner,
+                state: State::empty(),
+                server_version: None,
+                config: cfg.clone(),
+                annotations: Arc::new(annotations),
+            })
         })
     }
 

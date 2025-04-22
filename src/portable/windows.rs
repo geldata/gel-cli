@@ -119,6 +119,7 @@ impl Wsl {
         pro
     }
     #[cfg(windows)]
+    #[allow(dead_code)]
     fn copy_out(&self, src: impl AsRef<str>, destination: impl AsRef<Path>) -> anyhow::Result<()> {
         let dest = path_to_linux(destination.as_ref())?;
         let cmd = format!(
@@ -401,7 +402,7 @@ fn download_binary(dest: &Path) -> anyhow::Result<()> {
     };
 
     let down_path = dest.with_extension("download");
-    let tmp_path = tmp_file_path(&dest);
+    let tmp_path = tmp_file_path(dest);
     download(&down_path, &pkg.url, false)?;
     upgrade::unpack_file(&down_path, &tmp_path, pkg.compression)?;
     fs_err::rename(&tmp_path, dest)?;
@@ -432,8 +433,7 @@ fn utf16_contains(bytes: &[u8], needle: &str) -> bool {
 
 #[cfg(windows)]
 fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
-    static LIB: LazyLock<std::io::Result<wslapi::Library>> =
-        LazyLock::new(|| wslapi::Library::new());
+    static LIB: LazyLock<std::io::Result<wslapi::Library>> = LazyLock::new(wslapi::Library::new);
     match &*LIB {
         Ok(lib) => Ok(lib),
         Err(e) => anyhow::bail!("cannot initialize WSL (Windows Subsystem for Linux): {e:#}"),
@@ -451,7 +451,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
     if meta_path.exists() {
         match read_wsl(&meta_path) {
             Ok(wsl_info) if wsl.is_distribution_registered(&wsl_info.distribution) => {
-                update_cli = wsl_check_cli(&wsl, &wsl_info)?;
+                update_cli = wsl_check_cli(wsl, &wsl_info)?;
                 let update_certs =
                     wsl_info.certs_timestamp + CERT_UPDATE_INTERVAL < SystemTime::now();
                 if !update_cli && !update_certs {
@@ -489,7 +489,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
             fs::create_dir_all(&download_dir)?;
 
             let download_path = download_dir.join("debian.zip");
-            download(&download_path, &*DISTRO_URL, false)?;
+            download(&download_path, &DISTRO_URL, false)?;
             msg!("Unpacking WSL distribution...");
             let appx_path = download_dir.join("debian.appx");
             unpack_appx(&download_path, &appx_path)?;
@@ -539,7 +539,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
             distro = CURRENT_DISTRO.into();
         };
 
-        wsl_simple_cmd(&wsl, &distro, "useradd edgedb --uid 1000 --create-home")?;
+        wsl_simple_cmd(wsl, &distro, "useradd edgedb --uid 1000 --create-home")?;
     }
 
     if update_cli {
@@ -547,7 +547,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
         if let Some(bin_path) = Env::_wsl_linux_binary()? {
             let bin_path = fs::canonicalize(bin_path)?;
             wsl_simple_cmd(
-                &wsl,
+                wsl,
                 &distro,
                 &format!(
                     "cp {} /usr/bin/edgedb && chmod 755 /usr/bin/edgedb",
@@ -558,7 +558,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
             let cache_path = download_dir.join("edgedb");
             download_binary(&cache_path)?;
             wsl_simple_cmd(
-                &wsl,
+                wsl,
                 &distro,
                 &format!(
                     "mv {} /usr/bin/edgedb && chmod 755 /usr/bin/edgedb",

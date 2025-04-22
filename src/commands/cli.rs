@@ -18,7 +18,7 @@ async fn common_cmd(
     cmdopt: commands::Options,
     cmd: &Common,
 ) -> Result<(), anyhow::Error> {
-    commands::execute::common(None, cmd, &cmdopt).await?;
+    Box::pin(commands::execute::common(None, cmd, &cmdopt)).await?;
     Ok(())
 }
 

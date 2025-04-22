@@ -227,9 +227,9 @@ pub async fn restore(
     params: &RestoreCmd,
 ) -> Result<(), anyhow::Error> {
     if params.all {
-        restore_all(cli, options, params).await
+        Box::pin(restore_all(cli, options, params)).await
     } else {
-        restore_db(cli, options, params).await
+        Box::pin(restore_db(cli, options, params)).await
     }
 }
 
@@ -360,8 +360,7 @@ pub async fn restore_all(
                 .with_context(|| format!("error creating database {database:?}"))?;
         }
         conn_params.branch(&database)?;
-        let mut db_conn = conn_params
-            .connect()
+        let mut db_conn = Box::pin(conn_params.connect())
             .await
             .with_context(|| format!("cannot connect to database {database:?}"))?;
         params.path = path;

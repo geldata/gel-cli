@@ -352,7 +352,7 @@ async fn try_get_version(creds: &CredentialsFile) -> anyhow::Result<String> {
 
 pub async fn try_connect(creds: &CredentialsFile) -> (Option<String>, ConnectionStatus) {
     use tokio::time::timeout;
-    match timeout(Duration::from_secs(2), try_get_version(creds)).await {
+    match Box::pin(timeout(Duration::from_secs(2), try_get_version(creds))).await {
         Ok(Ok(ver)) => (Some(ver), ConnectionStatus::Connected),
         Ok(Err(e)) => {
             let inner = e.source().and_then(|e| e.downcast_ref::<io::Error>());
@@ -372,7 +372,11 @@ async fn remote_status_with_feedback(
     name: &InstanceName,
     quiet: bool,
 ) -> anyhow::Result<RemoteStatus> {
-    intermediate_feedback(_remote_status(name, quiet), || "Trying to connect...").await
+    Box::pin(intermediate_feedback(
+        _remote_status(name, quiet),
+        || "Trying to connect...",
+    ))
+    .await
 }
 
 async fn _remote_status(name: &InstanceName, quiet: bool) -> anyhow::Result<RemoteStatus> {
@@ -387,7 +391,7 @@ async fn _remote_status(name: &InstanceName, quiet: bool) -> anyhow::Result<Remo
         }
         return Err(ExitCode::new(exit_codes::INSTANCE_NOT_FOUND).into());
     };
-    let (version, connection) = try_connect(&credentials).await;
+    let (version, connection) = Box::pin(try_connect(&credentials)).await;
     let location = format!(
         "{}:{}",
         credentials.host.as_deref().unwrap_or("localhost"),
@@ -484,7 +488,7 @@ async fn get_remote_async(
         let permit = sem.clone().acquire_owned().await.expect("semaphore is ok");
         tasks.spawn(async move {
             let _permit = permit;
-            match _remote_status(&name, false).await {
+            match Box::pin(_remote_status(&name, false)).await {
                 Ok(status) => {
                     if let Some(ConnectionStatus::Error(e)) = &status.connection {
                         errors.add(

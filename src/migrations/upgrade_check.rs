@@ -61,7 +61,13 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
             }
             let ctx = Context::for_migration_config(&options.cfg, false).await?;
 
-            do_check(&ctx, &status_path, options.watch, WatchOptions::default()).await
+            Box::pin(do_check(
+                &ctx,
+                &status_path,
+                options.watch,
+                WatchOptions::default(),
+            ))
+            .await
         })
     })
 }

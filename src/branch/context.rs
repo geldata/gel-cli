@@ -50,7 +50,7 @@ impl Context {
             match instance_name {
                 InstanceName::Local(_) => {
                     // non-cloud instances have branch written in credentials.json
-                    if let Some(credentials) = credentials::read(&instance_name)? {
+                    if let Some(credentials) = credentials::read(instance_name)? {
                         match (credentials.branch, credentials.database) {
                             (Some(branch), Some(_)) => {
                                 ctx.current_branch = DatabaseBranch::Ambiguous(branch)
@@ -121,10 +121,10 @@ impl Context {
 
         // If we have a local instance, also update the credentials.
         if let Some(x @ InstanceName::Local(_)) = &self.instance_name {
-            if let Some(mut credentials) = credentials::read(&x)? {
+            if let Some(mut credentials) = credentials::read(x)? {
                 credentials.database = Some(branch.to_string());
                 credentials.branch = Some(branch.to_string());
-                credentials::write(&x, &credentials)?;
+                credentials::write(x, &credentials)?;
             } else {
                 warn!("Credentials unexpectedly missing for {:#}", x);
             }

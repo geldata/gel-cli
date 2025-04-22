@@ -158,9 +158,9 @@ fn do_destroy(options: &Command, opts: &Options, instance: &InstanceName) -> any
             } else {
                 destroy_local(name)?
             };
-            if credentials::exists(&instance)? {
+            if credentials::exists(instance)? {
                 found = true;
-                credentials::delete(&instance)?;
+                credentials::delete(instance)?;
             } else {
                 log::warn!("Credentials unexpectedly missing for {:#}", instance);
             }

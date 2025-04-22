@@ -59,13 +59,13 @@ pub async fn noninteractive_main(q: &Query, options: &Options) -> Result<(), any
 
     if let Some(filename) = &q.file {
         if filename == "-" {
-            interpret_file(&mut stdin(), options, fmt, lang).await?;
+            Box::pin(interpret_file(&mut stdin(), options, fmt, lang)).await?;
         } else {
             let mut file = AsyncFile::open(filename).await?;
-            interpret_file(&mut file, options, fmt, lang).await?;
+            Box::pin(interpret_file(&mut file, options, fmt, lang)).await?;
         }
     } else if let Some(queries) = &q.queries {
-        let mut conn = options.create_connector().await?.connect().await?;
+        let mut conn = Box::pin(options.create_connector().await?.connect()).await?;
         for query in queries {
             if classify::is_analyze(query) {
                 anyhow::bail!(
@@ -91,7 +91,7 @@ pub async fn interpret_stdin(
     fmt: repl::OutputFormat,
     lang: repl::InputLanguage,
 ) -> Result<(), anyhow::Error> {
-    return interpret_file(&mut stdin(), options, fmt, lang).await;
+    return Box::pin(interpret_file(&mut stdin(), options, fmt, lang)).await;
 }
 
 async fn interpret_file<T>(
@@ -103,7 +103,7 @@ async fn interpret_file<T>(
 where
     T: AsyncRead + Unpin,
 {
-    let mut conn = options.create_connector().await?.connect().await?;
+    let mut conn = Box::pin(options.create_connector().await?.connect()).await?;
     let mut inbuf = BytesMut::with_capacity(8192);
     loop {
         let stmt = match read_statement(&mut inbuf, file).await {

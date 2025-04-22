@@ -149,7 +149,7 @@ impl PromptRpc {
 impl State {
     pub async fn connect(&mut self) -> anyhow::Result<()> {
         let branch = self.conn_params.get()?.db.to_owned();
-        self.try_connect(branch).await?;
+        Box::pin(self.try_connect(branch)).await?;
         Ok(())
     }
     pub async fn reconnect(&mut self) -> anyhow::Result<()> {
@@ -204,7 +204,7 @@ impl State {
     pub async fn try_connect(&mut self, branch: DatabaseBranch) -> anyhow::Result<()> {
         let mut params = self.conn_params.clone();
         params.db(branch.clone())?;
-        let mut conn = params.connect_interactive().await?;
+        let mut conn = Box::pin(params.connect_interactive()).await?;
         conn.set_tag(REPL_QUERY_TAG);
         let fetched_version = conn.get_version().await?;
         if self.last_version.as_ref() != Some(fetched_version) {
@@ -242,7 +242,7 @@ impl State {
             }
             None => {}
         };
-        self.reconnect().await?;
+        Box::pin(self.reconnect()).await?;
         Ok(())
     }
     pub async fn terminate(&mut self) {

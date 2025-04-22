@@ -20,7 +20,7 @@ pub async fn common(
 
     // match commands that don't need connection
     if let Branch(cmd) = cmd {
-        return branch::run(&cmd.subcommand, options, conn).await;
+        return Box::pin(branch::run(&cmd.subcommand, options, conn)).await;
     }
 
     // connect

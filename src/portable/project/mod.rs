@@ -223,7 +223,7 @@ impl Handle<'_> {
     }
     #[tokio::main(flavor = "current_thread")]
     pub async fn get_version(&self) -> anyhow::Result<ver::Build> {
-        let mut conn = self.get_default_connection().await?;
+        let mut conn = Box::pin(self.get_default_connection()).await?;
         anyhow::Ok(conn.get_version().await?.clone())
     }
     fn check_version(&self, ver_query: &Query) {

@@ -90,7 +90,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
         let mut config = config.clone();
         config.tls_security = TlsSecurity::Insecure;
         let cert_holder = cert_holder.clone();
-        gel_tokio::raw::Connection::connect_with_cert_check(
+        Box::pin(gel_tokio::raw::Connection::connect_with_cert_check(
             &config,
             CertCheck::new_fn(move |cert| {
                 let cert = cert.to_vec();
@@ -104,10 +104,10 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                     res
                 }
             }),
-        )
+        ))
         .await
     } else {
-        gel_tokio::raw::Connection::connect(&config).await
+        Box::pin(gel_tokio::raw::Connection::connect(&config)).await
     };
 
     #[allow(deprecated)]
@@ -139,7 +139,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
             }
 
             config = config.with_password(&password);
-            connect_result = Ok(gel_tokio::raw::Connection::connect(&config).await?);
+            connect_result = Ok(Box::pin(gel_tokio::raw::Connection::connect(&config)).await?);
         } else {
             return Err(e.into());
         }

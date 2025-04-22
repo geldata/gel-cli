@@ -587,6 +587,7 @@ pub fn bootstrap(
             anyhow::bail!("cannot specify database for version >= 5");
         }
     } else {
+        #[allow(clippy::collapsible_else_if)]
         if let Some(database) = branch.database() {
             cmd.arg("--default-database").arg(database);
         } else if branch.branch_for_create().is_some() {

@@ -122,7 +122,7 @@ impl InstanceBackup for LocalBackup {
             };
 
             let task = scopeguard::guard(task, |task| {
-                let _ = task.abort();
+                task.abort();
                 // Best effort cleanup
                 _ = std::fs::remove_dir_all(&temp_dir);
             });
