@@ -13,8 +13,8 @@ use std::time::{Duration, SystemTime};
 use anyhow::Context;
 use const_format::formatcp;
 use fn_error_context::context;
-use gel_tokio::dsn::CredentialsFile;
 use gel_tokio::InstanceName;
+use gel_tokio::dsn::CredentialsFile;
 use url::Url;
 
 use crate::async_util;
@@ -33,13 +33,13 @@ use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::instance::destroy;
 use crate::portable::instance::status;
-use crate::portable::local::{write_json, InstanceInfo, NonLocalInstance, Paths};
+use crate::portable::local::{InstanceInfo, NonLocalInstance, Paths, write_json};
 use crate::portable::options;
 use crate::portable::project;
-use crate::portable::repository::{self, download, PackageHash, PackageInfo};
+use crate::portable::repository::{self, PackageHash, PackageInfo, download};
 use crate::portable::server;
 use crate::portable::ver;
-use crate::print::{self, msg, Highlight};
+use crate::print::{self, Highlight, msg};
 use crate::process;
 
 use super::extension;
