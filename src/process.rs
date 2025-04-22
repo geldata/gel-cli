@@ -155,7 +155,7 @@ impl IntoArg for &InstanceName {
 
 impl IntoArg for &DatabaseBranch {
     fn add_arg(self, process: &mut Native) {
-        process.arg(self.name().unwrap_or("").to_string());
+        process.arg(self.name().unwrap_or(""));
     }
 }
 
