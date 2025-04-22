@@ -480,7 +480,7 @@ pub async fn dump_instance(inst: &InstanceInfo, destination: &Path) -> anyhow::R
         fs::remove_dir_all(&destination).await?;
     }
     let config = inst.admin_conn_params()?;
-    let mut cli = Box::pin(Connection::connect(&config, QUERY_TAG)).await?;
+    let mut cli = Connection::connect(&config, QUERY_TAG).await?;
     let options = commands::Options {
         command_line: true,
         styler: None,
@@ -567,7 +567,7 @@ async fn restore_instance(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()
     use crate::commands::parser::Restore;
     log::info!("Restoring instance {:?}", inst.name);
     let cfg = inst.admin_conn_params()?;
-    let mut cli = Box::pin(Connection::connect(&cfg, QUERY_TAG)).await?;
+    let mut cli = Connection::connect(&cfg, QUERY_TAG).await?;
 
     let options = commands::Options {
         command_line: true,

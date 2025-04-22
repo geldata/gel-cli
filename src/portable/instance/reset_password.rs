@@ -113,7 +113,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
         .build()?
         .block_on(async {
             let config = inst.admin_conn_params()?;
-            let mut cli = Box::pin(Connection::connect(&config, QUERY_TAG)).await?;
+            let mut cli = Connection::connect(&config, QUERY_TAG).await?;
             cli.execute(
                 &format!(
                     r###"

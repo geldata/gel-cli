@@ -247,17 +247,25 @@ impl Connection {
         }
     }
 
-    pub async fn connect(cfg: &Config, tag: impl ToString) -> Result<Connection, ConnectionError> {
+    pub fn connect(
+        cfg: &Config,
+        tag: impl ToString,
+    ) -> impl Future<Output = Result<Connection, ConnectionError>> + Unpin {
         let mut annotations = Annotations::new();
         annotations.insert("tag".to_string(), tag.to_string());
-        Ok(Connection {
-            inner: Box::pin(raw::Connection::connect(cfg))
+
+        Box::pin(async {
+            let inner = Box::pin(raw::Connection::connect(cfg))
                 .await
-                .map_err(Self::map_connection_err)?,
-            state: State::empty(),
-            server_version: None,
-            config: cfg.clone(),
-            annotations: Arc::new(annotations),
+                .map_err(Self::map_connection_err)?;
+
+            Ok(Connection {
+                inner,
+                state: State::empty(),
+                server_version: None,
+                config: cfg.clone(),
+                annotations: Arc::new(annotations),
+            })
         })
     }
 

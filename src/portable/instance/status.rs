@@ -342,7 +342,7 @@ async fn try_get_version(creds: &CredentialsFile) -> anyhow::Result<String> {
         .params(creds.clone())
         .without_system()
         .build()?;
-    let mut conn = Box::pin(Connection::connect(&config, QUERY_TAG)).await?;
+    let mut conn = Connection::connect(&config, QUERY_TAG).await?;
     let ver = conn
         .query_required_single("SELECT sys::get_version_as_str()", &())
         .await

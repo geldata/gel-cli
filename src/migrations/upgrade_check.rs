@@ -203,7 +203,7 @@ async fn do_check(
         .with_fs()
         .build()
         .context("cannot build connection params")?;
-    let cli = &mut Box::pin(Connection::connect(&config, QUERY_TAG)).await?;
+    let cli = &mut Connection::connect(&config, QUERY_TAG).await?;
 
     if fs::metadata(&ctx.schema_dir).await.is_err() {
         anyhow::bail!("No schema dir found at {:?}", ctx.schema_dir);
