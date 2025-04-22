@@ -699,7 +699,7 @@ fn get_windows_path_var() -> anyhow::Result<Option<String>> {
                     "the registry key HKEY_CURRENT_USER\\Environment\\PATH does not contain valid Unicode. \
                        PATH variable will not be modified."
                 );
-                return Ok(None);
+                Ok(None)
             }
         }
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => Ok(Some(String::new())),
@@ -749,7 +749,7 @@ pub fn windows_augment_path<F: FnOnce(&[PathBuf]) -> Option<std::ffi::OsString>>
         .context("permission denied")?;
 
     let reg_value = RegValue {
-        bytes: string_to_winreg_bytes(&new_path),
+        bytes: string_to_winreg_bytes(new_path),
         vtype: RegType::REG_EXPAND_SZ,
     };
 
@@ -764,7 +764,7 @@ pub fn windows_augment_path<F: FnOnce(&[PathBuf]) -> Option<std::ffi::OsString>>
             HWND_BROADCAST,
             WM_SETTINGCHANGE,
             0 as WPARAM,
-            "Environment\0".as_ptr() as LPARAM,
+            c"Environment".as_ptr() as LPARAM,
             SMTO_ABORTIFHUNG,
             5000,
             ptr::null_mut(),

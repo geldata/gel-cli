@@ -216,14 +216,14 @@ impl Handle<'_> {
         Ok(builder)
     }
     pub async fn get_default_connection(&self) -> anyhow::Result<Connection> {
-        Ok(Connection::connect(&self.get_default_builder()?.build()?, QUERY_TAG).await?)
+        Ok(Box::pin(Connection::connect(&self.get_default_builder()?.build()?, QUERY_TAG)).await?)
     }
     pub async fn get_connection(&self) -> anyhow::Result<Connection> {
-        Ok(Connection::connect(&self.get_builder()?.build()?, QUERY_TAG).await?)
+        Ok(Box::pin(Connection::connect(&self.get_builder()?.build()?, QUERY_TAG)).await?)
     }
     #[tokio::main(flavor = "current_thread")]
     pub async fn get_version(&self) -> anyhow::Result<ver::Build> {
-        let mut conn = self.get_default_connection().await?;
+        let mut conn = Box::pin(self.get_default_connection()).await?;
         anyhow::Ok(conn.get_version().await?.clone())
     }
     fn check_version(&self, ver_query: &Query) {

@@ -61,7 +61,7 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
             }
             let ctx = Context::for_migration_config(&options.cfg, false).await?;
 
-            do_check(&ctx, &status_path, options.watch, WatchOptions::default()).await
+            Box::pin(do_check(&ctx, &status_path, options.watch, WatchOptions::default())).await
         })
     })
 }
@@ -197,7 +197,7 @@ async fn do_check(
         .with_fs()
         .build()
         .context("cannot build connection params")?;
-    let cli = &mut Connection::connect(&config, QUERY_TAG).await?;
+    let cli = &mut Box::pin(Connection::connect(&config, QUERY_TAG)).await?;
 
     if fs::metadata(&ctx.schema_dir).await.is_err() {
         anyhow::bail!("No schema dir found at {:?}", ctx.schema_dir);

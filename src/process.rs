@@ -4,14 +4,14 @@ use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fmt;
 use std::fs;
-use std::future::{Future, pending};
+use std::future::{pending, Future};
 use std::path::{Path, PathBuf};
-use std::process::{ExitStatus, Output, Stdio, exit};
+use std::process::{exit, ExitStatus, Output, Stdio};
 use std::sync::LazyLock;
 
 use anyhow::Context;
-use gel_tokio::InstanceName;
 use gel_tokio::dsn::DatabaseBranch;
+use gel_tokio::InstanceName;
 use tokio::io::AsyncWriteExt;
 use tokio::io::{self, AsyncBufReadExt, AsyncRead, AsyncReadExt, BufReader};
 use tokio::process::Command;
@@ -218,6 +218,7 @@ impl Native {
         self
     }
 
+    #[allow(dead_code)]
     pub fn quiet(&mut self) -> &mut Self {
         self.quiet = true;
         self
@@ -674,7 +675,6 @@ impl Native {
         // on windows Ctrl+C signals are propagated automatically and no other
         // signals are supported, so there is nothing to do here
         wait_forever().await;
-        Ok(())
     }
 
     #[cfg(unix)]
@@ -762,7 +762,8 @@ impl Native {
                     })?;
                     log::debug!("Result of {} (background): {}", self.description, status);
                 } else {
-                    if cfg!(windows) {
+                    #[cfg(windows)]
+                    {
                         if let Err(e) = child.kill().await {
                             log::error!("Error stopping {}: {}", self.description, e);
                         }

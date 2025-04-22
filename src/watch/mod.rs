@@ -80,6 +80,7 @@ pub async fn run(options: &Options, cmd: &Command) -> anyhow::Result<()> {
     // these tasks wait for ExecutionOrders to be emitted into `tx`
     let (tx, join_handle) = start_executors(&matchers, &ctx).await?;
 
+    #[allow(unused_mut)]
     let mut watch_options = WatchOptions::default();
     #[cfg(unix)]
     if !cmd.no_exit_with_parent {

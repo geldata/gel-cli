@@ -51,7 +51,7 @@ pub async fn run(
         Subcommand::Drop(cmd) => drop::main(cmd, &context, conn).await?,
         Subcommand::List(cmd) => list::main(cmd, &context, conn).await?,
         Subcommand::Rename(cmd) => return rename::run(cmd, &context, conn, options).await,
-        Subcommand::Rebase(cmd) => rebase::main(cmd, &context, conn, options).await?,
+        Subcommand::Rebase(cmd) => Box::pin(rebase::main(cmd, &context, conn, options)).await?,
         Subcommand::Merge(cmd) => merge::main(cmd, &context, conn, options).await?,
 
         // handled earlier

@@ -18,13 +18,13 @@ use crate::options::{CloudOptions, InstanceOptionsLegacy};
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
-use crate::portable::local::{InstallInfo, InstanceInfo, Paths, write_json};
+use crate::portable::local::{write_json, InstallInfo, InstanceInfo, Paths};
 use crate::portable::project;
 use crate::portable::repository::{self, Channel, PackageInfo, Query, QueryOptions};
 use crate::portable::server::install;
 use crate::portable::ver;
 use crate::portable::windows;
-use crate::print::{self, Highlight, msg};
+use crate::print::{self, msg, Highlight};
 use crate::question;
 use crate::{cloud, credentials};
 
@@ -466,7 +466,7 @@ pub fn dump_and_stop(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()> {
 
 #[tokio::main(flavor = "current_thread")]
 async fn block_on_dump_instance(inst: &InstanceInfo, destination: &Path) -> anyhow::Result<()> {
-    dump_instance(inst, destination).await
+    Box::pin(dump_instance(inst, destination)).await
 }
 
 #[context("error dumping instance")]
@@ -480,19 +480,19 @@ pub async fn dump_instance(inst: &InstanceInfo, destination: &Path) -> anyhow::R
         fs::remove_dir_all(&destination).await?;
     }
     let config = inst.admin_conn_params()?;
-    let mut cli = Connection::connect(&config, QUERY_TAG).await?;
+    let mut cli = Box::pin(Connection::connect(&config, QUERY_TAG)).await?;
     let options = commands::Options {
         command_line: true,
         styler: None,
         conn_params: Connector::new(Ok(config)),
         instance_name: Some(InstanceName::Local(inst.name.clone())),
     };
-    commands::dump_all(
+    Box::pin(commands::dump_all(
         &mut cli,
         &options,
         destination,
         true, /*include_secrets*/
-    )
+    ))
     .await?;
     Ok(())
 }
@@ -538,7 +538,7 @@ fn reinit_and_restore(inst: &InstanceInfo, paths: &Paths) -> anyhow::Result<()> 
     control::self_signed_arg(&mut cmd, inst.get_version()?);
     cmd.background_for(|| {
         Ok(async {
-            restore_instance(inst, &paths.dump_path).await?;
+            Box::pin(restore_instance(inst, &paths.dump_path)).await?;
             log::info!(
                 "Restarting instance {:?} to apply \
                    changes from `restore --all`",
@@ -567,7 +567,7 @@ async fn restore_instance(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()
     use crate::commands::parser::Restore;
     log::info!("Restoring instance {:?}", inst.name);
     let cfg = inst.admin_conn_params()?;
-    let mut cli = Connection::connect(&cfg, QUERY_TAG).await?;
+    let mut cli = Box::pin(Connection::connect(&cfg, QUERY_TAG)).await?;
 
     let options = commands::Options {
         command_line: true,
@@ -575,7 +575,7 @@ async fn restore_instance(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()
         conn_params: Connector::new(Ok(cfg)),
         instance_name: Some(InstanceName::Local(inst.name.clone())),
     };
-    commands::restore_all(
+    Box::pin(commands::restore_all(
         &mut cli,
         &options,
         &Restore {
@@ -584,7 +584,7 @@ async fn restore_instance(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()
             verbose: false,
             conn: None,
         },
-    )
+    ))
     .await?;
     Ok(())
 }

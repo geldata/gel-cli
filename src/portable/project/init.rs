@@ -1132,7 +1132,7 @@ fn print_initialized(name: &str, dir_option: &Option<PathBuf>) {
 
 #[tokio::main(flavor = "current_thread")]
 async fn create_database(inst: &project::Handle<'_>) -> anyhow::Result<()> {
-    create_database_async(inst).await
+    Box::pin(create_database_async(inst)).await
 }
 
 async fn create_database_async(inst: &project::Handle<'_>) -> anyhow::Result<()> {
@@ -1140,14 +1140,14 @@ async fn create_database_async(inst: &project::Handle<'_>) -> anyhow::Result<()>
         return Ok(());
     };
     let config = inst.get_default_builder()?.build()?;
-    let mut conn = Connection::connect(&config, QUERY_TAG).await?;
+    let mut conn = Box::pin(Connection::connect(&config, QUERY_TAG)).await?;
     ensure_database(&mut conn, name).await?;
     Ok(())
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn migrate(inst: &project::Handle<'_>, ask_for_running: bool) -> anyhow::Result<()> {
-    migrate_async(inst, ask_for_running).await
+    Box::pin(migrate_async(inst, ask_for_running)).await
 }
 
 async fn migrate_async(inst: &project::Handle<'_>, ask_for_running: bool) -> anyhow::Result<()> {
@@ -1165,7 +1165,7 @@ async fn migrate_async(inst: &project::Handle<'_>, ask_for_running: bool) -> any
     msg!("Applying migrations...");
 
     let mut conn = loop {
-        match inst.get_default_connection().await {
+        match Box::pin(inst.get_default_connection()).await {
             Ok(conn) => break conn,
             Err(e) if ask_for_running && inst.instance.is_local() => {
                 print::error!("{e}");
@@ -1212,7 +1212,7 @@ async fn migrate_async(inst: &project::Handle<'_>, ask_for_running: bool) -> any
     };
     if let Some(database) = &inst.database {
         ensure_database(&mut conn, database).await?;
-        conn = inst.get_connection().await?;
+        conn = Box::pin(inst.get_connection()).await?;
     }
 
     migrations::apply::run(

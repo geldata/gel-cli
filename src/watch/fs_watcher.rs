@@ -10,6 +10,7 @@ const STABLE_TIME: Duration = Duration::from_millis(100);
 
 #[derive(Debug, Default, Clone)]
 pub struct WatchOptions {
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     pub exit_with_parent: bool,
 }
 
@@ -21,6 +22,7 @@ pub struct FsWatcher {
 }
 
 impl FsWatcher {
+    #[cfg_attr(target_os = "windows", allow(unused_variables))]
     pub fn new(options: WatchOptions) -> anyhow::Result<Self> {
         let (tx, rx) = mpsc::unbounded_channel::<Vec<PathBuf>>();
         let handler = WatchHandler { tx };
