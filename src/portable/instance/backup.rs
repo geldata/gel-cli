@@ -8,7 +8,7 @@ use gel_tokio::InstanceName;
 use crate::branding::BRANDING_CLI_CMD;
 use crate::cloud;
 use crate::options::CloudOptions;
-use crate::portable::local::{InstanceInfo, Paths};
+use crate::portable::local::InstanceInfo;
 use crate::print::msg;
 use crate::question;
 
@@ -104,7 +104,7 @@ fn get_instance(
     instance_name: &InstanceName,
 ) -> anyhow::Result<InstanceHandle> {
     match instance_name {
-        gel_dsn::gel::InstanceName::Local(name) => {
+        InstanceName::Local(name) => {
             let instance_info = InstanceInfo::try_read(name)?;
             let Some(instance_info) = instance_info else {
                 return Err(anyhow::anyhow!("Remote instances not supported"));
@@ -113,16 +113,14 @@ fn get_instance(
                 return Err(anyhow::anyhow!("Instance {} not installed", name));
             };
             let bin_dir = install_info.base_path()?.join("bin");
-            let run_dir = Paths::get(&name)?.runstate_dir;
 
             Ok(get_local_instance(
                 name,
                 bin_dir,
-                run_dir,
                 install_info.version.specific().to_string(),
             )?)
         }
-        gel_dsn::gel::InstanceName::Cloud(name) => {
+        InstanceName::Cloud(name) => {
             let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
             client.ensure_authenticated()?;
             Ok(get_cloud_instance(name.clone(), client.api)?)

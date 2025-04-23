@@ -13,7 +13,6 @@
 
     edgedb = {
       url = "github:edgedb/packages-nix";
-      inputs.fenix.follows = "fenix";
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.flake-parts.follows = "flake-parts";
     };
@@ -46,7 +45,7 @@
           common =
             [
               # needed for running tests
-              edgedb.packages.${system}.edgedb-server-nightly
+              edgedb.packages.${system}.gel-server-nightly
             ]
             ++ pkgs.lib.optional pkgs.stdenv.isDarwin [
               pkgs.libiconv

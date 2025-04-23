@@ -24,7 +24,7 @@ use crate::portable::repository::{self, PackageInfo, Query};
 use crate::portable::server::install;
 use crate::print::{self, Highlight, msg};
 use crate::process;
-use crate::watch;
+use crate::watch::{self, WatchOptions};
 
 #[derive(Debug, serde::Deserialize)]
 struct EdgedbStatus {
@@ -61,7 +61,13 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
             }
             let ctx = Context::for_migration_config(&options.cfg, false).await?;
 
-            do_check(&ctx, &status_path, options.watch).await
+            Box::pin(do_check(
+                &ctx,
+                &status_path,
+                options.watch,
+                WatchOptions::default(),
+            ))
+            .await
         })
     })
 }
@@ -107,7 +113,12 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
         .enable_all()
         .build()?;
     let ctx = runtime.block_on(Context::for_migration_config(&options.cfg, false))?;
-    spawn_and_check(&info, ctx, options.watch)
+
+    let mut watch_options = WatchOptions::default();
+    if !options.no_exit_with_parent {
+        watch_options.exit_with_parent = true;
+    }
+    spawn_and_check(&info, ctx, options.watch, watch_options)
 }
 
 #[cfg(windows)]
@@ -123,11 +134,16 @@ pub fn to_version(pkg: &PackageInfo, project: &project::Context) -> anyhow::Resu
 
     let info = install::package(pkg).context(concatcp!("error installing ", BRANDING))?;
     let ctx = Context::for_project(project.clone())?;
-    spawn_and_check(&info, ctx, false)
+    spawn_and_check(&info, ctx, false, WatchOptions::default())
 }
 
 #[cfg(unix)]
-fn spawn_and_check(info: &InstallInfo, ctx: Context, watch: bool) -> anyhow::Result<()> {
+fn spawn_and_check(
+    info: &InstallInfo,
+    ctx: Context,
+    watch: bool,
+    watch_options: WatchOptions,
+) -> anyhow::Result<()> {
     use tokio::net::UnixDatagram;
 
     let server_path = info.server_path()?;
@@ -155,12 +171,17 @@ fn spawn_and_check(info: &InstallInfo, ctx: Context, watch: bool) -> anyhow::Res
             {}
 
             let status_file = status_dir.path().join("status");
-            do_check(&ctx, &status_file, watch).await
+            do_check(&ctx, &status_file, watch, watch_options).await
         })
     })
 }
 
-async fn do_check(ctx: &Context, status_file: &Path, watch: bool) -> anyhow::Result<()> {
+async fn do_check(
+    ctx: &Context,
+    status_file: &Path,
+    watch: bool,
+    watch_options: WatchOptions,
+) -> anyhow::Result<()> {
     use CheckResult::*;
 
     let status_data = fs::read_to_string(&status_file)
@@ -189,7 +210,7 @@ async fn do_check(ctx: &Context, status_file: &Path, watch: bool) -> anyhow::Res
     }
 
     if watch {
-        let mut watcher = watch::FsWatcher::new()?;
+        let mut watcher = watch::FsWatcher::new(watch_options)?;
         // TODO(tailhook) do we have to monitor `{gel,edgedb}.toml` for the schema
         // dir change
         watcher.watch(&ctx.schema_dir, RecursiveMode::Recursive)?;

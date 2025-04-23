@@ -11,6 +11,7 @@ use std::sync::LazyLock;
 
 use anyhow::Context;
 use gel_tokio::InstanceName;
+use gel_tokio::dsn::DatabaseBranch;
 use tokio::io::AsyncWriteExt;
 use tokio::io::{self, AsyncBufReadExt, AsyncRead, AsyncReadExt, BufReader};
 use tokio::process::Command;
@@ -152,6 +153,12 @@ impl IntoArg for &InstanceName {
     }
 }
 
+impl IntoArg for &DatabaseBranch {
+    fn add_arg(self, process: &mut Native) {
+        process.arg(self.name().unwrap_or(""));
+    }
+}
+
 pub trait IntoArgs {
     fn add_args(self, process: &mut Native);
 }
@@ -211,6 +218,7 @@ impl Native {
         self
     }
 
+    #[allow(dead_code)]
     pub fn quiet(&mut self) -> &mut Self {
         self.quiet = true;
         self
@@ -667,7 +675,6 @@ impl Native {
         // on windows Ctrl+C signals are propagated automatically and no other
         // signals are supported, so there is nothing to do here
         wait_forever().await;
-        Ok(())
     }
 
     #[cfg(unix)]
@@ -755,7 +762,8 @@ impl Native {
                     })?;
                     log::debug!("Result of {} (background): {}", self.description, status);
                 } else {
-                    if cfg!(windows) {
+                    #[cfg(windows)]
+                    {
                         if let Err(e) = child.kill().await {
                             log::error!("Error stopping {}: {}", self.description, e);
                         }

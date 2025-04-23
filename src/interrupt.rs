@@ -162,7 +162,7 @@ fn signal_message(signal: Signal) -> i32 {
 #[cfg(windows)]
 fn signal_message(_signal: Signal) -> i32 {
     log::warn!("Exiting due to interrupt");
-    return 2; // same as SIGINT on linux
+    2 // same as SIGINT on linux
 }
 
 fn exit_on(signal: Signal) -> ! {

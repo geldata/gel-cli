@@ -24,7 +24,6 @@ use crate::classify;
 use crate::cli::logo::print_logo;
 use crate::commands::{ExitCode, backslash};
 use crate::config::Config;
-use crate::credentials;
 use crate::error_display::print_query_error;
 use crate::interrupt::{Interrupt, InterruptError};
 use crate::options::Options;
@@ -113,7 +112,6 @@ pub fn main(options: Options, cfg: Config) -> Result<(), anyhow::Error> {
         .colors(std::io::stdout().is_terminal())
         .clone();
     let conn_config = conn.get()?;
-    credentials::maybe_update_credentials_file(conn_config, true)?;
     let state = repl::State {
         prompt: repl::PromptRpc {
             control: control_wr,
@@ -170,7 +168,7 @@ pub async fn _main(options: Options, mut state: repl::State, cfg: Config) -> any
     }
     msg!("{}", r#"Type \help for help, \quit to quit."#.muted());
     state.set_history_limit(state.history_limit).await?;
-    match _interactive_main(&options, &mut state).await {
+    match Box::pin(_interactive_main(&options, &mut state)).await {
         Ok(()) => Ok(()),
         Err(e) => {
             if e.is::<CleanShutdown>() {
@@ -243,11 +241,11 @@ async fn execute_backslash(state: &mut repl::State, text: &str) -> anyhow::Resul
             return Ok(());
         }
     };
-    let res = backslash::execute(&cmd.command, state).await;
+    let res = Box::pin(backslash::execute(&cmd.command, state)).await;
     match res {
         Ok(Skip) => {}
         Ok(Quit) => {
-            state.terminate().await;
+            Box::pin(state.terminate()).await;
             return Err(CleanShutdown)?;
         }
         Ok(Input(text)) => state.initial_text = text,

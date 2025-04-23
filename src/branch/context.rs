@@ -1,9 +1,9 @@
 use gel_tokio::InstanceName;
+use gel_tokio::dsn::DatabaseBranch;
+use log::warn;
 
-use crate::branding::BRANDING_CLOUD;
 use crate::connect::Connection;
 use crate::credentials;
-use crate::hint::HintExt;
 use crate::platform::tmp_file_path;
 use crate::portable::project::{self, get_stash_path};
 use std::fs;
@@ -28,7 +28,7 @@ pub struct Context {
     ///   - the project has no linked instance.
     ///
     ///   This happens when we supply just a URL, for example.
-    current_branch: Option<String>,
+    current_branch: DatabaseBranch,
 
     /// Project manifest cache
     project_ctx_cache: Mutex<Option<project::Context>>,
@@ -38,7 +38,7 @@ impl Context {
     pub async fn new(instance_arg: Option<&InstanceName>) -> anyhow::Result<Context> {
         let mut ctx = Context {
             instance_name: None,
-            current_branch: None,
+            current_branch: DatabaseBranch::Default,
             project: None,
             project_ctx_cache: Mutex::new(None),
         };
@@ -48,13 +48,21 @@ impl Context {
             ctx.instance_name = Some(instance_name.clone());
 
             match instance_name {
-                InstanceName::Local(instance_name) => {
+                InstanceName::Local(_) => {
                     // non-cloud instances have branch written in credentials.json
-
-                    let credentials_path = credentials::path(instance_name)?;
-                    if credentials_path.exists() {
-                        let credentials = credentials::read(&credentials_path).await?;
-                        ctx.current_branch = credentials.branch.or(credentials.database);
+                    if let Some(credentials) = credentials::read(instance_name)? {
+                        match (credentials.branch, credentials.database) {
+                            (Some(branch), Some(_)) => {
+                                ctx.current_branch = DatabaseBranch::Ambiguous(branch)
+                            }
+                            (Some(branch), None) => {
+                                ctx.current_branch = DatabaseBranch::Branch(branch)
+                            }
+                            (None, Some(database)) => {
+                                ctx.current_branch = DatabaseBranch::Database(database)
+                            }
+                            (None, None) => ctx.current_branch = DatabaseBranch::Default,
+                        }
                     }
                 }
                 InstanceName::Cloud { .. } => {
@@ -70,7 +78,8 @@ impl Context {
         if let Some(location) = &ctx.project {
             let stash_dir = get_stash_path(&location.root)?;
             ctx.instance_name = project::instance_name(&stash_dir).ok();
-            ctx.current_branch = project::database_name(&stash_dir).ok().flatten();
+            ctx.current_branch =
+                project::database_name(&stash_dir).unwrap_or(DatabaseBranch::Default);
         }
 
         Ok(ctx)
@@ -79,8 +88,8 @@ impl Context {
     /// Returns the "current" branch or branch of the connection.
     /// Connection must not have its branch param modified.
     pub async fn get_current_branch(&self, connection: &mut Connection) -> anyhow::Result<String> {
-        if let Some(b) = &self.current_branch {
-            return Ok(b.clone());
+        if let Some(b) = &self.current_branch.name() {
+            return Ok(b.to_string());
         }
 
         // if the instance is unknown, current branch is just "the branch of the connection"
@@ -100,11 +109,7 @@ impl Context {
     }
 
     pub async fn update_current_branch(&self, branch: &str) -> anyhow::Result<()> {
-        let Some(instance_name) = &self.instance_name else {
-            return Ok(());
-        };
-
-        // if we are in a project, update the stash/database
+        // If we are in a project, update the stash/database
         if let Some(project) = &self.project {
             let stash_path = get_stash_path(&project.root)?.join("database");
 
@@ -112,17 +117,19 @@ impl Context {
             let tmp = tmp_file_path(&stash_path);
             fs::write(&tmp, branch)?;
             fs::rename(&tmp, &stash_path)?;
-        } else {
-            // otherwise, update credentials.json
-            let name = ensure_local_instance(instance_name)?;
-
-            let path = credentials::path(name)?;
-            let mut credentials = credentials::read(&path).await?;
-            credentials.database = Some(branch.to_string());
-            credentials.branch = Some(branch.to_string());
-
-            credentials::write_async(&path, &credentials).await?;
         }
+
+        // If we have a local instance, also update the credentials.
+        if let Some(x @ InstanceName::Local(_)) = &self.instance_name {
+            if let Some(mut credentials) = credentials::read(x)? {
+                credentials.database = Some(branch.to_string());
+                credentials.branch = Some(branch.to_string());
+                credentials::write(x, &credentials)?;
+            } else {
+                warn!("Credentials unexpectedly missing for {:#}", x);
+            }
+        }
+
         Ok(())
     }
 
@@ -139,16 +146,5 @@ impl Context {
         let mut cache_lock = self.project_ctx_cache.lock().unwrap();
         *cache_lock = Some(ctx.clone());
         Ok(Some(ctx))
-    }
-}
-
-fn ensure_local_instance(instance_name: &InstanceName) -> anyhow::Result<&str> {
-    match instance_name {
-        InstanceName::Local(instance) => Ok(instance),
-        InstanceName::Cloud { .. } => Err(anyhow::anyhow!(
-            "cannot set a current branch on {BRANDING_CLOUD} instance"
-        )
-        .hint("current branch can be set on a project, when in project directory")
-        .into()),
     }
 }

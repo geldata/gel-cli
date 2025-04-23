@@ -22,10 +22,12 @@ use crate::{credentials, format};
 pub fn run(options: &Command) -> anyhow::Result<()> {
     use BackupStatus::*;
 
-    let name = match options.instance_opts.instance()? {
+    let instance = options.instance_opts.instance()?;
+
+    let name = match &instance {
         InstanceName::Local(name) => {
             if cfg!(windows) {
-                return crate::portable::windows::revert(options, &name);
+                return crate::portable::windows::revert(options, name);
             } else {
                 name
             }
@@ -35,7 +37,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
             return Err(ExitCode::new(1))?;
         }
     };
-    let status = instance_status(&name)?;
+    let status = instance_status(name)?;
     let (backup_info, old_inst) = match status.backup {
         Absent => anyhow::bail!("cannot find backup directory to revert"),
         Exists {
@@ -96,7 +98,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
         }
     }
 
-    if let Err(e) = control::do_stop(&name) {
+    if let Err(e) = control::do_stop(name) {
         print::error!("Error stopping service: {e:#}");
         if !options.no_confirm {
             let q = question::Confirm::new("Do you want to proceed?");
@@ -110,7 +112,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     install::specific(&old_version.specific())
         .context(concatcp!("error installing old ", BRANDING))?;
 
-    let paths = Paths::get(&name)?;
+    let paths = Paths::get(name)?;
     let tmp_path = tmp_file_path(&paths.data_dir);
     fs::rename(&paths.data_dir, &tmp_path)?;
     fs::rename(&paths.backup_dir, &paths.data_dir)?;
@@ -132,10 +134,11 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
             }
 
             if !has_edgedb_dump && has_main_dump {
-                let mut creds = credentials::read_sync(&paths.credentials)?;
-                creds.database = Some("edgedb".to_string());
-                creds.branch = Some("edgedb".to_string());
-                credentials::write(&paths.credentials, &creds)?;
+                if let Some(mut creds) = credentials::read(&instance)? {
+                    creds.database = Some("edgedb".to_string());
+                    creds.branch = Some("edgedb".to_string());
+                    credentials::write(&instance, &creds)?;
+                }
             }
         }
     }

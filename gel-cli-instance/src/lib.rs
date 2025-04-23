@@ -291,7 +291,7 @@ impl StreamCollector {
                         for chunk in line.utf8_chunks() {
                             let valid = chunk.valid();
                             // Trim \r or \n from the end of the line.
-                            let valid = valid.trim_end_matches(|c| c == '\r' || c == '\n');
+                            let valid = valid.trim_end_matches(['\r', '\n']);
                             f(valid);
                         }
                         f

@@ -146,6 +146,11 @@ pub struct UpgradeCheck {
     #[arg(long)]
     pub watch: bool,
 
+    #[cfg(unix)]
+    /// Do not exit when the parent process exits.
+    #[arg(long, requires("watch"))]
+    pub no_exit_with_parent: bool,
+
     #[arg(hide = true)]
     pub run_server_with_status: Option<PathBuf>,
 }

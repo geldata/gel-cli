@@ -6,6 +6,7 @@ use std::ffi::OsString;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 use std::sync::{LazyLock, Mutex, OnceLock, RwLock};
 use std::time::{Duration, SystemTime};
 
@@ -13,6 +14,7 @@ use anyhow::Context;
 use const_format::formatcp;
 use fn_error_context::context;
 use gel_tokio::InstanceName;
+use gel_tokio::dsn::CredentialsFile;
 use url::Url;
 
 use crate::async_util;
@@ -101,22 +103,8 @@ impl Wsl {
         pro.no_proxy();
         pro
     }
-    pub fn sh(&self, _current_dir: &Path) -> process::Native {
-        let mut pro = process::Native::new("sh", "sh", "wsl");
-        pro.arg("--user").arg("edgedb");
-        pro.arg("--distribution").arg(&self.distribution);
-        pro.arg("_EDGEDB_FROM_WINDOWS=1");
-        if let Some(log_env) = env::var_os("RUST_LOG") {
-            let mut pair = OsString::with_capacity("RUST_LOG=".len() + log_env.len());
-            pair.push("RUST_LOG=");
-            pair.push(log_env);
-            pro.arg(pair);
-        }
-        // TODO: set current dir
-        pro.arg("/bin/sh");
-        pro
-    }
     #[cfg(windows)]
+    #[allow(dead_code)]
     fn copy_out(&self, src: impl AsRef<str>, destination: impl AsRef<Path>) -> anyhow::Result<()> {
         let dest = path_to_linux(destination.as_ref())?;
         let cmd = format!(
@@ -173,6 +161,15 @@ fn credentials_linux(instance: &str) -> String {
     format!("/home/edgedb/.config/edgedb/credentials/{instance}.json")
 }
 
+/// Credentials may be updated by various operations.
+fn sync_credentials(instance: &str) -> anyhow::Result<()> {
+    let wsl = ensure_wsl()?;
+    let credentials = wsl.read_text_file(credentials_linux(instance))?;
+    let credentials = CredentialsFile::from_str(&credentials)?;
+    credentials::write(&InstanceName::Local(instance.to_string()), &credentials)?;
+    Ok(())
+}
+
 #[context("cannot convert to linux (WSL) path {:?}", path)]
 pub fn path_to_linux(path: &Path) -> anyhow::Result<String> {
     use std::path::Component::*;
@@ -224,12 +221,7 @@ pub fn path_to_windows(path: &Path) -> anyhow::Result<PathBuf> {
     Ok(result)
 }
 
-pub fn create_instance(
-    options: &create::Command,
-    name: &str,
-    port: u16,
-    paths: &Paths,
-) -> anyhow::Result<()> {
+pub fn create_instance(options: &create::Command, name: &str, port: u16) -> anyhow::Result<()> {
     let wsl = ensure_wsl()?;
 
     let inner_options = create::Command {
@@ -244,15 +236,11 @@ pub fn create_instance(
         .args(&inner_options)
         .run()?;
 
-    if let Some(dir) = paths.credentials.parent() {
-        fs_err::create_dir_all(dir)?;
-    }
-    wsl.copy_out(credentials_linux(name), &paths.credentials)?;
-
+    sync_credentials(name)?;
     Ok(())
 }
 
-pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<()> {
+pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<bool> {
     let mut found = false;
     if let Some(wsl) = get_wsl()? {
         let options = destroy::Command {
@@ -275,12 +263,6 @@ pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<()> {
     }
 
     let paths = Paths::get(name)?;
-    if paths.credentials.exists() {
-        found = true;
-        log::info!(target: "edgedb::portable::destroy",
-                   "Removing credentials file {:?}", &paths.credentials);
-        fs::remove_file(&paths.credentials)?;
-    }
     for path in &paths.service_files {
         if path.exists() {
             found = true;
@@ -289,11 +271,7 @@ pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<()> {
             fs::remove_file(path)?;
         }
     }
-    if !found {
-        msg!("No instance named {} found", name.emphasized());
-        return Err(ExitCode::new(exit_codes::INSTANCE_NOT_FOUND).into());
-    }
-    Ok(())
+    Ok(found)
 }
 
 #[context("cannot read {:?}", path)]
@@ -409,7 +387,7 @@ fn download_binary(dest: &Path) -> anyhow::Result<()> {
     };
 
     let down_path = dest.with_extension("download");
-    let tmp_path = tmp_file_path(&dest);
+    let tmp_path = tmp_file_path(dest);
     download(&down_path, &pkg.url, false)?;
     upgrade::unpack_file(&down_path, &tmp_path, pkg.compression)?;
     fs_err::rename(&tmp_path, dest)?;
@@ -440,8 +418,7 @@ fn utf16_contains(bytes: &[u8], needle: &str) -> bool {
 
 #[cfg(windows)]
 fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
-    static LIB: LazyLock<std::io::Result<wslapi::Library>> =
-        LazyLock::new(|| wslapi::Library::new());
+    static LIB: LazyLock<std::io::Result<wslapi::Library>> = LazyLock::new(wslapi::Library::new);
     match &*LIB {
         Ok(lib) => Ok(lib),
         Err(e) => anyhow::bail!("cannot initialize WSL (Windows Subsystem for Linux): {e:#}"),
@@ -459,7 +436,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
     if meta_path.exists() {
         match read_wsl(&meta_path) {
             Ok(wsl_info) if wsl.is_distribution_registered(&wsl_info.distribution) => {
-                update_cli = wsl_check_cli(&wsl, &wsl_info)?;
+                update_cli = wsl_check_cli(wsl, &wsl_info)?;
                 let update_certs =
                     wsl_info.certs_timestamp + CERT_UPDATE_INTERVAL < SystemTime::now();
                 if !update_cli && !update_certs {
@@ -497,7 +474,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
             fs::create_dir_all(&download_dir)?;
 
             let download_path = download_dir.join("debian.zip");
-            download(&download_path, &*DISTRO_URL, false)?;
+            download(&download_path, &DISTRO_URL, false)?;
             msg!("Unpacking WSL distribution...");
             let appx_path = download_dir.join("debian.appx");
             unpack_appx(&download_path, &appx_path)?;
@@ -547,7 +524,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
             distro = CURRENT_DISTRO.into();
         };
 
-        wsl_simple_cmd(&wsl, &distro, "useradd edgedb --uid 1000 --create-home")?;
+        wsl_simple_cmd(wsl, &distro, "useradd edgedb --uid 1000 --create-home")?;
     }
 
     if update_cli {
@@ -555,7 +532,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
         if let Some(bin_path) = Env::_wsl_linux_binary()? {
             let bin_path = fs::canonicalize(bin_path)?;
             wsl_simple_cmd(
-                &wsl,
+                wsl,
                 &distro,
                 &format!(
                     "cp {} /usr/bin/edgedb && chmod 755 /usr/bin/edgedb",
@@ -566,7 +543,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
             let cache_path = download_dir.join("edgedb");
             download_binary(&cache_path)?;
             wsl_simple_cmd(
-                &wsl,
+                wsl,
                 &distro,
                 &format!(
                     "mv {} /usr/bin/edgedb && chmod 755 /usr/bin/edgedb",
@@ -848,7 +825,7 @@ pub fn reset_password(
             .arg("reset-password")
             .args(options)
             .run()?;
-        wsl.copy_out(credentials_linux(name), credentials::path(name)?)?;
+        sync_credentials(name)?;
     } else {
         anyhow::bail!(
             "WSL distribution is not installed, \
@@ -1017,7 +994,7 @@ pub fn list(options: &status::List, opts: &crate::Options) -> anyhow::Result<()>
     };
     let visited = local
         .iter()
-        .map(|v| v.name.clone())
+        .map(|v| InstanceName::Local(v.name.clone()))
         .collect::<BTreeSet<_>>();
 
     let remote = if options.no_remote {
@@ -1080,8 +1057,7 @@ pub fn upgrade(options: &instance::upgrade::Command, name: &str) -> anyhow::Resu
         .arg("upgrade")
         .args(options)
         .run()?;
-    // credentials might be updated on upgrade if we change format somehow
-    wsl.copy_out(credentials_linux(name), credentials::path(name)?)?;
+    sync_credentials(name)?;
     Ok(())
 }
 
@@ -1092,8 +1068,7 @@ pub fn revert(options: &instance::revert::Command, name: &str) -> anyhow::Result
         .arg("revert")
         .args(options)
         .run()?;
-    // credentials might be updated on upgrade if we change format somehow
-    wsl.copy_out(credentials_linux(name), credentials::path(name)?)?;
+    sync_credentials(name)?;
     Ok(())
 }
 

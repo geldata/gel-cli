@@ -8,6 +8,7 @@ use const_format::concatcp;
 use fn_error_context::context;
 use gel_cli_derive::IntoArgs;
 use gel_cli_instance::cloud::CloudInstanceUpgrade;
+use gel_tokio::dsn::DEFAULT_DATABASE_NAME;
 use gel_tokio::{CloudName, InstanceName};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
@@ -402,12 +403,12 @@ pub fn upgrade_incompatible(
                 paths.dump_path.join("main.dump"),
             )?;
 
-            if let Ok(mut creds) = credentials::read_sync(&paths.credentials) {
-                if creds.database == Some("edgedb".to_string()) {
-                    log::info!("Updating credentials file {:?}", &paths.credentials);
-                    creds.database = Some("main".to_string());
-                    creds.branch = Some("main".to_string());
-                    credentials::write(&paths.credentials, &creds)?;
+            if let Ok(Some(mut creds)) = credentials::read(&inst.instance_name) {
+                if creds.database == Some(DEFAULT_DATABASE_NAME.to_string()) {
+                    log::info!("Updating credentials file");
+                    creds.database = None;
+                    creds.branch = None;
+                    credentials::write(&inst.instance_name, &creds)?;
                 }
             }
         }
@@ -465,7 +466,7 @@ pub fn dump_and_stop(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()> {
 
 #[tokio::main(flavor = "current_thread")]
 async fn block_on_dump_instance(inst: &InstanceInfo, destination: &Path) -> anyhow::Result<()> {
-    dump_instance(inst, destination).await
+    Box::pin(dump_instance(inst, destination)).await
 }
 
 #[context("error dumping instance")]
@@ -486,12 +487,12 @@ pub async fn dump_instance(inst: &InstanceInfo, destination: &Path) -> anyhow::R
         conn_params: Connector::new(Ok(config)),
         instance_name: Some(InstanceName::Local(inst.name.clone())),
     };
-    commands::dump_all(
+    Box::pin(commands::dump_all(
         &mut cli,
         &options,
         destination,
         true, /*include_secrets*/
-    )
+    ))
     .await?;
     Ok(())
 }
@@ -537,7 +538,7 @@ fn reinit_and_restore(inst: &InstanceInfo, paths: &Paths) -> anyhow::Result<()> 
     control::self_signed_arg(&mut cmd, inst.get_version()?);
     cmd.background_for(|| {
         Ok(async {
-            restore_instance(inst, &paths.dump_path).await?;
+            Box::pin(restore_instance(inst, &paths.dump_path)).await?;
             log::info!(
                 "Restarting instance {:?} to apply \
                    changes from `restore --all`",
@@ -574,7 +575,7 @@ async fn restore_instance(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()
         conn_params: Connector::new(Ok(cfg)),
         instance_name: Some(InstanceName::Local(inst.name.clone())),
     };
-    commands::restore_all(
+    Box::pin(commands::restore_all(
         &mut cli,
         &options,
         &Restore {
@@ -583,7 +584,7 @@ async fn restore_instance(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()
             verbose: false,
             conn: None,
         },
-    )
+    ))
     .await?;
     Ok(())
 }

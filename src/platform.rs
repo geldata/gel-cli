@@ -83,12 +83,12 @@ pub fn path_bytes(path: &Path) -> anyhow::Result<&[u8]> {
 }
 
 #[cfg(windows)]
-pub fn path_bytes<'x>(path: &'x Path) -> anyhow::Result<&'x [u8]> {
+pub fn path_bytes(path: &Path) -> anyhow::Result<&[u8]> {
     let s = path
         .to_str()
         // should never happen because paths on windows are valid UTF-16
         .ok_or_else(|| anyhow::anyhow!("bad chars in path"))?;
-    return Ok(s.as_bytes());
+    Ok(s.as_bytes())
 }
 
 #[cfg(unix)]
@@ -100,11 +100,11 @@ pub fn bytes_to_path(path: &[u8]) -> anyhow::Result<&Path> {
 }
 
 #[cfg(windows)]
-pub fn bytes_to_path<'x>(path: &'x [u8]) -> anyhow::Result<&'x Path> {
+pub fn bytes_to_path(path: &[u8]) -> anyhow::Result<&'_ Path> {
     use anyhow::Context;
 
     let s = std::str::from_utf8(path).context("bad chars in path")?;
-    return Ok(Path::new(s));
+    Ok(Path::new(s))
 }
 
 #[cfg(unix)]

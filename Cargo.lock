@@ -1511,7 +1511,6 @@ dependencies = [
  "gel-cli-derive",
  "gel-cli-instance",
  "gel-derive",
- "gel-dsn",
  "gel-errors",
  "gel-jwt",
  "gel-protocol",
@@ -1613,6 +1612,7 @@ dependencies = [
  "bytes",
  "clap",
  "derive_more",
+ "flate2",
  "futures",
  "gel-dsn",
  "humantime-serde",
@@ -1622,6 +1622,7 @@ dependencies = [
  "scopeguard",
  "serde",
  "serde_json",
+ "tar",
  "thiserror 2.0.12",
  "tokio",
  "uuid",
@@ -1749,9 +1750,9 @@ dependencies = [
 
 [[package]]
 name = "gel-tokio"
-version = "0.10.10"
+version = "0.10.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9aaac12541a8b478cafc83ed2ecf512c072b0b788e77ab8ba66209c40bc7dcec"
+checksum = "b0e985ac7a4450ec2d256411c5c672ae1391d06bd075253dad1b63b6b95ad19b"
 dependencies = [
  "anyhow",
  "arc-swap",

@@ -90,7 +90,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
         let mut config = config.clone();
         config.tls_security = TlsSecurity::Insecure;
         let cert_holder = cert_holder.clone();
-        gel_tokio::raw::Connection::connect_with_cert_check(
+        Box::pin(gel_tokio::raw::Connection::connect_with_cert_check(
             &config,
             CertCheck::new_fn(move |cert| {
                 let cert = cert.to_vec();
@@ -104,10 +104,10 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                     res
                 }
             }),
-        )
+        ))
         .await
     } else {
-        gel_tokio::raw::Connection::connect(&config).await
+        Box::pin(gel_tokio::raw::Connection::connect(&config)).await
     };
 
     #[allow(deprecated)]
@@ -139,7 +139,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
             }
 
             config = config.with_password(&password);
-            connect_result = Ok(gel_tokio::raw::Connection::connect(&config).await?);
+            connect_result = Ok(Box::pin(gel_tokio::raw::Connection::connect(&config)).await?);
         } else {
             return Err(e.into());
         }
@@ -161,8 +161,8 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     crate::table::settings(&super::credentials::credentials_table(&config));
     let creds = config.as_credentials()?;
 
-    let (cred_path, instance_name) = match &cmd.name {
-        Some(InstanceName::Local(name)) => (credentials::path(name)?, name.clone()),
+    let instance_name = match &cmd.name {
+        Some(instance @ InstanceName::Local(_)) => instance.clone(),
         Some(InstanceName::Cloud(..)) => unreachable!(),
         None => {
             let default = if opts.conn_options.instance_opts.docker {
@@ -174,7 +174,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                 if !cmd.quiet {
                     eprintln!("Using generated instance name: {}", &default);
                 }
-                (credentials::path(&default)?, default)
+                InstanceName::Local(default)
             } else {
                 loop {
                     let name =
@@ -182,32 +182,32 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
                             .default(&default)
                             .async_ask()
                             .await?;
-                    if matches!(
-                        InstanceName::from_str(&name),
-                        Err(_) | Ok(InstanceName::Cloud { .. })
-                    ) {
-                        print::error!(
-                            "Instance name must be a valid identifier, \
+                    let res = InstanceName::from_str(&name);
+                    match res {
+                        Err(_) | Ok(InstanceName::Cloud { .. }) => {
+                            print::error!(
+                                "Instance name must be a valid identifier, \
                              (regex: ^[a-zA-Z_0-9]+(-[a-zA-Z_0-9]+)*$)"
-                        );
-                        continue;
+                            );
+                            continue;
+                        }
+                        Ok(instance @ InstanceName::Local(_)) => break instance,
                     }
-                    break (credentials::path(&name)?, name);
                 }
             }
         }
     };
-    if cred_path.exists() {
+
+    if credentials::exists(&instance_name)? {
         if cmd.overwrite {
             if !cmd.quiet {
-                print::warn!("Overwriting {}", cred_path.display());
+                print::warn!("Overwriting {instance_name:#}");
             }
         } else if cmd.non_interactive {
-            anyhow::bail!("File {} exists; aborting.", cred_path.display());
+            anyhow::bail!("{instance_name:#} exists; aborting.");
         } else {
             let mut q = question::Confirm::new_dangerous(format!(
-                "{} already exists! Overwrite?",
-                cred_path.display()
+                "{instance_name:#} already exists! Overwrite?"
             ));
             q.default(false);
             if !q.async_ask().await? {
@@ -216,7 +216,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
         }
     }
 
-    credentials::write_async(&cred_path, &creds).await?;
+    credentials::write(&instance_name, &creds)?;
     if !cmd.quiet {
         eprintln!(
             "{} To connect run:\
@@ -224,7 +224,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
             "Successfully linked to remote instance."
                 .emphasized()
                 .success(),
-            instance_name.escape_default(),
+            instance_name.to_string().escape_default(),
         );
     }
     Ok(())

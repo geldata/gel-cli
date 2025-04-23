@@ -199,6 +199,7 @@ mod jwt {
             }
         }
 
+        #[cfg_attr(target_os = "windows", allow(unreachable_code))]
         fn read_keys(&mut self) -> anyhow::Result<()> {
             let mut key_set = gel_jwt::KeyRegistry::default();
 

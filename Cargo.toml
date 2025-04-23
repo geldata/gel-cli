@@ -23,7 +23,7 @@ gel-derive = { version = "0.7" }
 gel-errors = { version = "0.5" }
 gel-auth = { version = "0.1" }
 gel-tokio = { version = "0.10", features=["admin_socket", "unstable"] }
-gel-dsn = { version = "0.2", features = ["unstable", "gel", "auto-log-trace", "auto-log-warning"] }
+gel-dsn = { version = "0.2" }
 gel-jwt = { version = "0.1", features = ["gel"] }
 
 [package]
@@ -54,7 +54,6 @@ gel-derive = { workspace = true }
 gel-errors = { workspace = true }
 gel-auth = { workspace = true }
 gel-tokio = { workspace = true }
-gel-dsn = { workspace = true }
 gel-jwt = { workspace = true }
 
 gel-cli-instance = { path = "./gel-cli-instance" }
@@ -126,7 +125,7 @@ backtrace = "0.3.61"
 arc-swap = "1.4.0"
 ctrlc = "3.2.0"
 crossbeam-utils = "0.8.5"
-tar = "0.4.37"
+tar = "0.4.44"
 zstd = "0.13"
 semver = {version="1.0.4", features=["serde"]}
 fd-lock = "4.0.2"
@@ -202,3 +201,4 @@ vec_init_then_push = 'allow'
 while_let_on_iterator = 'allow'
 too_many_arguments = 'allow'
 clone_on_copy = 'allow'
+large_futures = 'deny'

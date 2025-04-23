@@ -58,7 +58,7 @@ impl Migrator {
         let bar = ProgressBar::new_spinner();
         bar.enable_steady_tick(Duration::from_millis(100));
         bar.set_message("Connecting");
-        let mut cli = self.connector.connect().await?;
+        let mut cli = Box::pin(self.connector.connect()).await?;
 
         let old_state = cli.set_ignore_error_state();
         let result = dev_mode::migrate(&mut cli, &self.migration_ctx, &bar).await;
@@ -86,7 +86,7 @@ impl Migrator {
         if !self.is_force_database_error {
             return;
         }
-        let conn = self.connector.connect().await;
+        let conn = Box::pin(self.connector.connect()).await;
         let mut conn = match conn {
             Ok(connection) => connection,
             Err(e) => {
