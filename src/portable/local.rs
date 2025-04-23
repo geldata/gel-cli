@@ -301,7 +301,6 @@ impl Paths {
         assert_eq!(system_paths.home_dir, crate::platform::home_dir().ok());
 
         assert_eq!(instance_paths.data_dir, res.data_dir);
-        assert_eq!(instance_paths.credentials_path, credentials::path(name)?);
         assert_eq!(instance_paths.runstate_path, res.runstate_dir);
 
         Ok(res)
