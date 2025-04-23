@@ -12,7 +12,6 @@ use fn_error_context::context;
 
 use gel_tokio::dsn::UnixPath;
 use gel_tokio::{Builder, Config, InstanceName};
-use libc::system;
 
 use crate::branding::BRANDING;
 use crate::bug;
