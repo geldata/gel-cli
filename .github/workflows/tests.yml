@@ -194,7 +194,7 @@ jobs:
             distribution: Debian
 
       - run: |
-          cargo test --workspace --test=${{ matrix.test }} --features portable_tests
+          cargo test --workspace --test=${{ matrix.test }} --features portable_tests -- --test-threads=1
 
   test-bin-installable:
     runs-on: ${{ matrix.os }}

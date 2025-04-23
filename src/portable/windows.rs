@@ -103,21 +103,6 @@ impl Wsl {
         pro.no_proxy();
         pro
     }
-    pub fn sh(&self, _current_dir: &Path) -> process::Native {
-        let mut pro = process::Native::new("sh", "sh", "wsl");
-        pro.arg("--user").arg("edgedb");
-        pro.arg("--distribution").arg(&self.distribution);
-        pro.arg("_EDGEDB_FROM_WINDOWS=1");
-        if let Some(log_env) = env::var_os("RUST_LOG") {
-            let mut pair = OsString::with_capacity("RUST_LOG=".len() + log_env.len());
-            pair.push("RUST_LOG=");
-            pair.push(log_env);
-            pro.arg(pair);
-        }
-        // TODO: set current dir
-        pro.arg("/bin/sh");
-        pro
-    }
     #[cfg(windows)]
     #[allow(dead_code)]
     fn copy_out(&self, src: impl AsRef<str>, destination: impl AsRef<Path>) -> anyhow::Result<()> {
