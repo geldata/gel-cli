@@ -46,7 +46,7 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
         .context("tempfile failure")?
         .into_temp_path();
 
-    let mut cmd = windows::ensure_wsl()?.edgedb();
+    let mut cmd = windows::ensure_wsl()?.cli_exe();
     cmd.arg("migration").arg("upgrade-check");
     cmd.args(&UpgradeCheck {
         run_server_with_status: Some(windows::path_to_linux(&status_path)?.into()),
