@@ -270,7 +270,8 @@ pub fn instance_data_dir(name: &str) -> anyhow::Result<PathBuf> {
 impl Paths {
     pub fn get(name: &str) -> anyhow::Result<Paths> {
         let base = data_dir()?;
-        Ok(Paths {
+
+        let res = Paths {
             data_dir: base.join(name),
             dump_path: base.join(format!("{name}.dump")),
             backup_dir: base.join(format!("{name}.backup")),
@@ -285,7 +286,24 @@ impl Paths {
             } else {
                 Vec::new()
             },
-        })
+        };
+
+        let paths = Builder::default().with_system().stored_info().paths();
+        let system_paths = paths.for_system();
+        let instance_paths = paths.for_instance(name).unwrap();
+
+        assert_eq!(system_paths.cache_dir, cache_dir().ok());
+        assert_eq!(
+            system_paths.data_dir.unwrap().join("data"),
+            data_dir().unwrap()
+        );
+        assert_eq!(system_paths.config_dir, config_dir().ok());
+        assert_eq!(system_paths.home_dir, crate::platform::home_dir().ok());
+
+        assert_eq!(instance_paths.data_dir, res.data_dir);
+        assert_eq!(instance_paths.runstate_path, res.runstate_dir);
+
+        Ok(res)
     }
     pub fn check_exists(&self) -> anyhow::Result<()> {
         if self.data_dir.exists() {
