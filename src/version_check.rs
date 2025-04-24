@@ -105,10 +105,6 @@ fn _check(cache_dir: &Path, strict: bool) -> anyhow::Result<()> {
     let self_version = cli::upgrade::self_version()?;
     let channel = cli::upgrade::channel();
 
-    if _check_newly_installed().unwrap_or(true) {
-        return Ok(());
-    }
-
     match read_cache(cache_dir) {
         Ok(cache) if cache.expires > SystemTime::now() && cache.channel_matches(&channel) => {
             log::debug!("Cached version {:?}", cache.version);
@@ -161,6 +157,10 @@ fn cache_dir() -> anyhow::Result<PathBuf> {
 }
 
 pub fn check(no_version_check_opt: bool) -> anyhow::Result<()> {
+    if _check_newly_installed().unwrap_or(true) {
+        return Ok(());
+    }
+
     use cli::env::VersionCheck;
     let mut strict = false;
     if no_version_check_opt {
