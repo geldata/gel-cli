@@ -149,7 +149,12 @@ jobs:
         run: |
           gel --version
 
-      - name: Run tests
+      - name: Run dump/dump.cli test
         run: |
           _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/dump/dump.cli
+        shell: bash
+
+      - name: Run link/script.cli test
+        run: |
+          _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/link/script.cli
         shell: bash
