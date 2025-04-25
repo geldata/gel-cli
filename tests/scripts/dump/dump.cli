@@ -56,7 +56,7 @@ $ gel -I dump_restore --database dump_02 query "INSERT Hello { name := 'world' }
 
 # Ensure that the password between the two instances matches
 $ echo "password" | gel -I dump_restore instance reset-password --password-from-stdin
-! Password was successfully changed and saved.
+! Password was successfully changed and saved to: %{GREEDYDATA}
 
 $ gel -I dump_restore dump --all --format=dir $WORK_DIR/dump_all
 repeat {
@@ -73,7 +73,7 @@ $ gel instance create -I dump_restore2
 
 # Ensure that the password between the two instances matches
 $ echo "password" | gel -I dump_restore2 instance reset-password --password-from-stdin
-! Password was successfully changed and saved.
+! Password was successfully changed and saved to: %{GREEDYDATA}
 
 $ gel -I dump_restore2 restore --all $WORK_DIR/dump_all
 repeat {
