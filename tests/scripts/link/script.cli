@@ -99,10 +99,12 @@ repeat {
 ? └%{GREEDYDATA}┘
 ? Version %{VERSION} is already downloaded
 ! Initializing Gel instance 'project2'...
-choice {
-    ! Gel will not start on next login. Trying to start database in the background...
-    repeat {
-        ? Created symlink %{GREEDYDATA}
+optional {
+    choice {
+        ! Gel will not start on next login. Trying to start database in the background...
+        repeat {
+            ? Created symlink %{GREEDYDATA}
+        }
     }
 }
 ! Applying migrations...
