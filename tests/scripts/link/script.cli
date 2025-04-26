@@ -146,6 +146,9 @@ optional {
 ? Instance project2 successfully upgraded to %{VERSION}
 
 $ cd $WORK_DIR/proj/project2 && gel query "SELECT 1"
+optional {
+    ! Connecting to Gel instance %{GREEDYDATA}...
+}
 ! 1
 
 $ gel instance destroy --instance=project2 --non-interactive
