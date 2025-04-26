@@ -10,7 +10,7 @@
 #   - choice { ... }
 #   - unordered { ... }
 
-#pattern VERSION \d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local)
+#pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+-dev
 #test %{VERSION} "Gel CLI 7.2.0-dev.1306+7d4a485"
 ignore {
     ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
@@ -56,7 +56,7 @@ choice {
     }
     ? Version %{VERSION} is already downloaded
 }
-! Initializing Gel instance...
+! Initializing Gel instance 'inst1'...
 choice {
     ! Gel will not start on next login. Trying to start database in the background...
     repeat {
@@ -96,7 +96,7 @@ repeat {
 }
 ? └%{GREEDYDATA}┘
 ? Version %{VERSION} is already downloaded
-! Initializing Gel instance...
+! Initializing Gel instance 'project2'...
 choice {
     ! Gel will not start on next login. Trying to start database in the background...
     repeat {
@@ -158,7 +158,7 @@ If you really want to destroy the instance, run:
 $ gel instance destroy --instance=project1 --non-interactive
 %EXIT 8
 *
-! gel error: instance not found
+! gel error: Could not find Gel instance 'project1'
 
 $ gel instance list
 *
@@ -170,7 +170,7 @@ $ gel instance list
 $ gel instance destroy --instance=project2 --force
 !!!
 Unlinking %{GREEDYDATA}
-Instance project2 is successfully deleted.
+Gel instance 'project2' was successfully deleted.
 !!!
 
 $ gel instance list
@@ -193,7 +193,7 @@ repeat {
 }
 ? └%{GREEDYDATA}┘
 ? Version %{VERSION} is already downloaded
-! Initializing Gel instance...
+! Initializing Gel instance 'project2'...
 *
 ! Applying migrations...
 ! Everything is up to date. Revision initial
