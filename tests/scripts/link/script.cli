@@ -133,11 +133,13 @@ optional {
 !
 ? Restoring database from file `%{DATA}`. Total size: %{DATA}
 ! Restore completed
-repeat {
-    ? Created symlink %{GREEDYDATA}
+optional {
+    repeat {
+        ? Created symlink %{GREEDYDATA}
+    }
+    ? Stopping %{DATA}, but its triggering units are still active:
+    ? edgedb-server@project2.socket
 }
-? Stopping %{DATA}, but its triggering units are still active:
-? edgedb-server@project2.socket
 ? Instance project2 successfully upgraded to %{VERSION}
 
 $ cd $WORK_DIR/proj/project2 && gel query "SELECT 1"
