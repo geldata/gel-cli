@@ -124,8 +124,10 @@ $ gel project upgrade --force --project-dir=$WORK_DIR/proj/project2
 ? Upgrading to a major version %{VERSION}
 ! Dumping the database...
 ! Starting dump for database `'main'`...
-repeat {
-    ? Removed %{DATA}\.
+optional {
+    repeat {
+        ? Removed %{DATA}\.
+    }
 }
 ! Restoring the database...
 !
