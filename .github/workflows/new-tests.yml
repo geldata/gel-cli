@@ -139,6 +139,7 @@ jobs:
           gel instance create -I _placeholder_
           gel instance destroy -I _placeholder_
           wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/edgedb
+          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/gel
 
       - name: Set executable permissions
         if: runner.os != 'Windows'

@@ -57,10 +57,12 @@ choice {
     ? Version %{VERSION} is already downloaded
 }
 ! Initializing Gel instance 'inst1'...
-choice {
-    ! Gel will not start on next login. Trying to start database in the background...
-    repeat {
-        ? Created symlink %{GREEDYDATA}
+optional {
+    choice {
+        ! Gel will not start on next login. Trying to start database in the background...
+        repeat {
+            ? Created symlink %{GREEDYDATA}
+        }
     }
 }
 ! Instance inst1 is up and running.
