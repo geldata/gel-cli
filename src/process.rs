@@ -193,7 +193,7 @@ impl Native {
             program: cmd.as_ref().as_os_str().to_os_string(),
             args: vec![cmd.as_ref().as_os_str().to_os_string()],
             envs: HashMap::new(),
-            proxy: concolor::get(concolor::Stream::Stdout).color(),
+            proxy: true,
             quiet: false,
             stop_process: None,
             pid_file: None,
