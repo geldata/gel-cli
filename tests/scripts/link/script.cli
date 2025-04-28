@@ -122,15 +122,11 @@ optional {
 ! 1
 
 $ gel project upgrade --force --project-dir=$WORK_DIR/proj/project2
-? Version %{VERSION} is already downloaded
 # Windows doesn't print this because of a bug
 optional {
     ! The schema is forward compatible. Ready for upgrade.
 }
-# Windows prints this extra line (probably shouldn't)
-optional {
-    ! Version %{DATA} is already downloaded
-}
+? Version %{VERSION} is already downloaded
 ? Upgrading from %{DATA} to incompatible version %{DATA}
 ! Dumping the database...
 ! Starting dump for database `'main'`...
@@ -222,11 +218,11 @@ repeat {
 ! To connect to project2, navigate to %{DATA}/proj/project2 and run `gel`
 
 $ gel project upgrade --to-latest --force --project-dir=$WORK_DIR/proj/project2
-? Version %{VERSION} is already downloaded
 # Windows doesn't print this because of a bug
 optional {
     ! The schema is forward compatible. Ready for upgrade.
 }
+? Version %{VERSION} is already downloaded
 ? Upgrading from %{DATA} to incompatible version %{DATA}
 ! Dumping the database...
 ! Starting dump for database `'main'`...
