@@ -127,6 +127,10 @@ $ gel project upgrade --force --project-dir=$WORK_DIR/proj/project2
 optional {
     ! The schema is forward compatible. Ready for upgrade.
 }
+# Windows prints this extra line (probably shouldn't)
+optional {
+    ! Version %{DATA} is already downloaded
+}
 ? Upgrading from %{DATA} to incompatible version %{DATA}
 ! Dumping the database...
 ! Starting dump for database `'main'`...
