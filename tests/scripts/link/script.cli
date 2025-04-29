@@ -253,18 +253,18 @@ optional {
 ? Setting `server-version = "%{DATA}"` in `gel.toml`
 
 $ gel instance status --instance=project2 --extended
-???
-project2:
-  Status: running, pid %{NUMBER}
-  Pid: %{NUMBER}
-  Service/Container: exists
-  Credentials: exists
-  Version: %{VERSION}
-  Port: %{NUMBER}
-  Data directory: %{DATA}
-  Data status: normal
-  Backup: present, %{DATA}
-???
+! project2:
+!   Status: running, pid %{NUMBER}
+!   Pid: %{NUMBER}
+optional {
+    !   Service/Container: exists
+}
+!   Credentials: exists
+!   Version: %{VERSION}
+!   Port: %{NUMBER}
+!   Data directory: %{DATA}
+!   Data status: normal
+!   Backup: present, %{DATA}
 
 $ gel instance revert --instance=project2 --no-confirm
 *
