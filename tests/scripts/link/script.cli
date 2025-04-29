@@ -61,7 +61,7 @@ optional {
     choice {
         ! Gel will not start on next login. Trying to start database in the background...
         repeat {
-            ? Created symlink %{GREEDYDATA}
+            ! [systemctl] Created symlink %{GREEDYDATA}
         }
     }
 }
@@ -103,7 +103,7 @@ optional {
     choice {
         ! Gel will not start on next login. Trying to start database in the background...
         repeat {
-            ? Created symlink %{GREEDYDATA}
+            ! [systemctl] Created symlink %{GREEDYDATA}
         }
     }
 }
@@ -137,7 +137,7 @@ choice {
 ! Starting dump for database `'main'`...
 optional {
     repeat {
-        ? Removed %{DATA}\.
+        ! [systemctl] Removed %{DATA}\.
     }
 }
 ! Restoring the database...
@@ -146,10 +146,10 @@ optional {
 ! Restore completed
 optional {
     repeat {
-        ? Created symlink %{GREEDYDATA}
+        ! [systemctl] Created symlink %{GREEDYDATA}
     }
-    ? Stopping %{DATA}, but its triggering units are still active:
-    ? edgedb-server@project2.socket
+    ! [systemctl] Stopping %{DATA}, but its triggering units are still active:
+    ! [systemctl] edgedb-server@project2.socket
 }
 ? Instance project2 successfully upgraded to %{VERSION}
 
@@ -242,7 +242,7 @@ choice {
 ! Starting dump for database `'main'`...
 optional {
     repeat {
-        ? Removed %{DATA}\.
+        ! [systemctl] Removed %{DATA}\.
     }
 }
 ! Restoring the database...
