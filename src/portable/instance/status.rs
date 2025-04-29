@@ -1012,7 +1012,7 @@ impl ConnectionStatus {
     }
 }
 
-fn status_str(status: &Service) -> &'static str {
+pub fn status_str(status: &Service) -> &'static str {
     match status {
         Service::Ready => "ready",
         Service::Running { .. } => "running",

@@ -32,7 +32,7 @@ use crate::portable::instance;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::instance::destroy;
-use crate::portable::instance::status;
+use crate::portable::instance::status::{self, status_str};
 use crate::portable::local::{InstanceInfo, NonLocalInstance, Paths, write_json};
 use crate::portable::options;
 use crate::portable::project;
@@ -993,7 +993,15 @@ fn list_local(options: &status::List) -> anyhow::Result<Vec<status::JsonStatus>>
             .args(&inner_opts)
             .get_stdout_text()?;
         log::info!("WSL list returned {:?}", text);
-        serde_json::from_str(&text).context("cannot decode json from `instance list` in WSL")?
+        let mut instances: Vec<status::JsonStatus> = serde_json::from_str(&text)
+            .context("cannot decode json from `instance list` in WSL")?;
+        // Use the Windows service status, not the WSL one
+        for instance in instances.iter_mut() {
+            instance.service_status = status_str(&service_status(&instance.name))
+                .to_owned()
+                .into();
+        }
+        instances
     } else {
         Vec::new()
     };

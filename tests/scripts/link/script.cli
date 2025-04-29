@@ -265,6 +265,7 @@ project2:
   Data status: normal
   Backup: present, %{DATA}
 ???
+
 $ gel instance revert --instance=project2 --no-confirm
 *
 ! Starting Gel %{VERSION}...
