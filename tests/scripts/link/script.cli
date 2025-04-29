@@ -181,6 +181,10 @@ $ gel instance destroy --instance=project1 --non-interactive
 %EXIT 8
 *
 ! gel error: Could not find Gel instance 'project1'
+optional {
+    *
+    ! gel error: Could not find Gel instance 'project1'
+}
 
 $ gel instance list
 *
