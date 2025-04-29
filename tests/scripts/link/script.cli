@@ -137,7 +137,7 @@ choice {
 ! Starting dump for database `'main'`...
 optional {
     repeat {
-        ! [systemctl] Removed %{DATA}\.
+        ! [systemctl] Removed %{DATA}.
     }
 }
 ! Restoring the database...
@@ -242,7 +242,7 @@ choice {
 ! Starting dump for database `'main'`...
 optional {
     repeat {
-        ! [systemctl] Removed %{DATA}\.
+        ! [systemctl] Removed %{DATA}.
     }
 }
 ! Restoring the database...
