@@ -128,7 +128,6 @@ choice {
         ! The schema is forward compatible. Ready for upgrade.
         ? Upgrading from %{DATA} to incompatible version %{DATA}
     }
-    # Windows prints this in the wrong order and misses the forward compatibility message
     sequence {
         ? Upgrading from %{DATA} to incompatible version %{DATA}
         ? Version %{VERSION} is already downloaded
@@ -230,7 +229,6 @@ choice {
         ! The schema is forward compatible. Ready for upgrade.
         ? Upgrading from %{DATA} to incompatible version %{DATA}
     }
-    # Windows prints this in the wrong order and misses the forward compatibility message
     sequence {
         ? Upgrading from %{DATA} to incompatible version %{DATA}
         ? Version %{VERSION} is already downloaded
