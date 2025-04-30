@@ -85,7 +85,7 @@ pub struct Command {
 }
 
 async fn run_inner(cmd: &Command, conn: &mut Connection, options: &Options) -> anyhow::Result<()> {
-    let ctx = Context::for_migration_config(&cmd.cfg, false).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, false, options.skip_hooks).await?;
 
     if dev_mode::check_client(conn).await? {
         let dev_num = query_row::<i64>(
@@ -1055,6 +1055,7 @@ async fn start_migration() {
         schema_dir,
         quiet: false,
         project: None,
+        skip_hooks: true,
     };
 
     let res = gen_start_migration(&ctx).await.unwrap();

@@ -573,6 +573,7 @@ fn list_settings(prompt: &mut repl::State) {
 pub async fn execute(
     cmd: &BackslashCmd,
     prompt: &mut repl::State,
+    options: &crate::options::Options,
 ) -> Result<ExecuteResult, anyhow::Error> {
     use crate::commands::parser::BackslashCmd::*;
     use crate::commands::parser::SetCommand;
@@ -584,6 +585,7 @@ pub async fn execute(
         styler: Some(Styler::new()),
         conn_params: prompt.conn_params.clone(),
         instance_name: None,
+        skip_hooks: options.skip_hooks,
     };
     options.infer_instance_name()?;
     match cmd {

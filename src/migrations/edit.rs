@@ -69,11 +69,8 @@ fn print_diff(path1: &Path, data1: &str, path2: &Path, data2: &str) {
 }
 
 #[tokio::main(flavor = "current_thread")]
-pub async fn edit_no_check(
-    _common: &Options,
-    options: &MigrationEdit,
-) -> Result<(), anyhow::Error> {
-    let ctx = Context::for_migration_config(&options.cfg, false).await?;
+pub async fn edit_no_check(cmd: &MigrationEdit, opts: &Options) -> Result<(), anyhow::Error> {
+    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks).await?;
     // TODO(tailhook) do we have to make the full check of whether there are no
     // gaps and parent revisions are okay?
     let (_n, path) = read_names(&ctx)
@@ -85,7 +82,7 @@ pub async fn edit_no_check(
             anyhow::anyhow!("no migration exists. Run `{BRANDING_CLI_CMD} migration create`")
         })?;
 
-    if !options.non_interactive {
+    if !cmd.non_interactive {
         spawn_editor(path.as_ref()).await?;
     }
 
@@ -123,23 +120,15 @@ async fn check_migration(cli: &mut Connection, text: &str, path: &Path) -> anyho
     res.map(|_| ())
 }
 
-pub async fn edit(
-    cli: &mut Connection,
-    common: &Options,
-    options: &MigrationEdit,
-) -> anyhow::Result<()> {
+pub async fn edit(cli: &mut Connection, cmd: &MigrationEdit, opts: &Options) -> anyhow::Result<()> {
     let old_state = cli.set_ignore_error_state();
-    let res = _edit(cli, common, options).await;
+    let res = _edit(cli, cmd, opts).await;
     cli.restore_state(old_state);
     res
 }
 
-async fn _edit(
-    cli: &mut Connection,
-    _common: &Options,
-    options: &MigrationEdit,
-) -> anyhow::Result<()> {
-    let ctx = Context::for_migration_config(&options.cfg, false).await?;
+async fn _edit(cli: &mut Connection, cmd: &MigrationEdit, opts: &Options) -> anyhow::Result<()> {
+    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks).await?;
     // TODO(tailhook) do we have to make the full check of whether there are no
     // gaps and parent revisions are okay?
     let (n, path) = cli
@@ -152,7 +141,7 @@ async fn _edit(
             anyhow::anyhow!("no migration exists. Run `{BRANDING_CLI_CMD} migration create`")
         })?;
 
-    if options.non_interactive {
+    if cmd.non_interactive {
         let text = cli.ping_while(fs::read_to_string(&path)).await?;
         let migration = parse_migration(&text)?;
         let new_id = migration.expected_id(&text)?;

@@ -20,7 +20,7 @@ pub async fn run(
     options: &Options,
     conn: Option<&mut Connection>,
 ) -> anyhow::Result<CommandResult> {
-    let context = context::Context::new(options.instance_name.as_ref()).await?;
+    let context = context::Context::new(options.instance_name.as_ref(), options.skip_hooks).await?;
 
     let mut connector: Connector = options.conn_params.clone();
 

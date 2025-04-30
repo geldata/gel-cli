@@ -359,7 +359,7 @@ fn hooks() {
     let branch_log = fs::read_to_string(branch_log_file).unwrap();
     assert_eq!(branch_log, "another\ndefault-branch-name\n");
 
-    // branch switch, but with explict --instance arg
+    // branch switch, but with explicit --instance arg
     // This should prevent hooks from being executed, since
     // this action is not executed "on a project", but "on an instance".
     Command::new("gel")
@@ -370,6 +370,30 @@ fn hooks() {
         .arg("another")
         .assert()
         .context("branch-switch-3", "")
+        .success()
+        .stderr(ContainsHooks { expected: &[] });
+
+    // branch switch, but with --skip-hooks
+    Command::new("gel")
+        .current_dir("tests/proj/project3")
+        .arg("--skip-hooks")
+        .arg("branch")
+        .arg("switch")
+        .arg("default-branch-name")
+        .assert()
+        .context("branch-switch-4", "")
+        .success()
+        .stderr(ContainsHooks { expected: &[] });
+
+    // branch switch, but with GEL_SKIP_HOOKS
+    Command::new("gel")
+        .current_dir("tests/proj/project3")
+        .env("GEL_SKIP_HOOKS", "1")
+        .arg("branch")
+        .arg("switch")
+        .arg("another")
+        .assert()
+        .context("branch-switch-5", "")
         .success()
         .stderr(ContainsHooks { expected: &[] });
 }

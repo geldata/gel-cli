@@ -123,6 +123,10 @@ define_env! {
     /// System pager
     #[env(PAGER)]
     system_pager: String,
+
+    /// Skip any project hooks defined in gel.toml
+    #[env(GEL_SKIP_HOOKS)]
+    skip_hooks: BoolFlag,
 }
 
 pub fn get_envs(names: &[&str]) -> Result<Option<(String, String)>, anyhow::Error> {
@@ -180,6 +184,20 @@ impl std::str::FromStr for InstallInDocker {
             "allow" => Ok(Self::Allow),
             "default" => Ok(Self::Default),
             _ => Err(format!("Invalid value: {}", s)),
+        }
+    }
+}
+
+pub struct BoolFlag(pub bool);
+
+impl std::str::FromStr for BoolFlag {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "true" | "1" => Ok(Self(true)),
+            "false" | "0" => Ok(Self(false)),
+            _ => Err(format!("Invalid boolean value: {}", s)),
         }
     }
 }

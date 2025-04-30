@@ -30,7 +30,7 @@ use crate::{cloud, credentials};
 
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     match cmd.instance_opts.instance()? {
-        InstanceName::Local(name) => upgrade_local_cmd(cmd, &name),
+        InstanceName::Local(name) => upgrade_local_cmd(cmd, &name, opts),
         InstanceName::Cloud(name) => upgrade_cloud_cmd(cmd, &name, opts),
     }
 }
@@ -178,7 +178,11 @@ fn check_project(name: &str, force: bool, ver_query: &Query) -> anyhow::Result<(
     Ok(())
 }
 
-fn upgrade_local_cmd(cmd: &Command, name: &str) -> anyhow::Result<()> {
+fn upgrade_local_cmd(
+    cmd: &Command,
+    name: &str,
+    opts: &crate::options::Options,
+) -> anyhow::Result<()> {
     let inst = InstanceInfo::read(name)?;
     let inst_ver = inst.get_version()?.specific();
     let (ver_query, ver_option) = Query::from_options(
@@ -219,7 +223,7 @@ fn upgrade_local_cmd(cmd: &Command, name: &str) -> anyhow::Result<()> {
     if inst_ver.is_compatible(&pkg_ver) && !(cmd.force && ver_option) && !cmd.force_dump_restore {
         upgrade_compatible(inst, pkg)
     } else {
-        upgrade_incompatible(inst, pkg, cmd.non_interactive)
+        upgrade_incompatible(inst, pkg, cmd.non_interactive, opts.skip_hooks)
     }
 }
 
@@ -355,6 +359,7 @@ pub fn upgrade_incompatible(
     mut inst: InstanceInfo,
     pkg: PackageInfo,
     non_interactive: bool,
+    skip_hooks: bool,
 ) -> anyhow::Result<()> {
     msg!(
         "Upgrading to a major version {}",
@@ -366,7 +371,7 @@ pub fn upgrade_incompatible(
     let install = install::package(&pkg).context(concatcp!("error installing ", BRANDING))?;
 
     let paths = Paths::get(&inst.name)?;
-    dump_and_stop(&inst, &paths.dump_path)?;
+    dump_and_stop(&inst, &paths.dump_path, skip_hooks)?;
 
     backup(&inst, &install, &paths)?;
 
@@ -414,7 +419,7 @@ pub fn upgrade_incompatible(
         }
     }
 
-    reinit_and_restore(&inst, &paths).map_err(|e| {
+    reinit_and_restore(&inst, &paths, skip_hooks).map_err(|e| {
         print::error!("{e:#}");
         eprintln!(
             "To undo run:\n  {BRANDING_CLI_CMD} instance revert -I {:?}",
@@ -443,7 +448,7 @@ pub fn upgrade_incompatible(
 }
 
 #[context("cannot dump {:?} -> {}", inst.name, path.display())]
-pub fn dump_and_stop(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()> {
+pub fn dump_and_stop(inst: &InstanceInfo, path: &Path, skip_hooks: bool) -> anyhow::Result<()> {
     // in case not started for now
     msg!("Dumping the database...");
     log::info!("Ensuring instance is started");
@@ -455,9 +460,9 @@ pub fn dump_and_stop(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()> {
         );
         control::ensure_runstate_dir(&inst.name)?;
         let mut cmd = control::get_server_cmd(inst, false)?;
-        cmd.background_for(|| Ok(dump_instance(inst, path)))?;
+        cmd.background_for(|| Ok(dump_instance(inst, path, skip_hooks)))?;
     } else {
-        block_on_dump_instance(inst, path)?;
+        block_on_dump_instance(inst, path, skip_hooks)?;
         log::info!("Stopping instance before executable upgrade");
         control::do_stop(&inst.name)?;
     }
@@ -465,12 +470,20 @@ pub fn dump_and_stop(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()> {
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn block_on_dump_instance(inst: &InstanceInfo, destination: &Path) -> anyhow::Result<()> {
-    Box::pin(dump_instance(inst, destination)).await
+async fn block_on_dump_instance(
+    inst: &InstanceInfo,
+    destination: &Path,
+    skip_hooks: bool,
+) -> anyhow::Result<()> {
+    Box::pin(dump_instance(inst, destination, skip_hooks)).await
 }
 
 #[context("error dumping instance")]
-pub async fn dump_instance(inst: &InstanceInfo, destination: &Path) -> anyhow::Result<()> {
+pub async fn dump_instance(
+    inst: &InstanceInfo,
+    destination: &Path,
+    skip_hooks: bool,
+) -> anyhow::Result<()> {
     use tokio::fs;
 
     let destination = Path::new(destination);
@@ -486,6 +499,7 @@ pub async fn dump_instance(inst: &InstanceInfo, destination: &Path) -> anyhow::R
         styler: None,
         conn_params: Connector::new(Ok(config)),
         instance_name: Some(InstanceName::Local(inst.name.clone())),
+        skip_hooks,
     };
     Box::pin(commands::dump_all(
         &mut cli,
@@ -528,7 +542,7 @@ fn backup(inst: &InstanceInfo, new_inst: &InstallInfo, paths: &Paths) -> anyhow:
 }
 
 #[context("cannot restore {:?}", inst.name)]
-fn reinit_and_restore(inst: &InstanceInfo, paths: &Paths) -> anyhow::Result<()> {
+fn reinit_and_restore(inst: &InstanceInfo, paths: &Paths, skip_hooks: bool) -> anyhow::Result<()> {
     fs::create_dir_all(&paths.data_dir)
         .with_context(|| format!("cannot create {:?}", paths.data_dir))?;
 
@@ -538,7 +552,7 @@ fn reinit_and_restore(inst: &InstanceInfo, paths: &Paths) -> anyhow::Result<()> 
     control::self_signed_arg(&mut cmd, inst.get_version()?);
     cmd.background_for(|| {
         Ok(async {
-            Box::pin(restore_instance(inst, &paths.dump_path)).await?;
+            Box::pin(restore_instance(inst, &paths.dump_path, skip_hooks)).await?;
             log::info!(
                 "Restarting instance {:?} to apply \
                    changes from `restore --all`",
@@ -563,7 +577,11 @@ fn reinit_and_restore(inst: &InstanceInfo, paths: &Paths) -> anyhow::Result<()> 
     Ok(())
 }
 
-async fn restore_instance(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()> {
+async fn restore_instance(
+    inst: &InstanceInfo,
+    path: &Path,
+    skip_hooks: bool,
+) -> anyhow::Result<()> {
     use crate::commands::parser::Restore;
     log::info!("Restoring instance {:?}", inst.name);
     let cfg = inst.admin_conn_params()?;
@@ -574,6 +592,7 @@ async fn restore_instance(inst: &InstanceInfo, path: &Path) -> anyhow::Result<()
         styler: None,
         conn_params: Connector::new(Ok(cfg)),
         instance_name: Some(InstanceName::Local(inst.name.clone())),
+        skip_hooks,
     };
     Box::pin(commands::restore_all(
         &mut cli,

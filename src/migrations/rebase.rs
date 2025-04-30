@@ -259,6 +259,7 @@ pub async fn do_rebase(
         schema_dir: temp_dir.path().to_path_buf(),
         quiet: false,
         project: None,
+        skip_hooks: true,
     };
 
     // write all the migrations to disk.

@@ -57,7 +57,11 @@ pub async fn drop(
     Ok(())
 }
 
-pub async fn wipe(connection: &mut Connection, cmd: &WipeDatabase) -> Result<(), anyhow::Error> {
+pub async fn wipe(
+    connection: &mut Connection,
+    cmd: &WipeDatabase,
+    skip_hooks: bool,
+) -> Result<(), anyhow::Error> {
     if connection.get_version().await?.specific().major >= 5 {
         print::warn!("'database wipe' is deprecated in {BRANDING} 5+. Please use 'branch wipe'");
     }
@@ -81,8 +85,11 @@ pub async fn wipe(connection: &mut Connection, cmd: &WipeDatabase) -> Result<(),
         }
     }
 
-    let context =
-        crate::branch::context::Context::new(cmd.instance_opts.maybe_instance().as_ref()).await?;
+    let context = crate::branch::context::Context::new(
+        cmd.instance_opts.maybe_instance().as_ref(),
+        skip_hooks,
+    )
+    .await?;
     crate::branch::wipe::do_wipe(connection, &context).await?;
     Ok(())
 }

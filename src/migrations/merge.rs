@@ -154,6 +154,7 @@ pub async fn write_merge_migrations(
         schema_dir: temp_dir.path().to_path_buf(),
         quiet: false,
         project: None,
+        skip_hooks: true,
     };
 
     for (_, migration) in migrations.flatten() {

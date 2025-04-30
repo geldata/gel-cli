@@ -8,6 +8,7 @@ pub struct Options {
     pub styler: Option<Styler>,
     pub conn_params: Connector,
     pub instance_name: Option<gel_tokio::InstanceName>,
+    pub skip_hooks: bool,
 }
 
 impl Options {

@@ -225,7 +225,11 @@ fn check_json_limit(json: &serde_json::Value, path: &str, limit: usize) -> bool 
     true
 }
 
-async fn execute_backslash(state: &mut repl::State, text: &str) -> anyhow::Result<()> {
+async fn execute_backslash(
+    state: &mut repl::State,
+    text: &str,
+    options: &Options,
+) -> anyhow::Result<()> {
     use backslash::ExecuteResult::*;
 
     let cmd = match backslash::parse(text) {
@@ -241,7 +245,7 @@ async fn execute_backslash(state: &mut repl::State, text: &str) -> anyhow::Resul
             return Ok(());
         }
     };
-    let res = Box::pin(backslash::execute(&cmd.command, state)).await;
+    let res = Box::pin(backslash::execute(&cmd.command, state, options)).await;
     match res {
         Ok(Skip) => {}
         Ok(Quit) => {
@@ -579,7 +583,7 @@ async fn _interactive_main(
                 let result = match item {
                     ToDoItem::Backslash(text) => {
                         tokio::select!(
-                            res = execute_backslash(state, text) => res,
+                            res = execute_backslash(state, text, options) => res,
                             res = ctrlc.wait_result() => res,
                         )
                     }

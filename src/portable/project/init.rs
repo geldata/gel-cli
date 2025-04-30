@@ -59,9 +59,9 @@ pub fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<
 
     if let Some(project_loc) = project_loc {
         if options.link {
-            link(options, project_loc, &opts.cloud_options)?;
+            link(options, project_loc, opts)?;
         } else {
-            init_existing(options, project_loc, &opts.cloud_options)?;
+            init_existing(options, project_loc, opts)?;
         }
     } else {
         if options.link {
@@ -131,9 +131,9 @@ pub struct Command {
 }
 
 pub fn init_existing(
-    options: &Command,
+    cmd: &Command,
     project: project::Location,
-    cloud_options: &crate::options::CloudOptions,
+    opts: &crate::options::Options,
 ) -> anyhow::Result<project::ProjectInfo> {
     msg!(
         "Found `{}` in {}",
@@ -159,13 +159,13 @@ pub fn init_existing(
         .resolve_schema_dir(&project.location.root)?;
     let schema_files = project::find_schema_files(&schema_dir)?;
 
-    let ver_query = if let Some(sver) = &options.server_version {
+    let ver_query = if let Some(sver) = &cmd.server_version {
         sver.clone()
     } else {
         project.manifest.instance.server_version.clone()
     };
-    let mut client = CloudClient::new(cloud_options)?;
-    let (name, exists) = ask_name(&project.location.root, options, &mut client)?;
+    let mut client = CloudClient::new(&opts.cloud_options)?;
+    let (name, exists) = ask_name(&project.location.root, cmd, &mut client)?;
 
     if exists {
         let mut inst = project::Handle::probe(&name, &project.location.root, &schema_dir, &client)?;
@@ -173,10 +173,9 @@ pub fn init_existing(
         inst.check_version(&ver_query);
 
         if matches!(name, InstanceName::Cloud { .. }) {
-            if options.non_interactive {
+            if cmd.non_interactive {
                 inst.database = Some(
-                    options
-                        .database
+                    cmd.database
                         .clone()
                         .unwrap_or(get_default_branch_or_database(specific_version)),
                 );
@@ -186,9 +185,9 @@ pub fn init_existing(
                     .map(|s| s.to_string());
             }
         } else {
-            inst.database.clone_from(&options.database);
+            inst.database.clone_from(&cmd.database);
         }
-        return do_link(&inst, &project, options, &stash_dir);
+        return do_link(&inst, &project, cmd, &stash_dir, opts);
     }
 
     match &name {
@@ -241,7 +240,8 @@ pub fn init_existing(
                 &project,
                 &ver,
                 database,
-                options,
+                cmd,
+                opts,
                 &client,
             )
         }
@@ -259,7 +259,7 @@ pub fn init_existing(
             ver::print_version_hint(specific_version, &ver_query);
 
             let mut branch = DatabaseBranch::default();
-            if !options.non_interactive && specific_version.major >= 5 {
+            if !cmd.non_interactive && specific_version.major >= 5 {
                 branch = ask_branch()?;
             }
 
@@ -306,7 +306,7 @@ pub fn init_existing(
                 )?;
             }
 
-            do_init(name, &pkg, &stash_dir, &project, branch, options)
+            do_init(name, &pkg, &stash_dir, &project, branch, cmd, opts)
         }
     }
 }
@@ -317,7 +317,8 @@ fn do_init(
     stash_dir: &Path,
     project: &project::Context,
     database: DatabaseBranch,
-    options: &Command,
+    cmd: &Command,
+    opts: &crate::options::Options,
 ) -> anyhow::Result<project::ProjectInfo> {
     let port = allocate_port(name)?;
     let paths = Paths::get(name)?;
@@ -348,7 +349,7 @@ fn do_init(
                 start_conf: None,
                 default_user: None,
                 non_interactive: true,
-                cloud_opts: options.cloud_opts.clone(),
+                cloud_opts: cmd.cloud_opts.clone(),
                 default_branch: database.name().map(|s| s.to_string()),
             },
             name,
@@ -400,21 +401,23 @@ fn do_init(
         project_dir: project.location.root.clone(),
         schema_dir: project.resolve_schema_dir()?,
         instance,
-        database: options.database.clone(),
+        database: cmd.database.clone(),
     };
 
     let mut stash = project::StashDir::new(&project.location.root, name);
     stash.database = handle.database.as_deref();
     stash.write(stash_dir)?;
 
-    hooks::on_action_sync("project.init.after", project)?;
+    if !opts.skip_hooks {
+        hooks::on_action_sync("project.init.after", project)?;
+    }
 
-    if !options.no_migrations {
-        migrate(&handle, false)?;
+    if !cmd.no_migrations {
+        migrate(&handle, false, opts.skip_hooks)?;
     } else {
         create_database(&handle)?;
     }
-    print_initialized(name, &options.project_dir);
+    print_initialized(name, &cmd.project_dir);
     Ok(project::ProjectInfo {
         instance_name: name.into(),
         stash_dir: stash_dir.into(),
@@ -428,7 +431,8 @@ fn do_cloud_init(
     project: &project::Context,
     version: &ver::Specific,
     database: DatabaseBranch,
-    options: &Command,
+    cmd: &Command,
+    opts: &crate::options::Options,
     client: &CloudClient,
 ) -> anyhow::Result<project::ProjectInfo> {
     let request = CloudInstanceCreate {
@@ -456,14 +460,16 @@ fn do_cloud_init(
     stash.database = handle.database.as_deref();
     stash.write(stash_dir)?;
 
-    hooks::on_action_sync("project.init.after", project)?;
+    if !opts.skip_hooks {
+        hooks::on_action_sync("project.init.after", project)?;
+    }
 
-    if !options.no_migrations {
-        migrate(&handle, false)?;
+    if !cmd.no_migrations {
+        migrate(&handle, false, opts.skip_hooks)?;
     } else {
         create_database(&handle)?;
     }
-    print_initialized(&full_name, &options.project_dir);
+    print_initialized(&full_name, &cmd.project_dir);
     Ok(project::ProjectInfo {
         instance_name: full_name,
         stash_dir: stash_dir.into(),
@@ -471,9 +477,9 @@ fn do_cloud_init(
 }
 
 fn link(
-    options: &Command,
+    cmd: &Command,
     project: project::Location,
-    cloud_options: &crate::options::CloudOptions,
+    opts: &crate::options::Options,
 ) -> anyhow::Result<project::ProjectInfo> {
     msg!(
         "Found `{}` in {}",
@@ -494,10 +500,10 @@ fn link(
     let project = project::load_ctx_at(project)?;
     let ver_query = &project.manifest.instance.server_version;
 
-    let mut client = CloudClient::new(cloud_options)?;
-    let name = if let Some(name) = &options.server_instance {
+    let mut client = CloudClient::new(&opts.cloud_options)?;
+    let name = if let Some(name) = &cmd.server_instance {
         name.clone()
-    } else if options.non_interactive {
+    } else if cmd.non_interactive {
         anyhow::bail!(
             "Existing instance name should be specified \
                        with `--server-instance` when linking project \
@@ -509,10 +515,9 @@ fn link(
     let schema_dir = project.resolve_schema_dir()?;
     let mut inst = project::Handle::probe(&name, &project.location.root, &schema_dir, &client)?;
     if matches!(name, InstanceName::Cloud { .. }) {
-        if options.non_interactive {
+        if cmd.non_interactive {
             inst.database = Some(
-                options
-                    .database
+                cmd.database
                     .clone()
                     .unwrap_or(DEFAULT_DATABASE_NAME.to_string()),
             )
@@ -520,17 +525,18 @@ fn link(
             inst.database = ask_database()?.database().map(|s| s.to_string());
         }
     } else {
-        inst.database.clone_from(&options.database);
+        inst.database.clone_from(&cmd.database);
     }
     inst.check_version(ver_query);
-    do_link(&inst, &project, options, &stash_dir)
+    do_link(&inst, &project, cmd, &stash_dir, opts)
 }
 
 fn do_link(
     inst: &project::Handle,
     project: &project::Context,
-    options: &Command,
+    cmd: &Command,
     stash_dir: &Path,
+    opts: &crate::options::Options,
 ) -> anyhow::Result<project::ProjectInfo> {
     let mut stash = project::StashDir::new(&inst.project_dir, &inst.name);
     if let project::InstanceKind::Cloud { cloud_client, .. } = inst.instance {
@@ -540,16 +546,18 @@ fn do_link(
     stash.database = inst.database.as_deref();
     stash.write(stash_dir)?;
 
-    hooks::on_action_sync("project.init.after", project)?;
+    if !opts.skip_hooks {
+        hooks::on_action_sync("project.init.after", project)?;
+    }
 
-    if !options.no_migrations {
-        migrate(inst, !options.non_interactive)?;
+    if !cmd.no_migrations {
+        migrate(inst, !cmd.non_interactive, opts.skip_hooks)?;
     } else {
         create_database(inst)?;
     }
 
     print::success!("Project linked");
-    if let Some(dir) = &options.project_dir {
+    if let Some(dir) = &cmd.project_dir {
         eprintln!(
             "To connect to {}, navigate to {} and run `{BRANDING_CLI_CMD}`",
             inst.name,
@@ -580,7 +588,7 @@ fn directory_to_name(path: &Path, default: InstanceName) -> InstanceName {
 }
 
 fn init_new(
-    options: &Command,
+    cmd: &Command,
     location: project::Location,
     opts: &crate::options::Options,
 ) -> anyhow::Result<project::ProjectInfo> {
@@ -599,7 +607,7 @@ fn init_new(
         );
     }
 
-    if options.non_interactive {
+    if cmd.non_interactive {
         eprintln!("Initializing new project...");
     } else {
         let mut q = question::Confirm::new("Do you want to initialize a new project?");
@@ -614,7 +622,7 @@ fn init_new(
     let schema_files = project::find_schema_files(schema_dir)?;
 
     let mut client = CloudClient::new(&opts.cloud_options)?;
-    let (inst_name, exists) = ask_name(&location.root, options, &mut client)?;
+    let (inst_name, exists) = ask_name(&location.root, cmd, &mut client)?;
 
     if exists {
         let mut inst;
@@ -636,10 +644,9 @@ fn init_new(
             project::write_schema_default(&schema_dir_path, &ctx.manifest.instance.server_version)?;
         }
         if matches!(inst_name, InstanceName::Cloud { .. }) {
-            if options.non_interactive {
+            if cmd.non_interactive {
                 inst.database = Some(
-                    options
-                        .database
+                    cmd.database
                         .clone()
                         .unwrap_or(get_default_branch_or_database(specific_version)),
                 );
@@ -649,9 +656,9 @@ fn init_new(
                     .map(|s| s.to_string());
             }
         } else {
-            inst.database.clone_from(&options.database);
+            inst.database.clone_from(&cmd.database);
         }
-        return do_link(&inst, &ctx, options, &stash_dir);
+        return do_link(&inst, &ctx, cmd, &stash_dir, opts);
     };
 
     match &inst_name {
@@ -659,7 +666,7 @@ fn init_new(
             msg!("Checking {BRANDING_CLOUD} versions...");
             client.ensure_authenticated()?;
 
-            let (ver_query, version) = ask_cloud_version(options, &client)?;
+            let (ver_query, version) = ask_cloud_version(cmd, &client)?;
             ver::print_version_hint(&version, &ver_query);
             let database = ask_database_or_branch(&version)?;
             table::settings(&[
@@ -708,18 +715,19 @@ fn init_new(
                 &ctx,
                 &version,
                 database,
-                options,
+                cmd,
+                opts,
                 &client,
             )
         }
         InstanceName::Local(name) => {
             msg!("Checking {BRANDING} versions...");
-            let (ver_query, pkg) = ask_local_version(options)?;
+            let (ver_query, pkg) = ask_local_version(cmd)?;
             let specific_version = &pkg.version.specific();
             ver::print_version_hint(specific_version, &ver_query);
 
             let mut branch = DatabaseBranch::Default;
-            if !options.non_interactive && specific_version.major >= 5 {
+            if !cmd.non_interactive && specific_version.major >= 5 {
                 branch = ask_branch()?;
             }
 
@@ -771,7 +779,7 @@ fn init_new(
                 )?;
             }
 
-            do_init(name, &pkg, &stash_dir, &project, branch, options)
+            do_init(name, &pkg, &stash_dir, &project, branch, cmd, opts)
         }
     }
 }
@@ -1146,11 +1154,19 @@ async fn create_database_async(inst: &project::Handle<'_>) -> anyhow::Result<()>
 }
 
 #[tokio::main(flavor = "current_thread")]
-async fn migrate(inst: &project::Handle<'_>, ask_for_running: bool) -> anyhow::Result<()> {
-    Box::pin(migrate_async(inst, ask_for_running)).await
+async fn migrate(
+    inst: &project::Handle<'_>,
+    ask_for_running: bool,
+    skip_hooks: bool,
+) -> anyhow::Result<()> {
+    Box::pin(migrate_async(inst, ask_for_running, skip_hooks)).await
 }
 
-async fn migrate_async(inst: &project::Handle<'_>, ask_for_running: bool) -> anyhow::Result<()> {
+async fn migrate_async(
+    inst: &project::Handle<'_>,
+    ask_for_running: bool,
+    skip_hooks: bool,
+) -> anyhow::Result<()> {
     use crate::commands::Options;
     use crate::migrations::options::MigrationConfig;
 
@@ -1193,7 +1209,7 @@ async fn migrate_async(inst: &project::Handle<'_>, ask_for_running: bool) -> any
                         }
                     },
                     Action::Run => {
-                        run_and_migrate(inst)?;
+                        run_and_migrate(inst, skip_hooks)?;
                         return Ok(());
                     }
                     Action::Retry => continue,
@@ -1232,23 +1248,24 @@ async fn migrate_async(inst: &project::Handle<'_>, ask_for_running: bool) -> any
             styler: None,
             conn_params: Connector::new(inst.get_builder()?.build().map_err(Into::into)),
             instance_name: Some(InstanceName::Local(inst.name.clone())),
+            skip_hooks,
         },
     )
     .await?;
     Ok(())
 }
 
-fn run_and_migrate(info: &project::Handle) -> anyhow::Result<()> {
+fn run_and_migrate(info: &project::Handle, skip_hooks: bool) -> anyhow::Result<()> {
     match &info.instance {
         project::InstanceKind::Portable(inst) => {
             control::ensure_runstate_dir(&info.name)?;
             let mut cmd = control::get_server_cmd(inst, false)?;
-            cmd.background_for(|| Ok(migrate_async(info, false)))?;
+            cmd.background_for(|| Ok(migrate_async(info, false, skip_hooks)))?;
             Ok(())
         }
         project::InstanceKind::Wsl => {
             let mut cmd = windows::server_cmd(&info.name, false)?;
-            cmd.background_for(|| Ok(migrate_async(info, false)))?;
+            cmd.background_for(|| Ok(migrate_async(info, false, skip_hooks)))?;
             Ok(())
         }
         project::InstanceKind::Remote => {

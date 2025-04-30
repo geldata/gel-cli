@@ -24,11 +24,11 @@ pub enum Subcommand {
     Install(install::Command),
 }
 
-pub fn run(cmd: &Command) -> anyhow::Result<()> {
+pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     use Subcommand::*;
 
     match &cmd.subcommand {
         Upgrade(s) => upgrade::run(s),
-        Install(s) => install::run(s),
+        Install(s) => install::run(s, opts),
     }
 }

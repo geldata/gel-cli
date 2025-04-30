@@ -9,11 +9,11 @@ use std::fs;
 use std::path::PathBuf;
 
 pub async fn upgrade_format(
-    _cli: &mut Connection,
-    _opts: &Options,
-    params: &MigrationUpgradeFormat,
+    _conn: &mut Connection,
+    cmd: &MigrationUpgradeFormat,
+    opts: &Options,
 ) -> anyhow::Result<()> {
-    let ctx = Context::for_migration_config(&params.cfg, false).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks).await?;
 
     _upgrade_format(&ctx).await
 }
@@ -78,6 +78,7 @@ mod test {
             schema_dir,
             quiet: false,
             project: None,
+            skip_hooks: true,
         };
 
         _upgrade_format(&ctx).await.unwrap();

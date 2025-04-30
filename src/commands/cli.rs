@@ -25,23 +25,23 @@ async fn common_cmd(
 pub fn main(options: &Options) -> Result<(), anyhow::Error> {
     match options.subcommand.as_ref().expect("subcommand is present") {
         Command::Common(cmd) => {
-            let cmdopt = init_command_opts(options)?;
+            let opts = init_command_opts(options)?;
             match cmd.as_migration() {
                 // Process commands that don't need connection first
                 Some(Migration {
-                    subcommand: M::Log(mlog),
+                    subcommand: M::Log(cmd),
                     ..
-                }) if mlog.from_fs => migrations::log_fs(&cmdopt, mlog),
+                }) if cmd.from_fs => migrations::log_fs(cmd, &opts),
                 Some(Migration {
-                    subcommand: M::Edit(params),
+                    subcommand: M::Edit(cmd),
                     ..
-                }) if params.no_check => migrations::edit_no_check(&cmdopt, params),
+                }) if cmd.no_check => migrations::edit_no_check(cmd, &opts),
                 Some(Migration {
                     subcommand: M::UpgradeCheck(params),
                     ..
-                }) => migrations::upgrade_check(&cmdopt, params),
+                }) => migrations::upgrade_check(&opts, params),
                 // Otherwise connect
-                _ => common_cmd(options, cmdopt, cmd),
+                _ => common_cmd(options, opts, cmd),
             }
         }
         Command::Server(cmd) => portable::server::run(cmd),
@@ -50,9 +50,9 @@ pub fn main(options: &Options) -> Result<(), anyhow::Error> {
         Command::Project(cmd) => portable::project::run(cmd, options),
         Command::Query(q) => non_interactive::noninteractive_main(q, options),
         Command::Init(cmd) => portable::project::init::run(cmd, options),
-        Command::_SelfInstall(s) => cli::install::run(s),
+        Command::_SelfInstall(s) => cli::install::run(s, options),
         Command::_GenCompletions(s) => cli::gen_completions::run(s),
-        Command::Cli(c) => cli::run(c),
+        Command::Cli(c) => cli::run(c, options),
         Command::Info(info) => commands::info(options, info),
         Command::UI(c) => commands::show_ui(c, options),
         Command::Cloud(c) => cloud_main(c, &options.cloud_options),
@@ -74,5 +74,6 @@ fn init_command_opts(options: &Options) -> Result<commands::Options, anyhow::Err
         },
         instance_name: options.conn_options.instance_opts.maybe_instance(),
         conn_params: options.block_on_create_connector()?,
+        skip_hooks: options.skip_hooks,
     })
 }

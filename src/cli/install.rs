@@ -72,8 +72,8 @@ pub struct Settings {
     rc_files: Vec<PathBuf>,
 }
 
-pub fn run(cmd: &Command) -> anyhow::Result<()> {
-    match _run(cmd) {
+pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
+    match _run(cmd, opts) {
         Ok(()) => {
             if cfg!(windows) && !cmd.upgrade && !cmd.no_confirm && !cmd.no_wait_for_exit_prompt {
                 // This is needed so user can read the message if console
@@ -97,7 +97,7 @@ pub fn run(cmd: &Command) -> anyhow::Result<()> {
     }
 }
 
-fn _run(cmd: &Command) -> anyhow::Result<()> {
+fn _run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     #[cfg(unix)]
     if !cmd.no_confirm {
         match home_dir_from_passwd().zip(env::var_os("HOME")) {
@@ -202,7 +202,7 @@ fn _run(cmd: &Command) -> anyhow::Result<()> {
         let init_result = if cmd.no_confirm {
             Ok(InitResult::NonInteractive)
         } else {
-            try_project_init()
+            try_project_init(opts)
         };
 
         print_post_install_message(&settings, init_result);
@@ -491,7 +491,7 @@ pub enum InitResult {
     NotAProject,
 }
 
-fn try_project_init() -> anyhow::Result<InitResult> {
+fn try_project_init(opts: &crate::options::Options) -> anyhow::Result<InitResult> {
     use InitResult::*;
 
     let base_dir = env::current_dir().context("failed to get current directory")?;
@@ -517,7 +517,7 @@ fn try_project_init() -> anyhow::Result<InitResult> {
             return Ok(Refused);
         }
 
-        let options = crate::options::CloudOptions {
+        let cloud_options = crate::options::CloudOptions {
             cloud_api_endpoint: None,
             cloud_secret_key: None,
             cloud_profile: None,
@@ -531,9 +531,11 @@ fn try_project_init() -> anyhow::Result<InitResult> {
             no_migrations: false,
             link: false,
             server_start_conf: None,
-            cloud_opts: options.clone(),
+            cloud_opts: cloud_options.clone(),
         };
-        project::init::init_existing(&init, project, &options)?;
+        let mut opts = opts.clone();
+        opts.cloud_options = cloud_options;
+        project::init::init_existing(&init, project, &opts)?;
         Ok(Initialized)
     } else {
         Ok(NotAProject)
