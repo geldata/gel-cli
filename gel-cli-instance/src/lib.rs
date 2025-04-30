@@ -171,7 +171,9 @@ impl<P: ProcessRunner> Processes<P> {
     ) -> Result<Vec<T>, ProcessError> {
         Self::with_cmd(command, |cmd| async move {
             let bytes = self.run_bytes(cmd).await?;
-            if bytes[0] == b'[' {
+            if bytes.is_empty() {
+                Ok(Vec::new())
+            } else if bytes[0] == b'[' {
                 Ok(serde_json::from_slice(&bytes)?)
             } else {
                 Ok(serde_json::StreamDeserializer::new(SliceRead::new(&bytes))
