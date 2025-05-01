@@ -265,8 +265,6 @@ impl TwoStageRemove<'_> {
             }
             if lossy_name.ends_with(".edgeql") {
                 self.rename(&item.path()).await?;
-            } else if lossy_name.ends_with(".edgeql.old") {
-                self.filenames.push(item.path());
             }
         }
         Ok(())
