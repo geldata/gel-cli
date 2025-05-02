@@ -484,21 +484,9 @@ pub async fn apply_migrations(
     ctx: &Context,
     single_transaction: bool,
 ) -> anyhow::Result<()> {
-    apply_migrations_ext(cli, migrations, ctx, single_transaction, true).await
-}
-
-pub async fn apply_migrations_ext(
-    cli: &mut Connection,
-    migrations: &(impl AsOperations + ?Sized),
-    ctx: &Context,
-    single_transaction: bool,
-    apply_hooks: bool,
-) -> anyhow::Result<()> {
-    if apply_hooks {
-        if let Some(project) = &ctx.project {
-            hooks::on_action("migration.apply.before", project).await?;
-            hooks::on_action("schema.update.before", project).await?;
-        }
+    if let Some(project) = &ctx.project {
+        hooks::on_action("migration.apply.before", project).await?;
+        hooks::on_action("schema.update.before", project).await?;
     }
 
     let old_timeout = timeout::inhibit_for_transaction(cli).await?;
@@ -527,11 +515,9 @@ pub async fn apply_migrations_ext(
             }
         }
     }?;
-    if apply_hooks {
-        if let Some(project) = &ctx.project {
-            hooks::on_action("migration.apply.after", project).await?;
-            hooks::on_action("schema.update.after", project).await?;
-        }
+    if let Some(project) = &ctx.project {
+        hooks::on_action("migration.apply.after", project).await?;
+        hooks::on_action("schema.update.after", project).await?;
     }
     Ok(())
 }
