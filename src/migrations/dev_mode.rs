@@ -165,7 +165,7 @@ async fn migrate_to_schema(cli: &mut Connection, ctx: &Context) -> anyhow::Resul
     use gel_protocol::server_message::TransactionState::NotInTransaction;
 
     let old_timeout = timeout::inhibit_for_transaction(cli).await?;
-    async_try!{
+    async_try! {
         async {
             if matches!(cli.transaction_state(), NotInTransaction) {
                 execute(cli, "START TRANSACTION", None).await?;
