@@ -10,7 +10,8 @@ use crate::async_try;
 use crate::branding::BRANDING;
 use crate::bug;
 use crate::commands::Options;
-use crate::migrations::apply::{apply_migrations, apply_migrations_inner};
+use crate::hooks;
+use crate::migrations::apply::{apply_migrations_ext, apply_migrations_inner};
 use crate::migrations::context::Context;
 use crate::migrations::create;
 use crate::migrations::create::{CurrentMigration, FutureMigration};
@@ -31,6 +32,12 @@ pub async fn migrate(cli: &mut Connection, ctx: &Context, bar: &ProgressBar) -> 
     }
     let migrations = migration::read_all(ctx, true).await?;
     let db_migration = get_db_migration(cli).await?;
+
+    if let Some(project) = &ctx.project {
+        hooks::on_action("migration.apply.before", project).await?;
+        hooks::on_action("schema.update.before", project).await?;
+    }
+
     match select_mode(cli, &migrations, db_migration.as_deref()).await? {
         Mode::Normal { skip } => {
             log::info!("Skipping {} revisions.", skip);
@@ -39,7 +46,7 @@ pub async fn migrate(cli: &mut Connection, ctx: &Context, bar: &ProgressBar) -> 
                 .ok_or_else(|| bug::error("`skip` is out of range"))?;
             if !migrations.is_empty() {
                 bar.set_message("Applying migrations");
-                apply_migrations(cli, migrations, ctx, false).await?;
+                apply_migrations_ext(cli, migrations, ctx, false, false).await?;
                 bar.println("Migrations applied");
             }
 
@@ -67,6 +74,12 @@ pub async fn migrate(cli: &mut Connection, ctx: &Context, bar: &ProgressBar) -> 
             }
         }
     }
+
+    if let Some(project) = &ctx.project {
+        hooks::on_action("migration.apply.after", project).await?;
+        hooks::on_action("schema.update.after", project).await?;
+    }
+
     Ok(())
 }
 
