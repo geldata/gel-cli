@@ -10,6 +10,7 @@ use crate::async_try;
 use crate::branding::BRANDING;
 use crate::bug;
 use crate::commands::Options;
+use crate::hooks;
 use crate::migrations::apply::{apply_migrations, apply_migrations_inner};
 use crate::migrations::context::Context;
 use crate::migrations::create;
@@ -163,24 +164,39 @@ async fn get_db_migration(cli: &mut Connection) -> anyhow::Result<Option<String>
 async fn migrate_to_schema(cli: &mut Connection, ctx: &Context) -> anyhow::Result<bool> {
     use gel_protocol::server_message::TransactionState::NotInTransaction;
 
-    let transaction = matches!(cli.transaction_state(), NotInTransaction);
-    if transaction {
-        execute(cli, "START TRANSACTION", None).await?;
-    }
-    async_try! {
+    let old_timeout = timeout::inhibit_for_transaction(cli).await?;
+    async_try!{
         async {
-            _migrate_to_schema(cli, ctx).await
+            if matches!(cli.transaction_state(), NotInTransaction) {
+                execute(cli, "START TRANSACTION", None).await?;
+                async_try! {
+                    async {
+                        let apply_hooks = true;
+                        _migrate_to_schema(cli, ctx, apply_hooks).await
+                    },
+                    except async {
+                        execute_if_connected(cli, "ROLLBACK").await
+                    },
+                    else async {
+                        execute_if_connected(cli, "COMMIT").await
+                    }
+                }
+            } else {
+                let apply_hooks = false;
+                _migrate_to_schema(cli, ctx, apply_hooks).await
+            }
         },
         finally async {
-            if transaction {
-                execute_if_connected(cli, "COMMIT").await?;
-            }
-            anyhow::Ok(())
+            timeout::restore_for_transaction(cli, old_timeout).await
         }
     }
 }
 
-async fn _migrate_to_schema(cli: &mut Connection, ctx: &Context) -> anyhow::Result<bool> {
+async fn _migrate_to_schema(
+    cli: &mut Connection,
+    ctx: &Context,
+    apply_hooks: bool,
+) -> anyhow::Result<bool> {
     execute(cli, "DECLARE SAVEPOINT migrate_to_schema", None).await?;
     let descr = async_try! {
         async {
@@ -223,7 +239,22 @@ async fn _migrate_to_schema(cli: &mut Connection, ctx: &Context) -> anyhow::Resu
         }?
     };
     if !descr.confirmed.is_empty() {
+        if apply_hooks {
+            if let Some(project) = &ctx.project {
+                hooks::on_action("migration.apply.before", project).await?;
+                hooks::on_action("schema.update.before", project).await?;
+            }
+        }
+
         ddl::apply_statements(cli, &descr.confirmed).await?;
+
+        if apply_hooks {
+            if let Some(project) = &ctx.project {
+                hooks::on_action("migration.apply.after", project).await?;
+                hooks::on_action("schema.update.after", project).await?;
+            }
+        }
+
         Ok(true)
     } else {
         Ok(false)
