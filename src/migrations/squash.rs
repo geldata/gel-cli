@@ -307,6 +307,7 @@ async fn test_two_stage_remove() -> anyhow::Result<()> {
         schema_dir: tmp.path().to_path_buf(),
         quiet: false,
         project: None,
+        skip_hooks: true,
     };
 
     // Create test migration files
