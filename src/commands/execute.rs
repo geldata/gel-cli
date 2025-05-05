@@ -127,7 +127,7 @@ pub async fn common(
                 commands::database::drop(conn, d, options).await?;
             }
             DatabaseCmd::Wipe(w) => {
-                commands::database::wipe(conn, w).await?;
+                commands::database::wipe(conn, w, options.skip_hooks).await?;
             }
         },
         Branch(_) => unreachable!(),
@@ -141,23 +141,23 @@ pub async fn common(
             MigrationCmd::Create(cmd) => {
                 migrations::create::run(cmd, conn, options).await?;
             }
-            MigrationCmd::Status(params) => {
-                migrations::status(conn, options, params).await?;
+            MigrationCmd::Status(cmd) => {
+                migrations::status(conn, cmd, options).await?;
             }
-            MigrationCmd::Log(params) => {
-                migrations::log(conn, options, params).await?;
+            MigrationCmd::Log(cmd) => {
+                migrations::log(conn, cmd, options).await?;
             }
-            MigrationCmd::Edit(params) => {
-                migrations::edit(conn, options, params).await?;
+            MigrationCmd::Edit(cmd) => {
+                migrations::edit(conn, cmd, options).await?;
             }
             MigrationCmd::UpgradeCheck(_) => {
                 anyhow::bail!("cannot be run in REPL mode");
             }
-            MigrationCmd::Extract(params) => {
-                migrations::extract(conn, options, params).await?;
+            MigrationCmd::Extract(cmd) => {
+                migrations::extract(conn, cmd, options).await?;
             }
-            MigrationCmd::UpgradeFormat(params) => {
-                migrations::upgrade_format(conn, options, params).await?;
+            MigrationCmd::UpgradeFormat(cmd) => {
+                migrations::upgrade_format(conn, cmd, options).await?;
             }
         },
     }

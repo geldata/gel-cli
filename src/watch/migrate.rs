@@ -27,7 +27,10 @@ impl Migrator {
     pub async fn new(ctx: Arc<Context>) -> anyhow::Result<Self> {
         let connector = ctx.options.create_connector().await?;
         Ok(Migrator {
-            migration_ctx: migrations::Context::for_project(ctx.project.clone())?,
+            migration_ctx: migrations::Context::for_project(
+                ctx.project.clone(),
+                ctx.options.skip_hooks,
+            )?,
             ctx,
             connector,
             is_force_database_error: false,

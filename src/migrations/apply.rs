@@ -32,10 +32,10 @@ use crate::print::{self, Highlight};
 pub async fn run(
     cmd: &Command,
     conn: &mut Connection,
-    _options: &Options,
+    options: &Options,
 ) -> Result<(), anyhow::Error> {
     let old_state = conn.set_ignore_error_state();
-    let res = run_inner(cmd, conn).await;
+    let res = run_inner(cmd, conn, options).await;
     conn.restore_state(old_state);
     res
 }
@@ -82,8 +82,12 @@ pub struct Command {
     pub single_transaction: bool,
 }
 
-async fn run_inner(cmd: &Command, conn: &mut Connection) -> Result<(), anyhow::Error> {
-    let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet).await?;
+async fn run_inner(
+    cmd: &Command,
+    conn: &mut Connection,
+    options: &Options,
+) -> Result<(), anyhow::Error> {
+    let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, options.skip_hooks).await?;
     if cmd.dev_mode {
         let bar = if cmd.quiet {
             ProgressBar::hidden()
@@ -484,9 +488,11 @@ pub async fn apply_migrations(
     ctx: &Context,
     single_transaction: bool,
 ) -> anyhow::Result<()> {
-    if let Some(project) = &ctx.project {
-        hooks::on_action("migration.apply.before", project).await?;
-        hooks::on_action("schema.update.before", project).await?;
+    if !ctx.skip_hooks {
+        if let Some(project) = &ctx.project {
+            hooks::on_action("migration.apply.before", project).await?;
+            hooks::on_action("schema.update.before", project).await?;
+        }
     }
 
     let old_timeout = timeout::inhibit_for_transaction(cli).await?;

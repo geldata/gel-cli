@@ -43,10 +43,11 @@ impl<'a> MigrationToText<'a, Once<&'a String>> for DatabaseMigration {
 
 pub async fn extract(
     cli: &mut Connection,
-    _opts: &Options,
-    params: &ExtractMigrations,
+    cmd: &ExtractMigrations,
+    opts: &Options,
 ) -> anyhow::Result<()> {
-    let src_ctx = Context::for_migration_config(&params.cfg, params.non_interactive).await?;
+    let src_ctx =
+        Context::for_migration_config(&cmd.cfg, cmd.non_interactive, opts.skip_hooks).await?;
     let current = migration::read_all(&src_ctx, false).await?;
     let mut disk_iter = current.into_iter();
 
@@ -57,6 +58,7 @@ pub async fn extract(
         schema_dir: temp_dir.path().to_path_buf(),
         quiet: false,
         project: None,
+        skip_hooks: true,
     };
     let mut to_delete = Vec::new();
 
@@ -70,8 +72,8 @@ pub async fn extract(
                 };
                 if let Some((id, migration_file)) = existing {
                     if dm.id()? != id {
-                        if params.non_interactive {
-                            if !params.force {
+                        if cmd.non_interactive {
+                            if !cmd.force {
                                 anyhow::bail!(
                                     "migration in \"{}\" does not match the \
                                      migration recorded in the database, \
@@ -80,7 +82,7 @@ pub async fn extract(
                                     migration_file.path.as_relative().display(),
                                 )
                             }
-                        } else if !params.force {
+                        } else if !cmd.force {
                             let q = question::Confirm::new_dangerous(format!(
                                 "Migration in \"{}\" does not match the \
                                  migration recorded in the database, \
@@ -101,8 +103,8 @@ pub async fn extract(
             }
 
             (Some((_, migration_file)), None) => {
-                if params.non_interactive {
-                    if !params.force {
+                if cmd.non_interactive {
+                    if !cmd.force {
                         anyhow::bail!(
                             "migration in \"{}\" is not present in the \
                              database, use `--force` to automatically remove \
@@ -110,7 +112,7 @@ pub async fn extract(
                             migration_file.path.as_relative().display()
                         );
                     }
-                } else if !params.force {
+                } else if !cmd.force {
                     let q = question::Confirm::new_dangerous(format!(
                         "Migration \"{}\" is not present in the database, \
                          remove the non-matching file?",

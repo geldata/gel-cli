@@ -7,6 +7,7 @@ pub struct Context {
     pub schema_dir: PathBuf,
 
     pub quiet: bool,
+    pub skip_hooks: bool,
 
     pub project: Option<project::Context>,
 }
@@ -15,6 +16,7 @@ impl Context {
     pub async fn for_migration_config(
         cfg: &MigrationConfig,
         quiet: bool,
+        skip_hooks: bool,
     ) -> anyhow::Result<Context> {
         let project = project::load_ctx(None).await?;
 
@@ -36,9 +38,10 @@ impl Context {
             schema_dir,
             quiet,
             project,
+            skip_hooks,
         })
     }
-    pub fn for_project(project: project::Context) -> anyhow::Result<Context> {
+    pub fn for_project(project: project::Context, skip_hooks: bool) -> anyhow::Result<Context> {
         let schema_dir = project
             .manifest
             .project()
@@ -46,6 +49,7 @@ impl Context {
         Ok(Context {
             schema_dir,
             quiet: false,
+            skip_hooks,
             project: Some(project),
         })
     }

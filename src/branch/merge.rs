@@ -11,7 +11,7 @@ pub async fn main(
     cmd: &Command,
     context: &Context,
     source_connection: &mut Connection,
-    cli_opts: &Options,
+    opts: &Options,
 ) -> anyhow::Result<()> {
     let current_branch = context.get_current_branch(source_connection).await?;
     let project = context
@@ -23,14 +23,14 @@ pub async fn main(
         anyhow::bail!("Cannot merge the current branch into its self");
     }
 
-    let mut connector = cli_opts.conn_params.clone();
+    let mut connector = opts.conn_params.clone();
     let mut target_connection =
         match connect_if_branch_exists(connector.branch(&cmd.target_branch)?).await? {
             Some(connection) => connection,
             None => anyhow::bail!("The branch '{}' doesn't exist", cmd.target_branch),
         };
 
-    let migration_context = migrations::Context::for_project(project)?;
+    let migration_context = migrations::Context::for_project(project, opts.skip_hooks)?;
     let mut merge_migrations =
         get_merge_migrations(source_connection, &mut target_connection).await?;
 

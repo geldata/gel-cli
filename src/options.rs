@@ -49,7 +49,7 @@ const CONNECTION_ARG_HINT: &str = concatcp!(
     to specify connection parameters. See `--help` for details"
 );
 
-#[derive(clap::Args, Clone, Debug)]
+#[derive(clap::Args, Clone, Debug, Default)]
 #[group(id = "connopts")]
 pub struct ConnectionOptions {
     #[command(flatten)]
@@ -239,7 +239,7 @@ pub struct ConnectionOptions {
     pub connect_timeout: Option<Duration>,
 }
 
-#[derive(clap::Args, Clone, Debug)]
+#[derive(clap::Args, Clone, Debug, Default)]
 pub struct InstanceOptionsGlobal {
     /// Instance name (use [`BRANDING_CLI_CMD`] `instance list` to list local, remote and
     /// [`BRANDING_CLOUD`] instances available to you).
@@ -465,6 +465,10 @@ pub struct RawOptions {
     #[arg(long)]
     pub no_cli_update_check: bool,
 
+    /// Do not run any command hooks defined in [MANIFEST_FILE_DISPLAY_NAME]
+    #[arg(long)]
+    pub skip_hooks: bool,
+
     #[command(flatten)]
     pub conn: ConnectionOptions,
 
@@ -596,6 +600,7 @@ pub struct Options {
     pub output_format: Option<OutputFormat>,
     pub sql_output_format: Option<OutputFormat>,
     pub no_cli_update_check: bool,
+    pub skip_hooks: bool,
     pub test_output_conn_params: bool,
 }
 
@@ -967,6 +972,11 @@ impl Options {
             );
         }
 
+        let mut skip_hooks = args.skip_hooks;
+        if !skip_hooks && crate::cli::env::Env::skip_hooks()?.is_some_and(|x| x.0) {
+            skip_hooks = true;
+        }
+
         Ok(Options {
             conn_options: args.conn,
             cloud_options: args.cloud,
@@ -985,6 +995,7 @@ impl Options {
             },
             sql_output_format: None,
             no_cli_update_check,
+            skip_hooks,
             test_output_conn_params: args.test_output_conn_params,
         })
     }

@@ -1,6 +1,8 @@
 use crate::portable::project;
 use crate::print::{self, Highlight};
 
+/// Runs project hooks of the given action.
+/// Must not be called if --skip-hooks or GEL_SKIP_HOOKS is set.
 #[tokio::main(flavor = "current_thread")]
 pub async fn on_action_sync(
     action: &'static str,
@@ -9,6 +11,8 @@ pub async fn on_action_sync(
     on_action(action, project).await
 }
 
+/// Runs project hooks of the given action.
+/// Must not be called if --skip-hooks or GEL_SKIP_HOOKS is set.
 pub async fn on_action(action: &'static str, project: &project::Context) -> anyhow::Result<()> {
     let Some(script) = get_hook(action, &project.manifest) else {
         return Ok(());

@@ -44,13 +44,13 @@ async fn ensure_diff_is_empty(cli: &mut Connection, ctx: &Context) -> Result<(),
 
 pub async fn status(
     cli: &mut Connection,
-    _options: &Options,
-    status: &ShowStatus,
+    cmd: &ShowStatus,
+    opts: &Options,
 ) -> Result<(), anyhow::Error> {
-    let ctx = Context::for_migration_config(&status.cfg, status.quiet).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, opts.skip_hooks).await?;
     let migrations = migration::read_all(&ctx, true).await?;
     match up_to_date_check(cli, &ctx, &migrations).await? {
-        Some(_) if status.quiet => Ok(()),
+        Some(_) if cmd.quiet => Ok(()),
         Some(migration) => {
             print::msg!(
                 "{} Last migration: {}.",

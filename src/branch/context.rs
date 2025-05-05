@@ -32,15 +32,21 @@ pub struct Context {
 
     /// Project manifest cache
     project_ctx_cache: Mutex<Option<project::Context>>,
+
+    skip_hooks: bool,
 }
 
 impl Context {
-    pub async fn new(instance_arg: Option<&InstanceName>) -> anyhow::Result<Context> {
+    pub async fn new(
+        instance_arg: Option<&InstanceName>,
+        skip_hooks: bool,
+    ) -> anyhow::Result<Context> {
         let mut ctx = Context {
             instance_name: None,
             current_branch: DatabaseBranch::Default,
             project: None,
             project_ctx_cache: Mutex::new(None),
+            skip_hooks,
         };
 
         // use instance name provided with --instance
@@ -83,6 +89,10 @@ impl Context {
         }
 
         Ok(ctx)
+    }
+
+    pub fn skip_hooks(&self) -> bool {
+        self.skip_hooks
     }
 
     /// Returns the "current" branch or branch of the connection.

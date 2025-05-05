@@ -38,17 +38,21 @@ pub async fn do_wipe(
     connection: &mut crate::connect::Connection,
     context: &Context,
 ) -> Result<(), anyhow::Error> {
-    if let Some(project) = context.get_project().await? {
-        hooks::on_action("branch.wipe.before", &project).await?;
-        hooks::on_action("schema.update.before", &project).await?;
+    if !context.skip_hooks() {
+        if let Some(project) = context.get_project().await? {
+            hooks::on_action("branch.wipe.before", &project).await?;
+            hooks::on_action("schema.update.before", &project).await?;
+        }
     }
 
     let (status, _warnings) = connection.execute("RESET SCHEMA TO initial", &()).await?;
     print::completion(status);
 
-    if let Some(project) = context.get_project().await? {
-        hooks::on_action("branch.wipe.after", &project).await?;
-        hooks::on_action("schema.update.after", &project).await?;
+    if !context.skip_hooks() {
+        if let Some(project) = context.get_project().await? {
+            hooks::on_action("branch.wipe.after", &project).await?;
+            hooks::on_action("schema.update.after", &project).await?;
+        }
     }
     Ok(())
 }

@@ -59,7 +59,7 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
                     break;
                 }
             }
-            let ctx = Context::for_migration_config(&options.cfg, false).await?;
+            let ctx = Context::for_migration_config(&options.cfg, false, true).await?;
 
             Box::pin(do_check(
                 &ctx,
@@ -112,7 +112,7 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    let ctx = runtime.block_on(Context::for_migration_config(&options.cfg, false))?;
+    let ctx = runtime.block_on(Context::for_migration_config(&options.cfg, false, true))?;
 
     let mut watch_options = WatchOptions::default();
     if !options.no_exit_with_parent {
@@ -133,7 +133,7 @@ pub fn to_version(pkg: &PackageInfo, project: &project::Context) -> anyhow::Resu
     use crate::branding::BRANDING;
 
     let info = install::package(pkg).context(concatcp!("error installing ", BRANDING))?;
-    let ctx = Context::for_project(project.clone())?;
+    let ctx = Context::for_project(project.clone(), true)?;
     spawn_and_check(&info, ctx, false, WatchOptions::default())
 }
 

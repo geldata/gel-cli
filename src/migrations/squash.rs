@@ -25,9 +25,9 @@ use crate::question::Confirm;
 pub async fn run(
     cmd: &create::Command,
     conn: &mut Connection,
-    _options: &Options,
+    opts: &Options,
 ) -> anyhow::Result<()> {
-    let ctx = Context::for_migration_config(&cmd.cfg, cmd.non_interactive).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, cmd.non_interactive, opts.skip_hooks).await?;
     let migrations = migration::read_all(&ctx, true).await?;
     let Some(db_rev) = migrations_applied(conn, &ctx, &migrations).await? else {
         return Err(ExitCode::new(3).into());
@@ -307,6 +307,7 @@ async fn test_two_stage_remove() -> anyhow::Result<()> {
         schema_dir: tmp.path().to_path_buf(),
         quiet: false,
         project: None,
+        skip_hooks: true,
     };
 
     // Create test migration files
