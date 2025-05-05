@@ -239,7 +239,7 @@ async fn _migrate_to_schema(
         }?
     };
     if !descr.confirmed.is_empty() {
-        if apply_hooks {
+        if apply_hooks && !ctx.skip_hooks {
             if let Some(project) = &ctx.project {
                 hooks::on_action("migration.apply.before", project).await?;
                 hooks::on_action("schema.update.before", project).await?;
@@ -248,7 +248,7 @@ async fn _migrate_to_schema(
 
         ddl::apply_statements(cli, &descr.confirmed).await?;
 
-        if apply_hooks {
+        if apply_hooks && !ctx.skip_hooks {
             if let Some(project) = &ctx.project {
                 hooks::on_action("migration.apply.after", project).await?;
                 hooks::on_action("schema.update.after", project).await?;
