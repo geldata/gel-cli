@@ -265,8 +265,6 @@ impl TwoStageRemove<'_> {
             }
             if lossy_name.ends_with(".edgeql") {
                 self.rename(&item.path()).await?;
-            } else if lossy_name.ends_with(".edgeql.old") {
-                self.filenames.push(item.path());
             }
         }
         Ok(())
@@ -293,4 +291,47 @@ impl TwoStageRemove<'_> {
         self.filenames.push(tmp_path);
         Ok(())
     }
+}
+
+#[tokio::test]
+async fn test_two_stage_remove() -> anyhow::Result<()> {
+    // Test for #1610, which fixed a bug when there were too many
+    // migration files for one call to getdents64.
+
+    // Put the temp dir under (unfortunately) the current directory.
+    // This is because /tmp is often a tmpfs, and the issue doesn't
+    // show up on tmpfs!
+    let tmp = tempfile::tempdir_in(".")?;
+
+    let ctx = Context {
+        schema_dir: tmp.path().to_path_buf(),
+        quiet: false,
+        project: None,
+    };
+
+    // Create test migration files
+    let migrations_dir = tmp.path().join("migrations");
+    fs::create_dir(&migrations_dir).await?;
+    for i in 0..2000 {
+        fs::write(migrations_dir.join(format!("{:05}-mXXXXXX.edgeql", i)), "").await?;
+    }
+
+    // Run rename + removal
+    let mut remover = TwoStageRemove::new(&ctx);
+    remover.rename_revisions().await?;
+    remover.commit().await?;
+
+    // Verify files are removed
+    let mut entries = fs::read_dir(&migrations_dir).await?;
+    while let Some(item) = entries.next_entry().await? {
+        let file_name = item.file_name();
+        let name = file_name.to_string_lossy();
+        assert!(
+            !name.ends_with(".edgeql") && !name.ends_with(".edgeql.old"),
+            "Found unexpected file: {}",
+            name
+        );
+    }
+
+    Ok(())
 }
