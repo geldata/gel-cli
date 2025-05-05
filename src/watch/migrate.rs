@@ -39,20 +39,18 @@ impl Migrator {
         mut input: UnboundedReceiver<ExecutionOrder>,
         matcher: Arc<Watcher>,
     ) {
-        // Run initial dev-mode migration on startup
-        if let Err(e) = self.migration_apply_dev_mode().await {
-            print::error!("{e}");
-        }
-
-        while let Some(order) = ExecutionOrder::recv(&mut input).await {
-            order.print(&matcher, self.ctx.as_ref());
-
+        loop {
             let res = self.migration_apply_dev_mode().await;
 
             if let Err(e) = &res {
                 print::error!("{e}");
                 // TODO
                 // matcher.should_retry = true;
+            }
+
+            match ExecutionOrder::recv(&mut input).await {
+                Some(order) => order.print(&matcher, self.ctx.as_ref()),
+                None => break,
             }
         }
 
