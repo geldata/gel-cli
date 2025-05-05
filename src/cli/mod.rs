@@ -29,6 +29,6 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
 
     match &cmd.subcommand {
         Upgrade(s) => upgrade::run(s),
-        Install(s) => install::run(s, opts),
+        Install(s) => install::run(s, Some(opts)),
     }
 }

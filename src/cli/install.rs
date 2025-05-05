@@ -72,7 +72,7 @@ pub struct Settings {
     rc_files: Vec<PathBuf>,
 }
 
-pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
+pub fn run(cmd: &Command, opts: Option<&crate::options::Options>) -> anyhow::Result<()> {
     match _run(cmd, opts) {
         Ok(()) => {
             if cfg!(windows) && !cmd.upgrade && !cmd.no_confirm && !cmd.no_wait_for_exit_prompt {
@@ -97,7 +97,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
     }
 }
 
-fn _run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
+fn _run(cmd: &Command, opts: Option<&crate::options::Options>) -> anyhow::Result<()> {
     #[cfg(unix)]
     if !cmd.no_confirm {
         match home_dir_from_passwd().zip(env::var_os("HOME")) {
@@ -491,7 +491,7 @@ pub enum InitResult {
     NotAProject,
 }
 
-fn try_project_init(opts: &crate::options::Options) -> anyhow::Result<InitResult> {
+fn try_project_init(opts: Option<&crate::options::Options>) -> anyhow::Result<InitResult> {
     use InitResult::*;
 
     let base_dir = env::current_dir().context("failed to get current directory")?;
@@ -522,7 +522,7 @@ fn try_project_init(opts: &crate::options::Options) -> anyhow::Result<InitResult
             cloud_secret_key: None,
             cloud_profile: None,
         };
-        let init = project::init::Command {
+        let cmd = project::init::Command {
             project_dir: None,
             server_version: None,
             server_instance: None,
@@ -533,9 +533,33 @@ fn try_project_init(opts: &crate::options::Options) -> anyhow::Result<InitResult
             server_start_conf: None,
             cloud_opts: cloud_options.clone(),
         };
-        let mut opts = opts.clone();
-        opts.cloud_options = cloud_options;
-        project::init::init_existing(&init, project, &opts)?;
+        let opts = if let Some(opts) = opts {
+            crate::options::Options {
+                cloud_options,
+                ..opts.clone()
+            }
+        } else {
+            // init new, fake opts
+            // (this happens when invoking gel-init, which does not parse the args regularly)
+            crate::options::Options {
+                cloud_options,
+                skip_hooks: crate::cli::env::Env::skip_hooks()?.is_some_and(|x| x.0),
+
+                // all of these are default values
+                subcommand: None,
+                conn_options: crate::options::ConnectionOptions::default(),
+                interactive: Default::default(),
+                debug_print_frames: Default::default(),
+                debug_print_descriptors: Default::default(),
+                debug_print_codecs: Default::default(),
+                input_language: Default::default(),
+                output_format: Default::default(),
+                sql_output_format: Default::default(),
+                no_cli_update_check: Default::default(),
+                test_output_conn_params: Default::default(),
+            }
+        };
+        project::init::init_existing(&cmd, project, &opts)?;
         Ok(Initialized)
     } else {
         Ok(NotAProject)

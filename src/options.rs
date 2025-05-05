@@ -49,7 +49,7 @@ const CONNECTION_ARG_HINT: &str = concatcp!(
     to specify connection parameters. See `--help` for details"
 );
 
-#[derive(clap::Args, Clone, Debug)]
+#[derive(clap::Args, Clone, Debug, Default)]
 #[group(id = "connopts")]
 pub struct ConnectionOptions {
     #[command(flatten)]
@@ -239,7 +239,7 @@ pub struct ConnectionOptions {
     pub connect_timeout: Option<Duration>,
 }
 
-#[derive(clap::Args, Clone, Debug)]
+#[derive(clap::Args, Clone, Debug, Default)]
 pub struct InstanceOptionsGlobal {
     /// Instance name (use [`BRANDING_CLI_CMD`] `instance list` to list local, remote and
     /// [`BRANDING_CLOUD`] instances available to you).

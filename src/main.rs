@@ -135,8 +135,7 @@ fn _main() -> anyhow::Result<()> {
         if let Some(exe_name) = Path::new(&arg0).file_name() {
             if exe_name.to_string_lossy().contains("-init") {
                 let cmd = cli::install::Command::parse();
-                let opt = Options::from_args_and_env()?;
-                return cli::install::run(&cmd, &opt);
+                return cli::install::run(&cmd, None);
             }
         }
     }

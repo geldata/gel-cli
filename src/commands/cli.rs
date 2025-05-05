@@ -50,7 +50,7 @@ pub fn main(options: &Options) -> Result<(), anyhow::Error> {
         Command::Project(cmd) => portable::project::run(cmd, options),
         Command::Query(q) => non_interactive::noninteractive_main(q, options),
         Command::Init(cmd) => portable::project::init::run(cmd, options),
-        Command::_SelfInstall(s) => cli::install::run(s, options),
+        Command::_SelfInstall(s) => cli::install::run(s, Some(options)),
         Command::_GenCompletions(s) => cli::gen_completions::run(s),
         Command::Cli(c) => cli::run(c, options),
         Command::Info(info) => commands::info(options, info),
