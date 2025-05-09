@@ -1,3 +1,5 @@
+#!/usr/bin/env clitest --v0
+
 # Functional tests for project linking
 # Key:
 #   - # <comment>
@@ -10,7 +12,7 @@
 #   - choice { ... }
 #   - unordered { ... }
 
-#pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+-dev
+pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+-dev
 #test %{VERSION} "Gel CLI 7.2.0-dev.1306+7d4a485"
 ignore {
     ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
@@ -27,8 +29,8 @@ $ gel instance destroy -I project2 --force
 *
 
 $ mktemp -d
-*
 %SET WORK_DIR
+*
 
 $ cp -R ../../proj $WORK_DIR
 

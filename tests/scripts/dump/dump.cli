@@ -1,3 +1,5 @@
+#!/usr/bin/env clitest --v0
+
 # Test dump and restore functionality
 
 ignore {
