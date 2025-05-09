@@ -229,8 +229,14 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
     let inst_name = cmd.instance.clone();
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
+    let stop_warning = if let InstanceName::Local(_) = &cmd.instance {
+        "This will stop the instance and restore all branches from the backup. Any data not backed up will be lost."
+    } else {
+        "This will restore all branches from the backup. Any data not backed up will be lost."
+    };
+
     let prompt = format!(
-        "Will restore {inst_name:#} from the specified backup.\
+        "Will restore {inst_name:#} from the specified backup. {stop_warning}\
         \n\nContinue?",
     );
 
