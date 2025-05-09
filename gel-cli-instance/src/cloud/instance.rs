@@ -3,9 +3,12 @@ use gel_dsn::gel::{CloudName, InstanceName};
 use std::time::Duration;
 
 use crate::instance::{
+    Instance, InstanceOpError, Operation,
     backup::{
-        Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback, RequestedBackupStrategy, RestoreType
-    }, map_join_error, Instance, InstanceOpError, Operation
+        Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback,
+        RequestedBackupStrategy, RestoreType,
+    },
+    map_join_error,
 };
 
 use super::{CloudApi, CloudError, CloudHttp, schema};
@@ -21,7 +24,11 @@ struct CloudInstanceBackup<H: CloudHttp> {
 }
 
 impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
-    fn backup(&self, strategy: RequestedBackupStrategy, callback: ProgressCallback) -> Operation<Option<BackupId>> {
+    fn backup(
+        &self,
+        strategy: RequestedBackupStrategy,
+        callback: ProgressCallback,
+    ) -> Operation<Option<BackupId>> {
         let api = self.instance.api.clone();
         let name = self.instance.name.clone();
 

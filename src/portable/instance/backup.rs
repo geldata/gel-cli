@@ -1,7 +1,11 @@
+use std::sync::Arc;
 use std::time::Duration;
 
+use futures_util::future;
 use gel_cli_derive::IntoArgs;
-use gel_cli_instance::instance::backup::{ProgressCallbackListener, RestoreType};
+use gel_cli_instance::instance::backup::{
+    ProgressCallbackListener, RequestedBackupStrategy, RestoreType,
+};
 use gel_cli_instance::instance::{InstanceHandle, get_cloud_instance, get_local_instance};
 use gel_tokio::InstanceName;
 
@@ -179,7 +183,34 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
     }
 
     let progress_bar = ProgressBar::default();
-    let backup = backup.backup(progress_bar.into()).await?;
+
+    // If local, start a task to connect to the instance to keep it alive
+    // This should live in InstanceBackup code, but we can't easily connect in there yet
+    if let InstanceName::Local(_) = &cmd.instance {
+        let cfg = gel_tokio::Builder::new()
+            .instance(cmd.instance.clone())
+            .with_fs()
+            .build()?;
+        progress_bar.progress(Some(0.0), "Waiting for instance to be ready");
+        let ready = Arc::new(tokio::sync::Barrier::new(2));
+        let ready2 = ready.clone();
+        tokio::spawn(async move {
+            use crate::branding::QUERY_TAG;
+            use crate::connect::Connection;
+
+            let mut conn = Connection::connect(&cfg, QUERY_TAG).await?;
+
+            ready.wait().await;
+            conn.ping_while(future::pending::<()>()).await;
+            Ok::<_, anyhow::Error>(())
+        });
+
+        ready2.wait().await;
+    }
+
+    let backup = backup
+        .backup(RequestedBackupStrategy::Auto, progress_bar.into())
+        .await?;
 
     if let Some(backup_id) = backup {
         msg!("Successfully created a backup {backup_id} for {inst_name:#}");
@@ -193,6 +224,11 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
 pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::Result<()> {
     let inst_name = cmd.instance.clone();
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
+
+    if let InstanceName::Local(inst_name) = &cmd.instance {
+        let inst_name = inst_name.clone();
+        tokio::task::spawn_blocking(move || super::control::do_stop(&inst_name)).await??;
+    }
 
     let prompt = format!(
         "Will restore {inst_name:#} from the specified backup.\
@@ -219,6 +255,11 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
             progress_bar.into(),
         )
         .await?;
+
+    if let InstanceName::Local(inst_name) = &cmd.instance {
+        let meta = InstanceInfo::read(&inst_name)?;
+        tokio::task::spawn_blocking(move || super::control::do_start(&meta)).await??;
+    }
 
     msg!("{inst_name:#} has been restored successfully.");
     msg!("To connect to the instance run:");
