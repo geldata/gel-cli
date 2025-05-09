@@ -229,11 +229,6 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
     let inst_name = cmd.instance.clone();
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
-    if let InstanceName::Local(inst_name) = &cmd.instance {
-        let inst_name = inst_name.clone();
-        tokio::task::spawn_blocking(move || super::control::do_stop(&inst_name)).await??;
-    }
-
     let prompt = format!(
         "Will restore {inst_name:#} from the specified backup.\
         \n\nContinue?",
@@ -241,6 +236,11 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
 
     if !cmd.non_interactive && !question::Confirm::new(prompt).ask()? {
         return Ok(());
+    }
+
+    if let InstanceName::Local(inst_name) = &cmd.instance {
+        let inst_name = inst_name.clone();
+        tokio::task::spawn_blocking(move || super::control::do_stop(&inst_name)).await??;
     }
 
     let restore_type = if cmd.backup_spec.latest {

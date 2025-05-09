@@ -116,6 +116,42 @@ impl BackupRecord {
             data_dir,
         })
     }
+
+    fn latest(backups_dir: impl AsRef<Path>) -> Result<Option<BackupId>, anyhow::Error> {
+        // Try to read the latest backup id, if it exists.
+        if let Ok(id) = std::fs::read_to_string(&backups_dir.as_ref().join("latest")) {
+            if let Ok(id) = Uuid::parse_str(&id) {
+                return Ok(Some(BackupId::new(id.to_string())));
+            }
+        }
+
+        let mut latest = Uuid::nil();
+        for entry in std::fs::read_dir(&backups_dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+        {
+            let Ok(uuid) = Uuid::parse_str(&entry.file_name().to_string_lossy()) else {
+                continue;
+            };
+            // UUID v7 is monotonically increasing, so we can just
+            // compare the values.
+            if uuid > latest {
+                let Ok(metadata) = BackupMetadata::from_file(
+                    &backups_dir
+                        .as_ref()
+                        .join(entry.file_name())
+                        .join("backup.json"),
+                ) else {
+                    continue;
+                };
+                if metadata.completed_at.is_some() {
+                    latest = uuid;
+                }
+            }
+        }
+        Ok(Some(BackupId::new(latest.to_string())))
+    }
 }
 
 impl InstanceBackup for LocalBackup {
@@ -151,15 +187,7 @@ impl InstanceBackup for LocalBackup {
             let incremental_parent = if strategy == RequestedBackupStrategy::Incremental
                 || strategy == RequestedBackupStrategy::Auto
             {
-                // Try to read the latest backup id, if it exists.
-                let latest_backup_id = if let Ok(id) = std::fs::read_to_string(&latest_backup) {
-                    Uuid::parse_str(&id)
-                        .ok()
-                        .map(|id| BackupId::new(id.to_string()))
-                } else {
-                    None
-                };
-
+                let latest_backup_id = BackupRecord::latest(&backups_dir)?;
                 if latest_backup_id.is_none() && strategy == RequestedBackupStrategy::Incremental {
                     bail!("No previous backup found, cannot take incremental backup.");
                 }
@@ -342,18 +370,12 @@ impl InstanceBackup for LocalBackup {
             }
             let backup_id = match restore_type {
                 RestoreType::Latest => {
-                    let mut latest = Uuid::nil();
-                    for entry in std::fs::read_dir(&backups_dir).into_iter().flatten().flatten() {
-                        let Ok(uuid) = Uuid::parse_str(&entry.file_name().to_string_lossy()) else {
-                            continue;
-                        };
-                        // UUID v7 is monotonically increasing, so we can just
-                        // compare the values.
-                        if uuid > latest {
-                            latest = uuid;
-                        }
+                    let latest_backup_id = BackupRecord::latest(&backups_dir)?;
+                    if let Some(latest_backup_id) = latest_backup_id {
+                        latest_backup_id
+                    } else {
+                        bail!("No backups were found.");
                     }
-                    BackupId::new(latest.to_string())
                 }
                 RestoreType::Specific(id) => {
                     BackupId::new(id)
