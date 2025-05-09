@@ -82,9 +82,17 @@ pub struct Backup {
     pub backup_strategy: BackupStrategy,
 }
 
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
+pub enum RequestedBackupStrategy {
+    #[default]
+    Auto,
+    Full,
+    Incremental,
+}
+
 pub trait InstanceBackup {
     /// Perform a backup. Returns the backup id if available.
-    fn backup(&self, callback: ProgressCallback) -> Operation<Option<BackupId>>;
+    fn backup(&self, strategy: RequestedBackupStrategy, callback: ProgressCallback) -> Operation<Option<BackupId>>;
     /// Restore from a backup, optionally from a different instance.
     fn restore(
         &self,

@@ -3,11 +3,9 @@ use gel_dsn::gel::{CloudName, InstanceName};
 use std::time::Duration;
 
 use crate::instance::{
-    Instance, InstanceOpError, Operation,
     backup::{
-        Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback, RestoreType,
-    },
-    map_join_error,
+        Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback, RequestedBackupStrategy, RestoreType
+    }, map_join_error, Instance, InstanceOpError, Operation
 };
 
 use super::{CloudApi, CloudError, CloudHttp, schema};
@@ -23,11 +21,17 @@ struct CloudInstanceBackup<H: CloudHttp> {
 }
 
 impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
-    fn backup(&self, callback: ProgressCallback) -> Operation<Option<BackupId>> {
+    fn backup(&self, strategy: RequestedBackupStrategy, callback: ProgressCallback) -> Operation<Option<BackupId>> {
         let api = self.instance.api.clone();
         let name = self.instance.name.clone();
 
         tokio::spawn(async move {
+            if strategy != RequestedBackupStrategy::Auto {
+                return Err(CloudError::InvalidRequest(
+                    "cloud backups only support automatic backups".to_string(),
+                ));
+            }
+
             let operation = api.create_backup(&name).await?;
             api.wait_for_operation(operation, Duration::from_secs(30 * 60), callback)
                 .await?;
