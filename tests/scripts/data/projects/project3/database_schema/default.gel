@@ -1,6 +1,0 @@
-module default {
-    type Hello {
-        property world: str;
-        property foo: int64;
-    }
-}
