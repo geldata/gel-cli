@@ -10,6 +10,7 @@ use futures::FutureExt;
 use gel_dsn::gel::InstanceName;
 use log::info;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use uuid::Uuid;
 
 use crate::{
@@ -99,20 +100,20 @@ impl BackupMetadata {
 struct BackupRecord {
     id: BackupId,
     metadata: BackupMetadata,
+    metadata_dir: PathBuf,
     data_dir: PathBuf,
 }
 
 impl BackupRecord {
     fn from_file(backups_dir: impl AsRef<Path>, id: BackupId) -> Result<Self, anyhow::Error> {
-        let file = backups_dir
-            .as_ref()
-            .join(id.to_string())
-            .join("backup.json");
+        let metadata_dir = backups_dir.as_ref().join(id.to_string());
+        let file = metadata_dir.join("backup.json");
         let metadata = BackupMetadata::from_file(&file)?;
-        let data_dir = backups_dir.as_ref().join(id.to_string()).join("data");
+        let data_dir = metadata_dir.join("data");
         Ok(Self {
             id,
             metadata,
+            metadata_dir,
             data_dir,
         })
     }
@@ -220,6 +221,18 @@ impl InstanceBackup for LocalBackup {
                 None
             };
 
+            let our_pid = std::process::id();
+
+            // Write a child record so the parent cannot be deleted.
+            if let Some(parent_record) = &incremental_parent {
+                std::fs::write(
+                    parent_record
+                        .metadata_dir
+                        .join(format!("{}.child", backup_id)),
+                    json!({"status": "in-progress", "pid": our_pid}).to_string(),
+                )?;
+            }
+
             let metadata_file = temp_dir.join("backup.json");
             std::fs::create_dir_all(&temp_dir)?;
             std::fs::write(&metadata_file, serde_json::to_string_pretty(&metadata)?)?;
@@ -311,6 +324,15 @@ impl InstanceBackup for LocalBackup {
             std::fs::write(metadata_file, serde_json::to_string_pretty(&metadata)?)?;
             std::fs::rename(temp_dir, target_dir)?;
 
+            if let Some(parent_record) = &incremental_parent {
+                std::fs::write(
+                    parent_record
+                        .metadata_dir
+                        .join(format!("{}.child", backup_id)),
+                    json!({"status": "finalizing", "pid": our_pid}).to_string(),
+                )?;
+            }
+
             // Update the latest backup file atomically, if possible.
             _ = std::fs::remove_file(&latest_backup_temp);
             std::fs::write(&latest_backup_temp, backup_id.as_bytes())?;
@@ -318,6 +340,15 @@ impl InstanceBackup for LocalBackup {
                 _ = std::fs::remove_file(&latest_backup)?;
                 std::fs::write(&latest_backup_temp, backup_id.as_bytes())?;
                 std::fs::rename(&latest_backup_temp, &latest_backup)?;
+            }
+
+            if let Some(parent_record) = &incremental_parent {
+                std::fs::write(
+                    parent_record
+                        .metadata_dir
+                        .join(format!("{}.child", backup_id)),
+                    json!({"status": "completed"}).to_string(),
+                )?;
             }
 
             Ok(Some(BackupId::new(backup_id)))
