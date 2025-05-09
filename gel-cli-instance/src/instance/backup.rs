@@ -58,7 +58,7 @@ pub enum RestoreType {
     Specific(String),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, derive_more::Display, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, derive_more::Display, Serialize, Deserialize)]
 #[display("{}", id)]
 #[serde(transparent)]
 pub struct BackupId {
@@ -92,7 +92,11 @@ pub enum RequestedBackupStrategy {
 
 pub trait InstanceBackup {
     /// Perform a backup. Returns the backup id if available.
-    fn backup(&self, strategy: RequestedBackupStrategy, callback: ProgressCallback) -> Operation<Option<BackupId>>;
+    fn backup(
+        &self,
+        strategy: RequestedBackupStrategy,
+        callback: ProgressCallback,
+    ) -> Operation<Option<BackupId>>;
     /// Restore from a backup, optionally from a different instance.
     fn restore(
         &self,

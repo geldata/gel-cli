@@ -13,11 +13,15 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
+    ProcessRunner, Processes, SystemProcessRunner,
     instance::{
+        Operation,
         backup::{
-            Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback, RequestedBackupStrategy, RestoreType
-        }, map_join_error, Operation
-    }, ProcessRunner, Processes, SystemProcessRunner
+            Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback,
+            RequestedBackupStrategy, RestoreType,
+        },
+        map_join_error,
+    },
 };
 
 use super::LocalInstanceHandle;
@@ -48,8 +52,26 @@ struct BackupMetadata {
     backup_type: BackupType,
     #[serde(rename = "strategy")]
     backup_strategy: BackupStrategy,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    incremental: Option<IncrementalMetadata>,
+    /// The size of the backup in bytes.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    size: Option<u64>,
     server_version: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct IncrementalMetadata {
+    #[serde(rename = "parent")]
+    parent_backup_id: BackupId,
+    #[serde(rename = "generation", default = "u32::default")]
+    incremental_generation: u32,
+    #[serde(with = "humantime_serde")]
+    full_backup_completed_at: SystemTime,
+}
+
+const MAX_INCREMENTAL_AGE: Duration = Duration::from_secs(60 * 60 * 24 * 7);
+const MAX_INCREMENTAL_GENERATION: u32 = 5;
 
 impl BackupMetadata {
     fn is_incomplete(&self) -> bool {
@@ -74,8 +96,34 @@ impl BackupMetadata {
     }
 }
 
+struct BackupRecord {
+    id: BackupId,
+    metadata: BackupMetadata,
+    data_dir: PathBuf,
+}
+
+impl BackupRecord {
+    fn from_file(backups_dir: impl AsRef<Path>, id: BackupId) -> Result<Self, anyhow::Error> {
+        let file = backups_dir
+            .as_ref()
+            .join(id.to_string())
+            .join("backup.json");
+        let metadata = BackupMetadata::from_file(&file)?;
+        let data_dir = backups_dir.as_ref().join(id.to_string()).join("data");
+        Ok(Self {
+            id,
+            metadata,
+            data_dir,
+        })
+    }
+}
+
 impl InstanceBackup for LocalBackup {
-    fn backup(&self, strategy: RequestedBackupStrategy, callback: ProgressCallback) -> Operation<Option<BackupId>> {
+    fn backup(
+        &self,
+        strategy: RequestedBackupStrategy,
+        callback: ProgressCallback,
+    ) -> Operation<Option<BackupId>> {
         let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
         let backup_id = Uuid::now_v7().to_string();
         let mut backups_dir = self.handle.paths.data_dir.clone();
@@ -86,16 +134,66 @@ impl InstanceBackup for LocalBackup {
             started_at: now,
             last_updated_at: now,
             completed_at: None,
+            incremental: None,
             backup_type: BackupType::Manual,
             backup_strategy: BackupStrategy::Full,
             server_version: self.handle.version.clone(),
+            size: None,
         };
 
         let target_dir = backups_dir.join(&backup_id);
+        let latest_backup = backups_dir.join("latest");
+        let latest_backup_temp = backups_dir.join(format!(".latest.tmp"));
         let temp_dir = backups_dir.join(format!(".{backup_id}.tmp"));
         let run_dir = self.handle.paths.runstate_path.clone();
 
         tokio::spawn(async move {
+            let incremental_parent = if strategy == RequestedBackupStrategy::Incremental
+                || strategy == RequestedBackupStrategy::Auto
+            {
+                // Try to read the latest backup id, if it exists.
+                let mut latest_backup_id = if let Ok(id) = std::fs::read_to_string(&latest_backup) {
+                    Uuid::parse_str(&id)
+                        .ok()
+                        .map(|id| BackupId::new(id.to_string()))
+                } else {
+                    None
+                };
+
+                if latest_backup_id.is_none() && strategy == RequestedBackupStrategy::Incremental {
+                    bail!("No previous backup found, cannot take incremental backup.");
+                }
+
+                let record = latest_backup_id
+                    .map(|id| BackupRecord::from_file(backups_dir, id))
+                    .transpose()?;
+                if strategy == RequestedBackupStrategy::Auto {
+                    if let Some(record) = &record {
+                        if record.metadata.completed_at.is_none() {
+                            latest_backup_id = None;
+                        }
+                        if let Some(incremental) = &record.metadata.incremental {
+                            if incremental.incremental_generation > MAX_INCREMENTAL_GENERATION {
+                                latest_backup_id = None;
+                            }
+                            if incremental
+                                .full_backup_completed_at
+                                .elapsed()
+                                .unwrap_or(Duration::MAX)
+                                > MAX_INCREMENTAL_AGE
+                            {
+                                latest_backup_id = None;
+                            }
+                        }
+                    } else {
+                        latest_backup_id = None;
+                    }
+                }
+                record
+            } else {
+                None
+            };
+
             let metadata_file = temp_dir.join("backup.json");
             std::fs::create_dir_all(&temp_dir)?;
             std::fs::write(&metadata_file, serde_json::to_string_pretty(&metadata)?)?;
@@ -131,9 +229,37 @@ impl InstanceBackup for LocalBackup {
                 ));
             }
 
-            pg_backup
-                .pg_basebackup(&temp_dir.join("data"), run_dir, "postgres", callback)
-                .await?;
+            if let Some(parent_record) = &incremental_parent {
+                metadata.incremental = Some(IncrementalMetadata {
+                    parent_backup_id: parent_record.id.clone(),
+                    incremental_generation: parent_record
+                        .metadata
+                        .incremental
+                        .as_ref()
+                        .map_or(0, |i| i.incremental_generation)
+                        + 1,
+                    full_backup_completed_at: parent_record
+                        .metadata
+                        .incremental
+                        .as_ref()
+                        .map_or(parent_record.metadata.completed_at.unwrap(), |i| {
+                            i.full_backup_completed_at
+                        }),
+                });
+                pg_backup
+                    .pg_basebackup_incremental(
+                        &temp_dir.join("data"),
+                        run_dir,
+                        "postgres",
+                        parent_record.data_dir.join("backup_manifest"),
+                        callback,
+                    )
+                    .await?;
+            } else {
+                pg_backup
+                    .pg_basebackup(&temp_dir.join("data"), run_dir, "postgres", callback)
+                    .await?;
+            }
 
             // Abort the task so we don't accidentally race.
             let task = scopeguard::ScopeGuard::into_inner(task);
@@ -142,8 +268,32 @@ impl InstanceBackup for LocalBackup {
 
             metadata.last_updated_at = SystemTime::now();
             metadata.completed_at = Some(metadata.last_updated_at);
+            let mut size = 0;
+            for entry in std::fs::read_dir(&temp_dir)? {
+                let Ok(entry) = entry else {
+                    continue;
+                };
+                size += entry.metadata()?.len();
+            }
+            metadata.size = Some(size);
+            metadata.backup_strategy = if incremental_parent.is_some() {
+                BackupStrategy::Incremental
+            } else {
+                BackupStrategy::Full
+            };
+
             std::fs::write(metadata_file, serde_json::to_string_pretty(&metadata)?)?;
             std::fs::rename(temp_dir, target_dir)?;
+
+            // Update the latest backup file atomically, if possible.
+            _ = std::fs::remove_file(&latest_backup_temp);
+            std::fs::write(&latest_backup_temp, backup_id.as_bytes())?;
+            if std::fs::rename(&latest_backup_temp, &latest_backup).is_err() {
+                _ = std::fs::remove_file(&latest_backup)?;
+                std::fs::write(&latest_backup_temp, backup_id.as_bytes())?;
+                std::fs::rename(&latest_backup_temp, &latest_backup)?;
+            }
+
             Ok(Some(BackupId::new(backup_id)))
         })
         .map(map_join_error::<_, anyhow::Error>)
@@ -219,39 +369,52 @@ impl InstanceBackup for LocalBackup {
                 bail!("Backup {} not found", backup_id);
             }
 
-            let metadata_file = backup_path.join("backup.json");
-            let metadata = BackupMetadata::from_file(&metadata_file)?;
-            if metadata.is_incomplete() {
-                bail!("Backup {} is incomplete and cannot be restored.", backup_id);
+            let record = BackupRecord::from_file(&backups_dir, backup_id)?;
+            if record.metadata.is_incomplete() {
+                bail!("Backup {} is incomplete and cannot be restored.", record.id);
             }
 
-            let backup_data_path = backup_path.join("data");
-            let data_file = backup_data_path.join("base.tar.gz");
-            let wal_file = backup_data_path.join("pg_wal.tar.gz");
-            let backup_manifest = backup_data_path.join("backup_manifest");
-            {
-                let callback = callback.clone();
-                let restore_tmpdir = restore_tmpdir.clone();
-                tokio::task::spawn_blocking(move || {
-                    // Note to reader: tar files may contain multiple
-                    // concatenated gzip streams, so we need to use a
-                    // MultiGzDecoder to unpack them.
+            if record.metadata.backup_strategy == BackupStrategy::Full {
+                let backup_data_path = backup_path.join("data");
+                let backup_manifest = backup_data_path.join("backup_manifest");
+                pg_backup.unpack_backup(&backup_data_path, &restore_tmpdir, callback.clone()).await?;
+                pg_backup.pg_verifybackup(&restore_tmpdir, backup_manifest, callback.clone()).await?;
+            } else if record.metadata.backup_strategy == BackupStrategy::Incremental {
+                // Walk the backup chain to the full backup.
+                let Some(mut current) = record.metadata.incremental.as_ref().map(|i| i.parent_backup_id.clone()) else {
+                    return Err(anyhow::anyhow!("Backup {} is corrupt: missing incremental metadata.", record.id));
+                };
+                let mut backup_chain = vec![record];
+                loop {
+                    let record = BackupRecord::from_file(&backups_dir, current)?;
+                    if record.metadata.backup_strategy == BackupStrategy::Full {
+                        backup_chain.push(record);
+                        break;
+                    } else {
+                        let Some(incremental) = &record.metadata.incremental else {
+                            bail!("Backup {} is corrupt: missing incremental metadata.", record.id);
+                        };
+                        current = incremental.parent_backup_id.clone();
+                    }
+                    backup_chain.push(record);
+                }
 
-                    info!("Unpacking {data_file:?} to {restore_tmpdir:?}");
-                    callback.progress(None, "Unpacking data...");
-                    let mut data_tar = tar::Archive::new(flate2::read::MultiGzDecoder::new(File::open(data_file)?));
-                    data_tar.unpack(&restore_tmpdir)?;
+                backup_chain.reverse();
 
-                    let wal_dir = restore_tmpdir.join("pg_wal");
-                    info!("Unpacking {wal_file:?} to {wal_dir:?}");
-                    callback.progress(None, "Unpacking WAL...");
-                    let mut wal_tar = tar::Archive::new(flate2::read::MultiGzDecoder::new(File::open(wal_file)?));
-                    wal_tar.unpack(wal_dir)?;
+                let mut combine_backup_args = vec![];
 
-                    Ok::<_, std::io::Error>(())
-                }).await??;
+                for record in backup_chain {
+                    let target = restore_tmpdir2.join(record.id.to_string());
+                    pg_backup.unpack_backup(&record.data_dir, &target, callback.clone()).await?;
+                    combine_backup_args.push(target);
+                }
+
+                pg_backup.pg_combinebackup(&restore_tmpdir, &combine_backup_args, callback.clone()).await?;
+                std::fs::remove_dir_all(&restore_tmpdir2)?;
+                pg_backup.pg_verifybackup(&restore_tmpdir, restore_tmpdir.join("backup_manifest"), callback.clone()).await?;
+            } else {
+                bail!("Backup {} is not a full or incremental backup and cannot be restored.", record.id);
             }
-            pg_backup.pg_verifybackup(&restore_tmpdir, backup_manifest, callback.clone()).await?;
 
             callback.progress(None, "Finalizing restore...");
 
@@ -285,6 +448,14 @@ impl InstanceBackup for LocalBackup {
                     continue;
                 };
                 to_remove.push(entry.path());
+                let Ok(metadata) = entry.metadata() else {
+                    continue;
+                };
+                if !metadata.is_dir() {
+                    // Allow non-directories to continue to exist
+                    to_remove.pop();
+                    continue;
+                }
                 let Ok(uuid) = Uuid::parse_str(&entry.file_name().to_string_lossy()) else {
                     continue;
                 };
@@ -312,6 +483,7 @@ impl InstanceBackup for LocalBackup {
                 log::warn!("Removing incomplete or failed backup {}", path.display());
                 _ = std::fs::remove_dir_all(&path);
             }
+            backups.sort_by_key(|b| b.created_on);
             Ok(backups)
         })
         .map(map_join_error::<_, anyhow::Error>)
@@ -330,6 +502,46 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
             runner: Processes::new(runner),
             portable_bin_path,
         }
+    }
+
+    pub async fn unpack_backup(
+        &self,
+        backup_data_dir: impl AsRef<Path>,
+        target_dir: impl AsRef<Path>,
+        callback: ProgressCallback,
+    ) -> Result<(), anyhow::Error> {
+        let backup_data_path = backup_data_dir.as_ref().to_path_buf();
+        let data_file = backup_data_path.join("base.tar.gz");
+        let wal_file = backup_data_path.join("pg_wal.tar.gz");
+        let manifest_file = backup_data_path.join("backup_manifest");
+        {
+            let callback = callback.clone();
+            let restore_tmpdir = target_dir.as_ref().to_path_buf();
+            tokio::task::spawn_blocking(move || {
+                // Note to reader: tar files may contain multiple
+                // concatenated gzip streams, so we need to use a
+                // MultiGzDecoder to unpack them.
+
+                info!("Unpacking {data_file:?} to {restore_tmpdir:?}");
+                callback.progress(None, "Unpacking data");
+                let mut data_tar =
+                    tar::Archive::new(flate2::read::MultiGzDecoder::new(File::open(data_file)?));
+                data_tar.unpack(&restore_tmpdir)?;
+
+                let wal_dir = restore_tmpdir.join("pg_wal");
+                info!("Unpacking {wal_file:?} to {wal_dir:?}");
+                callback.progress(None, "Unpacking WAL");
+                let mut wal_tar =
+                    tar::Archive::new(flate2::read::MultiGzDecoder::new(File::open(wal_file)?));
+                wal_tar.unpack(wal_dir)?;
+
+                std::fs::copy(manifest_file, restore_tmpdir.join("backup_manifest"))?;
+
+                Ok::<_, std::io::Error>(())
+            })
+            .await??;
+        }
+        Ok(())
     }
 
     pub async fn pg_basebackup(
@@ -363,13 +575,58 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         Ok(())
     }
 
-    // pub async fn pg_restore(&self, callback: ProgressCallback) -> Result<(), ProcessError> {
-    //     unimplemented!()
-    // }
+    pub async fn pg_basebackup_incremental(
+        &self,
+        target_dir: impl AsRef<Path>,
+        unix_path: impl AsRef<Path>,
+        username: &str,
+        incremental: impl AsRef<Path>,
+        callback: ProgressCallback,
+    ) -> Result<(), anyhow::Error> {
+        if !self.portable_bin_path.join("pg_basebackup").exists() {
+            return Err(anyhow::anyhow!(
+                "Backups not supported for this server version. No `pg_basebackup` found at {}.",
+                self.portable_bin_path.join("pg_basebackup").display()
+            ));
+        }
+        let mut cmd = Command::new(self.portable_bin_path.join("pg_basebackup"));
+        cmd.arg("--pgdata").arg(target_dir.as_ref());
+        cmd.arg("--host").arg(unix_path.as_ref());
+        cmd.arg("--username").arg(username);
+        cmd.arg("--format=tar");
+        cmd.arg("--checkpoint=fast");
+        cmd.arg("--progress");
+        cmd.arg("--compress=client-gzip");
+        cmd.arg("--incremental");
+        cmd.arg(incremental.as_ref());
+        // Slows it down
+        // cmd.arg("-r 1000");
+        self.runner
+            .run_lines(cmd, move |line| {
+                callback.progress(None, &format!("running pg_basebackup: {}", line.trim()));
+            })
+            .await?;
+        Ok(())
+    }
 
-    // pub async fn pg_combinebackup(&self, callback: ProgressCallback) -> Result<(), ProcessError> {
-    //     unimplemented!()
-    // }
+    pub async fn pg_combinebackup(
+        &self,
+        target_dir: impl AsRef<Path>,
+        paths: &[impl AsRef<Path>],
+        callback: ProgressCallback,
+    ) -> Result<(), anyhow::Error> {
+        let mut cmd = Command::new(self.portable_bin_path.join("pg_combinebackup"));
+        cmd.arg("--output").arg(target_dir.as_ref());
+        for path in paths {
+            cmd.arg(path.as_ref());
+        }
+        self.runner
+            .run_lines(cmd, move |line| {
+                callback.progress(None, &format!("running pg_combinebackup: {}", line.trim()));
+            })
+            .await?;
+        Ok(())
+    }
 
     pub async fn pg_verifybackup(
         &self,
