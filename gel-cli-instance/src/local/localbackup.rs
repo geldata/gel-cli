@@ -13,15 +13,11 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
-    ProcessRunner, Processes, SystemProcessRunner,
     instance::{
-        Operation,
         backup::{
-            Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback,
-            RestoreType,
-        },
-        map_join_error,
-    },
+            Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback, RequestedBackupStrategy, RestoreType
+        }, map_join_error, Operation
+    }, ProcessRunner, Processes, SystemProcessRunner
 };
 
 use super::LocalInstanceHandle;
@@ -79,7 +75,7 @@ impl BackupMetadata {
 }
 
 impl InstanceBackup for LocalBackup {
-    fn backup(&self, callback: ProgressCallback) -> Operation<Option<BackupId>> {
+    fn backup(&self, strategy: RequestedBackupStrategy, callback: ProgressCallback) -> Operation<Option<BackupId>> {
         let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
         let backup_id = Uuid::now_v7().to_string();
         let mut backups_dir = self.handle.paths.data_dir.clone();
