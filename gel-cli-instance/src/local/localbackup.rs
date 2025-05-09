@@ -152,7 +152,7 @@ impl InstanceBackup for LocalBackup {
                 || strategy == RequestedBackupStrategy::Auto
             {
                 // Try to read the latest backup id, if it exists.
-                let mut latest_backup_id = if let Ok(id) = std::fs::read_to_string(&latest_backup) {
+                let latest_backup_id = if let Ok(id) = std::fs::read_to_string(&latest_backup) {
                     Uuid::parse_str(&id)
                         .ok()
                         .map(|id| BackupId::new(id.to_string()))
@@ -164,29 +164,27 @@ impl InstanceBackup for LocalBackup {
                     bail!("No previous backup found, cannot take incremental backup.");
                 }
 
-                let record = latest_backup_id
+                let mut record = latest_backup_id
                     .map(|id| BackupRecord::from_file(backups_dir, id))
                     .transpose()?;
                 if strategy == RequestedBackupStrategy::Auto {
-                    if let Some(record) = &record {
-                        if record.metadata.completed_at.is_none() {
-                            latest_backup_id = None;
-                        }
-                        if let Some(incremental) = &record.metadata.incremental {
+                    if let Some(parent_record) = &record {
+                        if parent_record.metadata.completed_at.is_none() {
+                            record = None;
+                        } else if let Some(incremental) = &parent_record.metadata.incremental {
                             if incremental.incremental_generation > MAX_INCREMENTAL_GENERATION {
-                                latest_backup_id = None;
-                            }
-                            if incremental
+                                record = None;
+                            } else if incremental
                                 .full_backup_completed_at
                                 .elapsed()
                                 .unwrap_or(Duration::MAX)
                                 > MAX_INCREMENTAL_AGE
                             {
-                                latest_backup_id = None;
+                                record = None;
                             }
                         }
                     } else {
-                        latest_backup_id = None;
+                        record = None;
                     }
                 }
                 record
@@ -269,7 +267,7 @@ impl InstanceBackup for LocalBackup {
             metadata.last_updated_at = SystemTime::now();
             metadata.completed_at = Some(metadata.last_updated_at);
             let mut size = 0;
-            for entry in std::fs::read_dir(&temp_dir)? {
+            for entry in std::fs::read_dir(&temp_dir.join("data"))? {
                 let Ok(entry) = entry else {
                     continue;
                 };
