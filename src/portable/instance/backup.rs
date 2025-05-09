@@ -4,7 +4,7 @@ use std::time::Duration;
 use futures_util::future;
 use gel_cli_derive::IntoArgs;
 use gel_cli_instance::instance::backup::{
-    ProgressCallbackListener, RequestedBackupStrategy, RestoreType,
+    BackupStrategy, ProgressCallbackListener, RequestedBackupStrategy, RestoreType,
 };
 use gel_cli_instance::instance::{InstanceHandle, get_cloud_instance, get_local_instance};
 use gel_tokio::InstanceName;
@@ -150,10 +150,14 @@ pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::
                 .collect(),
         ));
         for key in backups {
+            let backup_type = match key.backup_strategy {
+                BackupStrategy::Full => format!("{}", key.backup_type),
+                other => format!("{} ({:?})", key.backup_type, other),
+            };
             table.add_row(Row::new(vec![
                 Cell::new(&key.id.to_string()),
                 Cell::new(&humantime::format_rfc3339_seconds(key.created_on).to_string()),
-                Cell::new(&key.backup_type.to_string()),
+                Cell::new(&backup_type),
                 Cell::new(&key.status),
                 Cell::new(&key.server_version),
             ]));
