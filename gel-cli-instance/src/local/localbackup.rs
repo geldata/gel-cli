@@ -49,6 +49,8 @@ struct BackupMetadata {
     last_updated_at: SystemTime,
     #[serde(with = "humantime_serde")]
     completed_at: Option<SystemTime>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pid: Option<u32>,
     #[serde(rename = "type")]
     backup_type: BackupType,
     #[serde(rename = "strategy")]
@@ -153,6 +155,14 @@ impl BackupRecord {
         }
         Ok(Some(BackupId::new(latest.to_string())))
     }
+
+    async fn latest_async(
+        backups_dir: impl AsRef<Path>,
+    ) -> Result<Option<BackupId>, anyhow::Error> {
+        let backups_dir = backups_dir.as_ref().to_path_buf();
+        let latest = tokio::task::spawn_blocking(move || Self::latest(&backups_dir)).await??;
+        Ok(latest)
+    }
 }
 
 impl InstanceBackup for LocalBackup {
@@ -166,11 +176,14 @@ impl InstanceBackup for LocalBackup {
         let mut backups_dir = self.handle.paths.data_dir.clone();
         backups_dir.set_extension("backups");
         let now = SystemTime::now();
+        let our_pid = std::process::id();
+
         let mut metadata = BackupMetadata {
             version: 1,
             started_at: now,
             last_updated_at: now,
             completed_at: None,
+            pid: Some(our_pid),
             incremental: None,
             backup_type: BackupType::Manual,
             backup_strategy: BackupStrategy::Full,
@@ -188,7 +201,7 @@ impl InstanceBackup for LocalBackup {
             let incremental_parent = if strategy == RequestedBackupStrategy::Incremental
                 || strategy == RequestedBackupStrategy::Auto
             {
-                let latest_backup_id = BackupRecord::latest(&backups_dir)?;
+                let latest_backup_id = BackupRecord::latest_async(&backups_dir).await?;
                 if latest_backup_id.is_none() && strategy == RequestedBackupStrategy::Incremental {
                     bail!("No previous backup found, cannot take incremental backup.");
                 }
@@ -221,7 +234,11 @@ impl InstanceBackup for LocalBackup {
                 None
             };
 
-            let our_pid = std::process::id();
+            metadata.backup_strategy = if incremental_parent.is_some() {
+                BackupStrategy::Incremental
+            } else {
+                BackupStrategy::Full
+            };
 
             // Write a child record so the parent cannot be deleted.
             if let Some(parent_record) = &incremental_parent {
@@ -306,6 +323,7 @@ impl InstanceBackup for LocalBackup {
             _ = task.await;
 
             metadata.last_updated_at = SystemTime::now();
+            metadata.pid = None;
             metadata.completed_at = Some(metadata.last_updated_at);
             let mut size = 0;
             for entry in std::fs::read_dir(&temp_dir.join("data"))? {
@@ -315,11 +333,6 @@ impl InstanceBackup for LocalBackup {
                 size += entry.metadata()?.len();
             }
             metadata.size = Some(size);
-            metadata.backup_strategy = if incremental_parent.is_some() {
-                BackupStrategy::Incremental
-            } else {
-                BackupStrategy::Full
-            };
 
             std::fs::write(metadata_file, serde_json::to_string_pretty(&metadata)?)?;
             std::fs::rename(temp_dir, target_dir)?;
@@ -401,7 +414,7 @@ impl InstanceBackup for LocalBackup {
             }
             let backup_id = match restore_type {
                 RestoreType::Latest => {
-                    let latest_backup_id = BackupRecord::latest(&backups_dir)?;
+                    let latest_backup_id = BackupRecord::latest_async(&backups_dir).await?;
                     if let Some(latest_backup_id) = latest_backup_id {
                         latest_backup_id
                     } else {
@@ -461,7 +474,12 @@ impl InstanceBackup for LocalBackup {
                 }
 
                 pg_backup.pg_combinebackup(&restore_tmpdir, &combine_backup_args, callback.clone()).await?;
-                std::fs::remove_dir_all(&restore_tmpdir2)?;
+                {
+                    let restore_tmpdir2 = restore_tmpdir2.clone();
+                    tokio::task::spawn_blocking(move || {
+                        std::fs::remove_dir_all(restore_tmpdir2)
+                    }).await??;
+                }
                 pg_backup.pg_verifybackup(&restore_tmpdir, restore_tmpdir.join("backup_manifest"), callback.clone()).await?;
             } else {
                 bail!("Backup {} is not a full or incremental backup and cannot be restored.", record.id);
