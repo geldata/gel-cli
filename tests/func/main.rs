@@ -20,8 +20,6 @@ use test_utils::server::ServerInstance;
 #[cfg(not(windows))]
 mod configure;
 #[cfg(not(windows))]
-mod dump_restore;
-#[cfg(not(windows))]
 mod instance_link;
 #[cfg(not(windows))]
 mod migrations;
