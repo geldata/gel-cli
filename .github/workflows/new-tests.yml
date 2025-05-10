@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ '**' ]
 
+env:
+  CACHE_KEY: 1
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -46,9 +49,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ env.CACHE_KEY }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-cargo-${{ env.CACHE_KEY }}-
 
       - name: Build
         if: runner.os != 'Linux'
@@ -66,9 +69,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.CARGO_HOME }}/bin/clitest*
-          key: clitest-${{ runner.os }}
+          key: clitest-${{ env.CACHE_KEY }}-${{ runner.os }}
           restore-keys: |
-            clitest-${{ runner.os }}-
+            clitest-${{ env.CACHE_KEY }}-${{ runner.os }}-
 
       - name: Build clitest
         if: steps.clitest-cache.outputs.cache-hit != 'true'
@@ -80,9 +83,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.CARGO_HOME }}/bin/clitest*
-          key: clitest-${{ runner.os }}
+          key: clitest-${{ env.CACHE_KEY }}-${{ runner.os }}
           restore-keys: |
-            clitest-${{ runner.os }}-
+            clitest-${{ env.CACHE_KEY }}-${{ runner.os }}-
 
       - name: Upload artifacts (gel)
         uses: actions/upload-artifact@v4
