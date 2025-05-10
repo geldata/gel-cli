@@ -7,7 +7,7 @@ on:
     branches: [ '**' ]
 
 env:
-  CACHE_KEY: 1
+  CACHE_KEY: 2
 
 jobs:
   build:
@@ -140,7 +140,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           gel instance create -I _placeholder_
-          gel instance destroy -I _placeholder_
+          gel instance destroy --non-interactive -I _placeholder_
           wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/edgedb
           wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/gel
 
