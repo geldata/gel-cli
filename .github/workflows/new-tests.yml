@@ -1,0 +1,164 @@
+name: New Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ '**' ]
+
+env:
+  CACHE_KEY: 2
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, large-win-x64]
+    env:
+      CARGO_INCREMENTAL: 0
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        with:
+          components: "cargo,rustc,rust-std"
+          toolchain: '1.85'
+          targets: 'x86_64-unknown-linux-musl'
+
+      - name: Write .cargo/config.toml
+        if: runner.os == 'Windows'
+        run: |
+          # Use rust-lld as linker for Windows for faster builds
+          echo '[target.x86_64-pc-windows-msvc]' > ${{ env.CARGO_HOME }}/config.toml
+          echo 'linker = "rust-lld.exe"' >> ${{ env.CARGO_HOME }}/config.toml
+
+          # Use opt-level 1 to avoid smashing the stack with large futures
+          echo '[profile.dev]' >> ${{ env.CARGO_HOME }}/config.toml
+          echo 'opt-level = 1' >> ${{ env.CARGO_HOME }}/config.toml
+
+      - name: Cache Rust files
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ env.CACHE_KEY }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-${{ env.CACHE_KEY }}-
+
+      - name: Build
+        if: runner.os != 'Linux'
+        run: |
+          cargo build
+
+      - name: Build (static)
+        if: runner.os == 'Linux'
+        run: |
+          RUSTFLAGS="-C target-feature=+crt-static" cargo build --target=x86_64-unknown-linux-gnu
+          cp target/x86_64-unknown-linux-gnu/debug/gel target/debug/gel
+
+      - name: Download clitest from cache
+        id: clitest-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CARGO_HOME }}/bin/clitest*
+          key: clitest-${{ env.CACHE_KEY }}-${{ runner.os }}
+          restore-keys: |
+            clitest-${{ env.CACHE_KEY }}-${{ runner.os }}-
+
+      - name: Build clitest
+        if: steps.clitest-cache.outputs.cache-hit != 'true'
+        run: |
+          cargo install clitest
+
+      - name: Upload clitest to cache
+        if: steps.clitest-cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CARGO_HOME }}/bin/clitest*
+          key: clitest-${{ env.CACHE_KEY }}-${{ runner.os }}
+          restore-keys: |
+            clitest-${{ env.CACHE_KEY }}-${{ runner.os }}-
+
+      - name: Upload artifacts (gel)
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-gel-cli-${{ runner.os }}
+          path: target/debug/gel*
+          if-no-files-found: error
+
+      - name: Upload artifacts (clitest)
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-clitest-${{ runner.os }}
+          path: ${{ env.CARGO_HOME }}/bin/clitest*
+          if-no-files-found: error
+
+  tests:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, large-win-x64]
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        with:
+          components: "cargo,rustc,rust-std"
+          toolchain: '1.85'
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: debug-*
+          path: artifacts
+
+      - name: List artifacts
+        if: runner.os != 'Windows'
+        run: |
+          ls -lR artifacts
+
+      - name: Copy artifacts to PATH
+        run: |
+          cp artifacts/debug-gel-cli-${{ runner.os }}/gel* ${{ env.CARGO_HOME }}/bin/
+          cp artifacts/debug-clitest-${{ runner.os }}/clitest* ${{ env.CARGO_HOME }}/bin/
+
+      - name: Setup WSL
+        if: runner.os == 'Windows'
+        run: |
+          gel instance create -I _placeholder_
+          gel instance destroy --non-interactive -I _placeholder_
+          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/edgedb
+          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/gel
+
+      - name: Set executable permissions
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x ${{ env.CARGO_HOME }}/bin/*
+
+      - name: Print version
+        run: |
+          gel --version
+
+      - name: Run dump/dump.cli test
+        run: |
+          _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/dump/dump.cli
+        shell: bash
+
+      - name: Run link/script.cli test
+        run: |
+          _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/link/script.cli
+        shell: bash

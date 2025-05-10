@@ -327,7 +327,13 @@ fn upgrade_local(
                 upgrade::upgrade_compatible(inst, pkg)?;
             } else {
                 migrations::upgrade_check::to_version(&pkg, project)?;
-                upgrade::upgrade_incompatible(inst, pkg, cmd.non_interactive, opts.skip_hooks)?;
+                upgrade::upgrade_incompatible(
+                    inst,
+                    inst_ver.clone(),
+                    pkg,
+                    cmd.non_interactive,
+                    opts.skip_hooks,
+                )?;
             }
         }
         Ok(upgrade::UpgradeResult {

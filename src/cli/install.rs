@@ -12,9 +12,9 @@ use anyhow::Context;
 use const_format::concatcp;
 use prettytable::{Cell, Row, Table};
 
-use crate::branding::BRANDING_CLI_CMD_ALT_FILE;
-use crate::branding::BRANDING_CLI_CMD_FILE;
-use crate::branding::{BRANDING, BRANDING_CLI_CMD};
+use crate::branding::{
+    BRANDING, BRANDING_CLI_CMD, BRANDING_CLI_CMD_ALT_FILE, BRANDING_CLI_CMD_FILE,
+};
 use crate::cli::logo::print_logo;
 use crate::cli::upgrade;
 use crate::commands::ExitCode;
@@ -625,6 +625,10 @@ fn copy_to_alternative_executable<P: AsRef<Path>>(installation_path: P) -> anyho
 }
 
 pub fn check_executables() {
+    if crate::portable::windows::is_wrapped() {
+        return;
+    }
+
     let exe_path = current_exe().unwrap();
 
     let exe_dir = exe_path.parent().unwrap();

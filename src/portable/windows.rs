@@ -32,7 +32,7 @@ use crate::portable::instance;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::instance::destroy;
-use crate::portable::instance::status;
+use crate::portable::instance::status::{self, status_str};
 use crate::portable::local::{InstanceInfo, NonLocalInstance, Paths, write_json};
 use crate::portable::options;
 use crate::portable::project;
@@ -336,6 +336,7 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
         .arg("edgedb")
         .arg("--distribution")
         .arg(distro)
+        .arg("_EDGEDB_FROM_WINDOWS=1")
         .arg(USR_BIN_EXE)
         .arg("--version")
         .get_stdout_text()?;
@@ -529,6 +530,11 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
         wsl_simple_cmd(wsl, &distro, "useradd edgedb --uid 1000 --create-home")?;
     }
 
+    if Env::_wsl_skip_update()? == Some(true) {
+        update_cli = false;
+        certs_timestamp = None;
+    }
+
     if update_cli {
         msg!("Updating container CLI version...");
         if let Some(bin_path) = Env::_wsl_linux_binary()? {
@@ -686,11 +692,13 @@ fn create_and_start(wsl: &Wsl, name: &str) -> anyhow::Result<()> {
         .arg("-I")
         .arg(name)
         .run()?;
+    // TODO: This should probably use _EDGEDB_FROM_WINDOWS=1 and --foreground
     fs_err::write(
         service_file(name)?,
         format!(
             "wsl \
             --distribution {} --user edgedb \
+            _EDGEDB_FROM_WINDOWS=1 \
             {USR_BIN_EXE} instance start -I {name}",
             &wsl.distribution,
         ),
@@ -758,7 +766,10 @@ pub fn external_status(_inst: &InstanceInfo) -> anyhow::Result<()> {
 }
 
 pub fn is_wrapped() -> bool {
-    Env::_from_windows().unwrap_or_default().unwrap_or_default()
+    let Ok(v) = Env::_from_windows() else {
+        return false;
+    };
+    v.is_some()
 }
 
 pub fn install(options: &server::install::Command) -> anyhow::Result<()> {
@@ -982,7 +993,15 @@ fn list_local(options: &status::List) -> anyhow::Result<Vec<status::JsonStatus>>
             .args(&inner_opts)
             .get_stdout_text()?;
         log::info!("WSL list returned {:?}", text);
-        serde_json::from_str(&text).context("cannot decode json from `instance list` in WSL")?
+        let mut instances: Vec<status::JsonStatus> = serde_json::from_str(&text)
+            .context("cannot decode json from `instance list` in WSL")?;
+        // Use the Windows service status, not the WSL one
+        for instance in instances.iter_mut() {
+            instance.service_status = status_str(&service_status(&instance.name))
+                .to_owned()
+                .into();
+        }
+        instances
     } else {
         Vec::new()
     };

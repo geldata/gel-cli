@@ -223,7 +223,7 @@ fn upgrade_local_cmd(
     if inst_ver.is_compatible(&pkg_ver) && !(cmd.force && ver_option) && !cmd.force_dump_restore {
         upgrade_compatible(inst, pkg)
     } else {
-        upgrade_incompatible(inst, pkg, cmd.non_interactive, opts.skip_hooks)
+        upgrade_incompatible(inst, inst_ver, pkg, cmd.non_interactive, opts.skip_hooks)
     }
 }
 
@@ -357,12 +357,14 @@ pub fn upgrade_compatible(mut inst: InstanceInfo, pkg: PackageInfo) -> anyhow::R
 
 pub fn upgrade_incompatible(
     mut inst: InstanceInfo,
+    version: ver::Specific,
     pkg: PackageInfo,
     non_interactive: bool,
     skip_hooks: bool,
 ) -> anyhow::Result<()> {
     msg!(
-        "Upgrading to a major version {}",
+        "Upgrading from {} to incompatible version {}",
+        version,
         pkg.version.to_string().emphasized()
     );
 

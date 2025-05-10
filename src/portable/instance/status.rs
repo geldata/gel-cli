@@ -775,13 +775,16 @@ impl FullStatus {
                 println!("  Inactivity assumed because: {error}");
             }
         }
-        println!(
-            "  Service/Container: {}",
-            match self.service_exists {
-                true => "exists",
-                false => "NOT FOUND",
-            }
-        );
+        // This is not valid for Windows
+        if !windows::is_wrapped() {
+            println!(
+                "  Service/Container: {}",
+                match self.service_exists {
+                    true => "exists",
+                    false => "NOT FOUND",
+                }
+            );
+        }
         println!(
             "  Credentials: {}",
             match self.credentials_file_exists {
@@ -1012,7 +1015,7 @@ impl ConnectionStatus {
     }
 }
 
-fn status_str(status: &Service) -> &'static str {
+pub fn status_str(status: &Service) -> &'static str {
     match status {
         Service::Ready => "ready",
         Service::Running { .. } => "running",
