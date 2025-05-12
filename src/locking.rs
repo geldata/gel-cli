@@ -8,6 +8,7 @@ use gel_tokio::InstanceName;
 use log::{debug, warn};
 use serde_json::json;
 
+use crate::cli::env::Env;
 use crate::portable::project::get_stash_path;
 
 const LOCK_FILE_NAME: &str = "gel-cli.lock";
@@ -69,6 +70,14 @@ pub enum LockError {
 }
 
 fn try_create_lock(lock_type: file_guard::Lock, path: PathBuf) -> Result<LockInner, LockError> {
+    // Special case: we allow "free" shared locks in hooks, since the write lock
+    // is presumed to exist in the parent process.
+    if lock_type == file_guard::Lock::Shared
+        && *Env::in_hook().unwrap_or_default().unwrap_or_default()
+    {
+        return Ok(LockInner::NoLock);
+    }
+
     let lock_file = OpenOptions::new()
         .create(true)
         .write(true)

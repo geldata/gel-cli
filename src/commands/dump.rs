@@ -16,6 +16,7 @@ use crate::commands::list_databases::get_databases;
 use crate::commands::parser::{Dump as DumpOptions, DumpFormat};
 use crate::connect::Connection;
 use crate::hint::HintExt;
+use crate::locking::LockManager;
 use crate::platform::tmp_file_name;
 use crate::portable::ver;
 
@@ -86,6 +87,12 @@ pub async fn dump(
     general: &Options,
     options: &DumpOptions,
 ) -> Result<(), anyhow::Error> {
+    let _lock = if let Some(instance) = &general.instance_name {
+        Some(LockManager::lock_read_instance_async(&instance).await?)
+    } else {
+        None
+    };
+
     if options.all {
         if let Some(dformat) = options.format {
             if dformat != DumpFormat::Dir {
