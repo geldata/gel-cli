@@ -58,7 +58,7 @@ $ gel -I inst1 query 'SELECT user { name } ORDER BY .name;'
 ! {"name": "John"}
 ! {"name": "Mary"}
 
-$ gel -I inst1 restore --non-interactive --latest
+$ gel -I inst1 instance restore --non-interactive --latest
 *
 
 $ gel -I inst1 query 'SELECT user { name } ORDER BY .name;'
