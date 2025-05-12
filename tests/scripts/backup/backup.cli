@@ -4,10 +4,10 @@ pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]
 
 ignore {
     ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
-    ? WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
-    ? CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance 'inst1' at localhost:10700...
 }
-
 
 $ gel instance destroy -I inst1 --force
 %EXIT any
