@@ -14,15 +14,6 @@ $ gel instance destroy -I inst1 --force
 *
 
 if TARGET_OS != "windows" {
-    $ gel info --get data-dir 2> /dev/null
-    %SET DATA_DIR
-    *
-
-    # Clean up any local backups left over from previous runs
-    $ rm -rf "$DATA_DIR/inst1.backups"
-    %EXIT any
-    *
-
     $ gel instance create -I inst1
     *
 
