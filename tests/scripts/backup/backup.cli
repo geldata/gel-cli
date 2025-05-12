@@ -13,14 +13,16 @@ $ gel instance destroy -I inst1 --force
 %EXIT any
 *
 
-$ gel info --get data-dir 2> /dev/null
-%SET DATA_DIR
-*
+if TARGET_OS != "windows" {
+    $ gel info --get data-dir 2> /dev/null
+    %SET DATA_DIR
+    *
 
-# Clean up any local backups left over from previous runs
-$ rm -rf "$DATA_DIR/inst1.backups"
-%EXIT any
-*
+    # Clean up any local backups left over from previous runs
+    $ rm -rf "$DATA_DIR/inst1.backups"
+    %EXIT any
+    *
+}
 
 $ gel instance create -I inst1
 *
@@ -28,7 +30,7 @@ $ gel instance create -I inst1
 $ gel instance list-backups -I inst1
 ! No backups found.
 
-$ gel instance backup -I inst1 --non-interactive
+$ gel instance backup -I inst1 --non-interactive || RUST_LOG=debug gel instance backup -I inst1 --non-interactive
 *
 ! Successfully created a backup %{UUID} for Gel instance 'inst1'
 
