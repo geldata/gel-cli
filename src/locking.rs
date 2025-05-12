@@ -1,6 +1,11 @@
-use std::{fs::{File, OpenOptions}, io::Write, path::{Path, PathBuf}, sync::Arc};
+use std::{
+    fs::{File, OpenOptions},
+    io::Write,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
-use gel_tokio::{dsn::StoredInformation, InstanceName};
+use gel_tokio::{InstanceName, dsn::StoredInformation};
 use log::warn;
 use serde_json::json;
 
@@ -19,7 +24,7 @@ enum InstanceLockInner {
 
 impl Drop for InstanceLockInner {
     fn drop(&mut self) {
-        if let InstanceLockInner::Local(path,lock) = self {
+        if let InstanceLockInner::Local(path, lock) = self {
             if let Some(lock) = lock.take() {
                 drop(lock);
                 if let Err(e) = std::fs::remove_file(&path) {
@@ -36,20 +41,28 @@ pub struct ProjectLock {}
 pub struct LockManager {}
 
 #[derive(thiserror::Error, Debug)]
-pub enum LockError {
-}
+pub enum LockError {}
 
-struct LockManagerInstance {
-}
+struct LockManagerInstance {}
 
 impl LockManagerInstance {
-    pub fn new() {
-    }
+    pub fn new() {}
 }
 
 fn try_create_lock(path: PathBuf) -> Result<InstanceLockInner, LockError> {
-    let mut lock_file = OpenOptions::new().create(true).truncate(true).write(true).open(&path).unwrap();
-    lock_file.write_all(json!({"pid": std::process::id(), "cmd": std::env::args().collect::<Vec<_>>()}).to_string().as_bytes()).unwrap();
+    let mut lock_file = OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&path)
+        .unwrap();
+    lock_file
+        .write_all(
+            json!({"pid": std::process::id(), "cmd": std::env::args().collect::<Vec<_>>()})
+                .to_string()
+                .as_bytes(),
+        )
+        .unwrap();
     let lock_file = Arc::new(lock_file);
     let lock = file_guard::lock(lock_file, file_guard::Lock::Exclusive, 0, 1).unwrap();
     Ok(InstanceLockInner::Local(path, Some(lock)))
@@ -60,8 +73,13 @@ fn instance_lock_path(instance: &InstanceName) -> Option<PathBuf> {
     let InstanceName::Local(local_name) = &instance else {
         return None;
     };
-    
-    let Some(paths) = gel_tokio::Builder::new().with_system().stored_info().paths().for_instance(&local_name) else {
+
+    let Some(paths) = gel_tokio::Builder::new()
+        .with_system()
+        .stored_info()
+        .paths()
+        .for_instance(&local_name)
+    else {
         warn!("Unable to find instance path to lock");
         return None;
     };
@@ -94,7 +112,9 @@ impl LockManager {
         }
     }
 
-    pub fn lock_read_instance(instance: &impl Into<InstanceName>) -> Result<InstanceLock, LockError> {
+    pub fn lock_read_instance(
+        instance: &impl Into<InstanceName>,
+    ) -> Result<InstanceLock, LockError> {
         Ok(InstanceLock {
             inner: Arc::new(InstanceLockInner::NoLock),
         })
@@ -122,7 +142,9 @@ impl LockManager {
         }
     }
 
-    pub async fn lock_read_instance_async(instance: &impl Into<InstanceName>) -> Result<InstanceLock, LockError> {
+    pub async fn lock_read_instance_async(
+        instance: &impl Into<InstanceName>,
+    ) -> Result<InstanceLock, LockError> {
         Ok(InstanceLock {
             inner: Arc::new(InstanceLockInner::NoLock),
         })

@@ -325,7 +325,11 @@ pub struct Context {
 impl Context {
     pub fn new(location: Location, manifest: manifest::Manifest) -> Result<Self, anyhow::Error> {
         let project_lock = LockManager::lock_project(&location.root)?;
-        Ok(Self { location, manifest, project_lock: Some(project_lock) })
+        Ok(Self {
+            location,
+            manifest,
+            project_lock: Some(project_lock),
+        })
     }
 }
 
@@ -367,7 +371,11 @@ pub async fn load_ctx(override_dir: Option<&Path>) -> anyhow::Result<Option<Cont
 
     let manifest = manifest::read(&location.manifest)?;
     let lock = LockManager::lock_project(&location.root)?;
-    Ok(Some(Context { location, manifest, project_lock: Some(lock) }))
+    Ok(Some(Context {
+        location,
+        manifest,
+        project_lock: Some(lock),
+    }))
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -378,7 +386,11 @@ pub async fn load_ctx_at(location: Location) -> anyhow::Result<Context> {
 pub async fn load_ctx_at_async(location: Location) -> anyhow::Result<Context> {
     let manifest = manifest::read(&location.manifest)?;
     let lock = LockManager::lock_project_async(&location.root).await?;
-    Ok(Context { location, manifest, project_lock: Some(lock) })
+    Ok(Context {
+        location,
+        manifest,
+        project_lock: Some(lock),
+    })
 }
 
 #[tokio::main(flavor = "current_thread")]
