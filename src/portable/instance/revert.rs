@@ -6,6 +6,7 @@ use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING, BRANDING_CLOUD};
 use crate::commands::ExitCode;
+use crate::locking::LockManager;
 use crate::options::InstanceOptionsLegacy;
 use crate::platform::tmp_file_path;
 use crate::portable::exit_codes;
@@ -23,6 +24,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     use BackupStatus::*;
 
     let instance = options.instance_opts.instance()?;
+    let _lock = LockManager::lock_instance(&instance)?;
 
     let name = match &instance {
         InstanceName::Local(name) => {

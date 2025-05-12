@@ -54,12 +54,7 @@ pub async fn extract(
     let migrations = db_migration::read_all(cli, true, false).await?;
     let mut db_iter = migrations.into_iter().enumerate();
     let temp_dir = tempfile::tempdir()?;
-    let temp_ctx = Context {
-        schema_dir: temp_dir.path().to_path_buf(),
-        quiet: false,
-        project: None,
-        skip_hooks: true,
-    };
+    let temp_ctx = Context::for_temp_path(temp_dir.path())?;
     let mut to_delete = Vec::new();
 
     loop {

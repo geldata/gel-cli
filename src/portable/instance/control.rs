@@ -12,6 +12,7 @@ use crate::bug;
 use crate::commands::ExitCode;
 use crate::credentials;
 use crate::hint::HintExt;
+use crate::locking::LockManager;
 use crate::options::{InstanceOptions, InstanceOptionsLegacy};
 use crate::platform::current_exe;
 use crate::portable::local::{InstanceInfo, lock_file, open_lock, runstate_dir};
@@ -288,6 +289,8 @@ fn set_inheritable(file: &impl std::os::unix::io::AsRawFd) -> anyhow::Result<()>
 }
 
 pub fn start(options: &Start) -> anyhow::Result<()> {
+    let _lock = LockManager::lock_instance(&options.instance_opts.instance_allow_legacy()?)?;
+
     // Special case: instance name is allowed to be positional for start, because start
     // is used in systemd services and cannot be changed.
     // Maybe we should make "fixup" that updates those services?

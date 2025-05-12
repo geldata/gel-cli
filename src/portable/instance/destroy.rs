@@ -6,6 +6,7 @@ use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::commands::ExitCode;
+use crate::locking::LockManager;
 use crate::options::{CloudOptions, InstanceOptionsLegacy, Options};
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
@@ -17,6 +18,7 @@ use crate::{credentials, question};
 
 pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {
     let name = options.instance_opts.instance()?;
+    let _lock = LockManager::lock_instance(&name)?;
     let name_str = name.to_string();
     with_projects(&name_str, options.force, print_warning, || {
         if !options.force && !options.non_interactive {

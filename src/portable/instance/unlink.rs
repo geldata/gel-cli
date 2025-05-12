@@ -5,6 +5,7 @@ use gel_tokio::InstanceName;
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::credentials;
 use crate::hint::HintExt;
+use crate::locking::LockManager;
 use crate::options::InstanceOptionsLegacy;
 use crate::portable::instance::destroy::with_projects;
 use crate::portable::local::InstanceInfo;
@@ -12,6 +13,7 @@ use crate::portable::project;
 
 pub fn run(cmd: &Command) -> anyhow::Result<()> {
     let instance = cmd.instance_opts.instance()?;
+    let _lock = LockManager::lock_instance(&instance)?;
     let name = match &instance {
         InstanceName::Local(name) => name.clone(),
         inst_name => {

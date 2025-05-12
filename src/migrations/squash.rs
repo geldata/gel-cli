@@ -303,12 +303,7 @@ async fn test_two_stage_remove() -> anyhow::Result<()> {
     // show up on tmpfs!
     let tmp = tempfile::tempdir_in(".")?;
 
-    let ctx = Context {
-        schema_dir: tmp.path().to_path_buf(),
-        quiet: false,
-        project: None,
-        skip_hooks: true,
-    };
+    let ctx = Context::for_temp_path(tmp.path())?;
 
     // Create test migration files
     let migrations_dir = tmp.path().join("migrations");

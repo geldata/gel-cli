@@ -4,6 +4,7 @@ use log::warn;
 
 use crate::connect::Connection;
 use crate::credentials;
+use crate::locking::{InstanceLock, LockManager, ProjectLock};
 use crate::platform::tmp_file_path;
 use crate::portable::project::{self, get_stash_path};
 use std::fs;
@@ -34,6 +35,8 @@ pub struct Context {
     project_ctx_cache: Mutex<Option<project::Context>>,
 
     skip_hooks: bool,
+
+    instance_lock: Option<InstanceLock>,
 }
 
 impl Context {
@@ -47,11 +50,13 @@ impl Context {
             project: None,
             project_ctx_cache: Mutex::new(None),
             skip_hooks,
+            instance_lock: None,
         };
 
         // use instance name provided with --instance
         if let Some(instance_name) = instance_arg {
             ctx.instance_name = Some(instance_name.clone());
+            ctx.instance_lock = Some(LockManager::lock_instance_async(instance_name).await?);
 
             match instance_name {
                 InstanceName::Local(_) => {
@@ -84,6 +89,9 @@ impl Context {
         if let Some(location) = &ctx.project {
             let stash_dir = get_stash_path(&location.root)?;
             ctx.instance_name = project::instance_name(&stash_dir).ok();
+            if let Some(instance_name) = &ctx.instance_name {
+                ctx.instance_lock = Some(LockManager::lock_instance_async(instance_name).await?);
+            }
             ctx.current_branch =
                 project::database_name(&stash_dir).unwrap_or(DatabaseBranch::Default);
         }

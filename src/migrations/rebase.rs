@@ -255,12 +255,7 @@ pub async fn do_rebase(
     context: &Context,
 ) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
-    let temp_ctx = Context {
-        schema_dir: temp_dir.path().to_path_buf(),
-        quiet: false,
-        project: None,
-        skip_hooks: true,
-    };
+    let temp_ctx = Context::for_temp_path(temp_dir.path())?;
 
     // write all the migrations to disk.
     let to_flatten = rebase_migrations.clone();

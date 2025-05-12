@@ -22,6 +22,8 @@ use crate::branding::QUERY_TAG;
 use crate::branding::{BRANDING_SCHEMA_FILE_EXT, MANIFEST_FILE_DISPLAY_NAME};
 use crate::cloud::client::CloudClient;
 use crate::connect::Connection;
+use crate::locking::LockManager;
+use crate::locking::ProjectLock;
 use crate::platform::{bytes_to_path, path_bytes};
 use crate::platform::{config_dir, is_schema_file, symlink_dir, tmp_file_path};
 use crate::portable::local::InstanceInfo;
@@ -316,6 +318,15 @@ pub fn database_name(stash_dir: &Path) -> anyhow::Result<DatabaseBranch> {
 pub struct Context {
     pub location: Location,
     pub manifest: manifest::Manifest,
+
+    project_lock: Option<ProjectLock>,
+}
+
+impl Context {
+    pub fn new(location: Location, manifest: manifest::Manifest) -> Result<Self, anyhow::Error> {
+        let project_lock = LockManager::lock_project(&location.root)?;
+        Ok(Self { location, manifest, project_lock: Some(project_lock) })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -355,7 +366,8 @@ pub async fn load_ctx(override_dir: Option<&Path>) -> anyhow::Result<Option<Cont
     };
 
     let manifest = manifest::read(&location.manifest)?;
-    Ok(Some(Context { location, manifest }))
+    let lock = LockManager::lock_project(&location.root)?;
+    Ok(Some(Context { location, manifest, project_lock: Some(lock) }))
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -365,7 +377,8 @@ pub async fn load_ctx_at(location: Location) -> anyhow::Result<Context> {
 
 pub async fn load_ctx_at_async(location: Location) -> anyhow::Result<Context> {
     let manifest = manifest::read(&location.manifest)?;
-    Ok(Context { location, manifest })
+    let lock = LockManager::lock_project_async(&location.root).await?;
+    Ok(Context { location, manifest, project_lock: Some(lock) })
 }
 
 #[tokio::main(flavor = "current_thread")]

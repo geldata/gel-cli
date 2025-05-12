@@ -1051,12 +1051,7 @@ async fn start_migration() {
     let mut schema_dir = env::current_dir().unwrap();
     schema_dir.push("tests/migrations/db5");
 
-    let ctx = Context {
-        schema_dir,
-        quiet: false,
-        project: None,
-        skip_hooks: true,
-    };
+    let ctx = Context::for_temp_path(schema_dir).unwrap();
 
     let res = gen_start_migration(&ctx).await.unwrap();
 
