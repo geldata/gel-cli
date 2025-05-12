@@ -4,7 +4,7 @@ use log::warn;
 
 use crate::connect::Connection;
 use crate::credentials;
-use crate::locking::{InstanceLock, LockManager, ProjectLock};
+use crate::locking::{InstanceLock, LockManager};
 use crate::platform::tmp_file_path;
 use crate::portable::project::{self, get_stash_path};
 use std::fs;

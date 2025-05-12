@@ -18,7 +18,7 @@ use crate::{credentials, question};
 
 pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {
     let name = options.instance_opts.instance()?;
-    let lock = LockManager::lock_instance(&name)?;
+    let _lock = LockManager::lock_instance(&name)?;
 
     let name_str = name.to_string();
     with_projects(&name_str, options.force, print_warning, || {
@@ -31,7 +31,6 @@ pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {
                 return Err(ExitCode::new(exit_codes::NOT_CONFIRMED).into());
             }
         }
-        lock.lock_will_be_removed();
         match do_destroy(options, opts, &name) {
             Ok(()) => Ok(()),
             Err(e) if e.is::<InstanceNotFound>() => {

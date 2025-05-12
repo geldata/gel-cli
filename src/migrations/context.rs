@@ -12,6 +12,7 @@ pub struct Context {
 
     pub project: Option<project::Context>,
 
+    #[allow(unused)]
     instance_lock: Option<InstanceLock>,
 }
 
