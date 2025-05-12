@@ -115,7 +115,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     let paths = Paths::get(name)?;
     let tmp_path = tmp_file_path(&paths.data_dir);
     fs::rename(&paths.data_dir, &tmp_path)?;
-    fs::rename(&paths.backup_dir, &paths.data_dir)?;
+    fs::rename(&paths.old_backup_dir, &paths.data_dir)?;
 
     // If we're reverting from >=5.x to <=4.x, we need to rewrite the
     // credentials file to use the edgedb database _if_ the credentials are

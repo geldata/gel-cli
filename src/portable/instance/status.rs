@@ -266,7 +266,7 @@ fn status_from_meta(
     } else {
         DataDirectory::Absent
     };
-    let backup = backup_status(name, &paths.backup_dir);
+    let backup = backup_status(name, &paths.old_backup_dir);
     let credentials_file_exists =
         credentials::exists(&InstanceName::Local(name.to_string())).unwrap_or_default();
     let service_exists = paths.service_files.iter().any(|f| f.exists());

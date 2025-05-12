@@ -294,7 +294,8 @@ impl InstanceBackup for LocalBackup {
                 _ = std::fs::remove_dir_all(&temp_dir);
             });
 
-            // TODO: we should trigger the server to start if it's not running
+            // This shouldn't happen. We should have attempted to start the
+            // server before calling this method, but be clear just in case.
             if !run_dir.join(".s.PGSQL.5432").exists() {
                 return Err(anyhow::anyhow!(
                     "PostgreSQL socket not found at {}. Is the instance stopped or sleeping?",

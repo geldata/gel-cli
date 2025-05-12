@@ -28,7 +28,8 @@ pub struct Paths {
     pub data_dir: PathBuf,
     pub service_files: Vec<PathBuf>,
     pub dump_path: PathBuf,
-    pub backup_dir: PathBuf,
+    pub old_backup_dir: PathBuf,
+    pub backups_dir: PathBuf,
     pub upgrade_marker: PathBuf,
     pub runstate_dir: PathBuf,
 }
@@ -274,7 +275,8 @@ impl Paths {
         let res = Paths {
             data_dir: base.join(name),
             dump_path: base.join(format!("{name}.dump")),
-            backup_dir: base.join(format!("{name}.backup")),
+            old_backup_dir: base.join(format!("{name}.backup")),
+            backups_dir: base.join(format!("{name}.backups")),
             upgrade_marker: base.join(format!("{name}.UPGRADE_IN_PROGRESS")),
             runstate_dir: runstate_dir(name)?,
             service_files: if cfg!(windows) {
