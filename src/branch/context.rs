@@ -43,6 +43,7 @@ impl Context {
     pub async fn new(
         instance_arg: Option<&InstanceName>,
         skip_hooks: bool,
+        read_only: bool,
     ) -> anyhow::Result<Context> {
         let mut ctx = Context {
             instance_name: None,
@@ -56,7 +57,8 @@ impl Context {
         // use instance name provided with --instance
         if let Some(instance_name) = instance_arg {
             ctx.instance_name = Some(instance_name.clone());
-            ctx.instance_lock = Some(LockManager::lock_instance_async(instance_name).await?);
+            ctx.instance_lock =
+                Some(LockManager::lock_maybe_read_instance_async(instance_name, read_only).await?);
 
             match instance_name {
                 InstanceName::Local(_) => {
@@ -90,7 +92,9 @@ impl Context {
             let stash_dir = get_stash_path(&location.root)?;
             ctx.instance_name = project::instance_name(&stash_dir).ok();
             if let Some(instance_name) = &ctx.instance_name {
-                ctx.instance_lock = Some(LockManager::lock_instance_async(instance_name).await?);
+                ctx.instance_lock = Some(
+                    LockManager::lock_maybe_read_instance_async(instance_name, read_only).await?,
+                );
             }
             ctx.current_branch =
                 project::database_name(&stash_dir).unwrap_or(DatabaseBranch::Default);

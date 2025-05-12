@@ -147,9 +147,6 @@ impl LoopState {
     fn error(&mut self, _e: LockError) -> Result<(), LockError> {
         if self.first {
             self.first = false;
-        }
-
-        if self.first {
             if let Ok((pid, cmd)) = self.load_lock_file() {
                 warn!("Waiting for lock held by process {pid} running {cmd:?}",);
             } else {
@@ -254,6 +251,7 @@ impl LockManager {
         })
     }
 
+    #[expect(unused)]
     pub fn lock_read_instance(instance: &InstanceName) -> Result<InstanceLock, LockError> {
         let Some(lock_path) = instance_lock_path(instance) else {
             return Ok(InstanceLock {
@@ -280,6 +278,31 @@ impl LockManager {
             inner: Arc::new(
                 LoopState::try_create_lock_loop_async(file_guard::Lock::Exclusive, lock_path)
                     .await?,
+            ),
+        })
+    }
+
+    pub async fn lock_maybe_read_instance_async(
+        instance: &InstanceName,
+        read_only: bool,
+    ) -> Result<InstanceLock, LockError> {
+        let Some(lock_path) = instance_lock_path(instance) else {
+            return Ok(InstanceLock {
+                inner: Arc::new(LockInner::NoLock),
+            });
+        };
+
+        Ok(InstanceLock {
+            inner: Arc::new(
+                LoopState::try_create_lock_loop_async(
+                    if read_only {
+                        file_guard::Lock::Shared
+                    } else {
+                        file_guard::Lock::Exclusive
+                    },
+                    lock_path,
+                )
+                .await?,
             ),
         })
     }
