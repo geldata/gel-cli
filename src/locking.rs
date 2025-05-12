@@ -103,10 +103,10 @@ fn try_create_lock_inner(
         .create(true)
         .read(true)
         .write(true)
-        .append(true)
         .open(path)?;
     let lock_file = Box::new(lock_file);
     let mut lock = file_guard::try_lock(lock_file, lock_type, 0, 1)?;
+
     // Once we get the lock, rewrite the file with our data
     lock.set_len(0)?;
     lock.write_all(
