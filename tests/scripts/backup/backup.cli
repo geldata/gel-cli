@@ -30,7 +30,12 @@ $ gel instance create -I inst1
 $ gel instance list-backups -I inst1
 ! No backups found.
 
-$ gel instance backup -I inst1 --non-interactive || RUST_LOG=debug gel instance backup -I inst1 --non-interactive
+if TARGET_OS = "linux" {
+    $ strace gel instance backup -I inst1 --non-interactive
+    *
+}
+
+$ gel instance backup -I inst1 --non-interactive
 *
 ! Successfully created a backup %{UUID} for Gel instance 'inst1'
 
