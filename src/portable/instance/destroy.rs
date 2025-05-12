@@ -119,7 +119,8 @@ fn destroy_local(name: &str) -> anyhow::Result<bool> {
         }
     }
     if paths.runstate_dir.exists() {
-        found = true;
+        // Don't set 'found' if the runstate exists since we might have a lock
+        // only
         log::info!("Removing runstate directory {:?}", paths.runstate_dir);
         fs::remove_dir_all(&paths.runstate_dir)?;
     }
