@@ -171,13 +171,20 @@ impl<I: IntoArg, T: IntoIterator<Item = I>> IntoArgs for T {
     }
 }
 
-fn block_on<T>(f: impl Future<Output = anyhow::Result<T>>) -> anyhow::Result<T> {
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .thread_name("process-run")
-        .enable_all()
-        .build()
-        .context("can make tokio runtime")?;
-    runtime.block_on(f)
+/// We cannot guarantee there's not already a runtime running, so we spawn a new
+/// one. This style of async/sync is generally an anti-pattern, but this helps us
+/// avoid having to rewrite everything.
+fn block_on<T: Send>(f: impl Future<Output = anyhow::Result<T>> + Send) -> anyhow::Result<T> {
+    std::thread::scope(|s| {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .thread_name("process-run")
+            .enable_all()
+            .build()
+            .context("can make tokio runtime")?;
+        s.spawn(move || {
+            runtime.block_on(f)
+        }).join().unwrap()
+    })
 }
 
 impl Native {
@@ -356,12 +363,12 @@ impl Native {
     }
 
     #[allow(dead_code)]
-    pub fn background_for<T, F>(
+    pub fn background_for<T: Send, F>(
         &mut self,
-        f: impl FnOnce() -> anyhow::Result<F>,
+        f: impl FnOnce() -> anyhow::Result<F> + Send,
     ) -> anyhow::Result<T>
     where
-        F: Future<Output = anyhow::Result<T>>,
+        F: Future<Output = anyhow::Result<T>> + Send,
     {
         block_on(self._background(f))
     }
@@ -523,7 +530,7 @@ impl Native {
         f: impl FnOnce() -> anyhow::Result<F>,
     ) -> anyhow::Result<T>
     where
-        F: Future<Output = anyhow::Result<T>>,
+        F: Future<Output = anyhow::Result<T>> + Send,
     {
         let f = f()?;
         let term = interrupt::Interrupt::term();
