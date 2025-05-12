@@ -31,7 +31,7 @@ $ gel instance list-backups -I inst1
 ! No backups found.
 
 if TARGET_OS == "linux" {
-    $ strace gel instance backup -I inst1 --non-interactive
+    $ strace -f gel instance backup -I inst1 --non-interactive
     *
 }
 
