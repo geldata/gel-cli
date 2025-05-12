@@ -1,7 +1,12 @@
+use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::bail;
+use futures_util::future;
 use gel_cli_derive::IntoArgs;
-use gel_cli_instance::instance::backup::{ProgressCallbackListener, RestoreType};
+use gel_cli_instance::instance::backup::{
+    BackupStrategy, ProgressCallbackListener, RequestedBackupStrategy, RestoreType,
+};
 use gel_cli_instance::instance::{InstanceHandle, get_cloud_instance, get_local_instance};
 use gel_tokio::InstanceName;
 
@@ -130,6 +135,10 @@ fn get_instance(
 
 #[tokio::main]
 pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::Result<()> {
+    if cfg!(windows) {
+        bail!("Instance backup/restore is not yet supported on Windows");
+    }
+
     let instance = get_instance(opts, &cmd.instance)?.backup()?;
     let backups = instance.list_backups().await?;
 
@@ -146,10 +155,14 @@ pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::
                 .collect(),
         ));
         for key in backups {
+            let backup_type = match key.backup_strategy {
+                BackupStrategy::Full => format!("{}", key.backup_type),
+                other => format!("{} ({:?})", key.backup_type, other),
+            };
             table.add_row(Row::new(vec![
                 Cell::new(&key.id.to_string()),
                 Cell::new(&humantime::format_rfc3339_seconds(key.created_on).to_string()),
-                Cell::new(&key.backup_type.to_string()),
+                Cell::new(&backup_type),
                 Cell::new(&key.status),
                 Cell::new(&key.server_version),
             ]));
@@ -166,6 +179,10 @@ pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::
 
 #[tokio::main]
 pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Result<()> {
+    if cfg!(windows) {
+        bail!("Instance backup/restore is not yet supported on Windows");
+    }
+
     let inst_name = cmd.instance.clone();
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
@@ -179,7 +196,34 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
     }
 
     let progress_bar = ProgressBar::default();
-    let backup = backup.backup(progress_bar.into()).await?;
+
+    // If local, start a task to connect to the instance to keep it alive
+    // This should live in InstanceBackup code, but we can't easily connect in there yet
+    if let InstanceName::Local(_) = &cmd.instance {
+        let cfg = gel_tokio::Builder::new()
+            .instance(cmd.instance.clone())
+            .with_fs()
+            .build()?;
+        progress_bar.progress(Some(0.0), "Waiting for instance to be ready");
+        let ready = Arc::new(tokio::sync::Barrier::new(2));
+        let ready2 = ready.clone();
+        tokio::spawn(async move {
+            use crate::branding::QUERY_TAG;
+            use crate::connect::Connection;
+
+            let mut conn = Connection::connect(&cfg, QUERY_TAG).await?;
+
+            ready.wait().await;
+            conn.ping_while(future::pending::<()>()).await;
+            Ok::<_, anyhow::Error>(())
+        });
+
+        ready2.wait().await;
+    }
+
+    let backup = backup
+        .backup(RequestedBackupStrategy::Auto, progress_bar.into())
+        .await?;
 
     if let Some(backup_id) = backup {
         msg!("Successfully created a backup {backup_id} for {inst_name:#}");
@@ -191,16 +235,31 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
 
 #[tokio::main]
 pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::Result<()> {
+    if cfg!(windows) {
+        bail!("Instance backup/restore is not yet supported on Windows");
+    }
+
     let inst_name = cmd.instance.clone();
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
+    let stop_warning = if let InstanceName::Local(_) = &cmd.instance {
+        "This will stop the instance and restore all branches from the backup. Any data not backed up will be lost. After the restore operation is completed, the instance will be restarted."
+    } else {
+        "This will restore all branches from the backup. Any data not backed up will be lost."
+    };
+
     let prompt = format!(
-        "Will restore {inst_name:#} from the specified backup.\
+        "Will restore {inst_name:#} from the specified backup. {stop_warning}\
         \n\nContinue?",
     );
 
     if !cmd.non_interactive && !question::Confirm::new(prompt).ask()? {
         return Ok(());
+    }
+
+    if let InstanceName::Local(inst_name) = &cmd.instance {
+        let inst_name = inst_name.clone();
+        tokio::task::spawn_blocking(move || super::control::do_stop(&inst_name)).await??;
     }
 
     let restore_type = if cmd.backup_spec.latest {
@@ -219,6 +278,11 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
             progress_bar.into(),
         )
         .await?;
+
+    if let InstanceName::Local(inst_name) = &cmd.instance {
+        let meta = InstanceInfo::read(&inst_name)?;
+        tokio::task::spawn_blocking(move || super::control::do_start(&meta)).await??;
+    }
 
     msg!("{inst_name:#} has been restored successfully.");
     msg!("To connect to the instance run:");

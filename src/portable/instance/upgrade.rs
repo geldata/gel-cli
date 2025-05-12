@@ -535,10 +535,10 @@ fn backup(inst: &InstanceInfo, new_inst: &InstallInfo, paths: &Paths) -> anyhow:
             timestamp: SystemTime::now(),
         },
     )?;
-    if paths.backup_dir.exists() {
-        fs_err::remove_dir_all(&paths.backup_dir)?;
+    if paths.old_backup_dir.exists() {
+        fs_err::remove_dir_all(&paths.old_backup_dir)?;
     }
-    fs_err::rename(&paths.data_dir, &paths.backup_dir)?;
+    fs_err::rename(&paths.data_dir, &paths.old_backup_dir)?;
 
     Ok(())
 }
@@ -568,11 +568,11 @@ fn reinit_and_restore(inst: &InstanceInfo, paths: &Paths, skip_hooks: bool) -> a
     write_json(&metapath, "new instance metadata", &inst)?;
 
     fs::copy(
-        paths.backup_dir.join("edbtlscert.pem"),
+        paths.old_backup_dir.join("edbtlscert.pem"),
         paths.data_dir.join("edbtlscert.pem"),
     )?;
     fs::copy(
-        paths.backup_dir.join("edbprivkey.pem"),
+        paths.old_backup_dir.join("edbprivkey.pem"),
         paths.data_dir.join("edbprivkey.pem"),
     )?;
 

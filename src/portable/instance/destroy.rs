@@ -21,7 +21,7 @@ pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {
     with_projects(&name_str, options.force, print_warning, || {
         if !options.force && !options.non_interactive {
             let q = question::Confirm::new_dangerous(format!(
-                "Do you really want to delete instance {name_str:?}?"
+                "Do you really want to delete instance {name_str:?}? All data, dumps, configuration, backups and credentials will be permanently lost."
             ));
             if !q.ask()? {
                 print::error!("Canceled.");
@@ -131,10 +131,15 @@ fn destroy_local(name: &str) -> anyhow::Result<bool> {
             fs::remove_file(path)?;
         }
     }
-    if paths.backup_dir.exists() {
+    if paths.old_backup_dir.exists() {
         found = true;
-        log::info!("Removing backup directory {:?}", paths.backup_dir);
-        fs::remove_dir_all(&paths.backup_dir)?;
+        log::info!("Removing backup directory {:?}", paths.old_backup_dir);
+        fs::remove_dir_all(&paths.old_backup_dir)?;
+    }
+    if paths.backups_dir.exists() {
+        found = true;
+        log::info!("Removing backups directory {:?}", paths.backups_dir);
+        fs::remove_dir_all(&paths.backups_dir)?;
     }
     if paths.dump_path.exists() {
         found = true;
