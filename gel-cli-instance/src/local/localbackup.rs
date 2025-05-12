@@ -8,7 +8,7 @@ use std::{
 use anyhow::bail;
 use futures::FutureExt;
 use gel_dsn::gel::InstanceName;
-use log::info;
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uuid::Uuid;
@@ -128,12 +128,29 @@ impl BackupRecord {
             }
         }
 
+        let read_dir = match std::fs::read_dir(&backups_dir) {
+            Ok(read_dir) => read_dir,
+            Err(e) => {
+                use anyhow::Context;
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    return Ok(None);
+                }
+                return Err(e).context("error reading backups directory")?;
+            }
+        };
+
         let mut latest = Uuid::nil();
-        for entry in std::fs::read_dir(&backups_dir)
-            .into_iter()
-            .flatten()
-            .flatten()
-        {
+        for entry in read_dir {
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(e) => {
+                    warn!(
+                        "unexpected error reading backups directory, skipping ahead: {}",
+                        e
+                    );
+                    continue;
+                }
+            };
             let Ok(uuid) = Uuid::parse_str(&entry.file_name().to_string_lossy()) else {
                 continue;
             };
@@ -573,6 +590,18 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         }
     }
 
+    fn find_executable(&self, executable: &str) -> Result<PathBuf, anyhow::Error> {
+        let path = self.portable_bin_path.join(executable);
+        if !path.exists() {
+            return Err(anyhow::anyhow!(
+                "{} not found at {}: backup/restore not supported for this server version.",
+                executable,
+                path.display()
+            ));
+        }
+        Ok(path)
+    }
+
     pub async fn unpack_backup(
         &self,
         backup_data_dir: impl AsRef<Path>,
@@ -620,13 +649,8 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         username: &str,
         callback: ProgressCallback,
     ) -> Result<(), anyhow::Error> {
-        if !self.portable_bin_path.join("pg_basebackup").exists() {
-            return Err(anyhow::anyhow!(
-                "Backups not supported for this server version. No `pg_basebackup` found at {}.",
-                self.portable_bin_path.join("pg_basebackup").display()
-            ));
-        }
-        let mut cmd = Command::new(self.portable_bin_path.join("pg_basebackup"));
+        let pg_basebackup = self.find_executable("pg_basebackup")?;
+        let mut cmd = Command::new(pg_basebackup);
         cmd.arg("--pgdata").arg(target_dir.as_ref());
         cmd.arg("--host").arg(unix_path.as_ref());
         cmd.arg("--username").arg(username);
@@ -636,6 +660,8 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         cmd.arg("--compress=client-gzip");
         // Slows it down
         // cmd.arg("-r 1000");
+
+        debug!("Running {cmd:?}");
         self.runner
             .run_lines(cmd, move |line| {
                 callback.progress(None, &format!("running pg_basebackup: {}", line.trim()));
@@ -652,13 +678,8 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         incremental: impl AsRef<Path>,
         callback: ProgressCallback,
     ) -> Result<(), anyhow::Error> {
-        if !self.portable_bin_path.join("pg_basebackup").exists() {
-            return Err(anyhow::anyhow!(
-                "Backups not supported for this server version. No `pg_basebackup` found at {}.",
-                self.portable_bin_path.join("pg_basebackup").display()
-            ));
-        }
-        let mut cmd = Command::new(self.portable_bin_path.join("pg_basebackup"));
+        let pg_basebackup = self.find_executable("pg_basebackup")?;
+        let mut cmd = Command::new(pg_basebackup);
         cmd.arg("--pgdata").arg(target_dir.as_ref());
         cmd.arg("--host").arg(unix_path.as_ref());
         cmd.arg("--username").arg(username);
@@ -670,6 +691,8 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         cmd.arg(incremental.as_ref());
         // Slows it down
         // cmd.arg("-r 1000");
+
+        debug!("Running {cmd:?}");
         self.runner
             .run_lines(cmd, move |line| {
                 callback.progress(None, &format!("running pg_basebackup: {}", line.trim()));
@@ -684,11 +707,14 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         paths: &[impl AsRef<Path>],
         callback: ProgressCallback,
     ) -> Result<(), anyhow::Error> {
-        let mut cmd = Command::new(self.portable_bin_path.join("pg_combinebackup"));
+        let pg_combinebackup = self.find_executable("pg_combinebackup")?;
+        let mut cmd = Command::new(pg_combinebackup);
         cmd.arg("--output").arg(target_dir.as_ref());
         for path in paths {
             cmd.arg(path.as_ref());
         }
+
+        debug!("Running {cmd:?}");
         self.runner
             .run_lines(cmd, move |line| {
                 callback.progress(None, &format!("running pg_combinebackup: {}", line.trim()));
@@ -703,16 +729,13 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         backup_manifest: impl AsRef<Path>,
         callback: ProgressCallback,
     ) -> Result<(), anyhow::Error> {
-        if !self.portable_bin_path.join("pg_verifybackup").exists() {
-            return Err(anyhow::anyhow!(
-                "Restores not supported for this server version. No `pg_verifybackup` found at {}.",
-                self.portable_bin_path.join("pg_verifybackup").display()
-            ));
-        }
-        let mut cmd = Command::new(self.portable_bin_path.join("pg_verifybackup"));
+        let pg_verifybackup = self.find_executable("pg_verifybackup")?;
+        let mut cmd = Command::new(pg_verifybackup);
         cmd.arg("--progress");
         cmd.arg("--manifest-path").arg(backup_manifest.as_ref());
         cmd.arg(backup_dir.as_ref());
+
+        debug!("Running {cmd:?}");
         self.runner
             .run_lines(cmd, move |line| {
                 callback.progress(None, &format!("running pg_verifybackup: {}", line.trim()));
