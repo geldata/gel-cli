@@ -319,6 +319,7 @@ pub struct Context {
     pub location: Location,
     pub manifest: manifest::Manifest,
 
+    #[allow(unused)]
     project_lock: Option<ProjectLock>,
 }
 
