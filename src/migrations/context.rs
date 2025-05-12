@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
-use crate::locking::{InstanceLock, ProjectLock};
+use crate::locking::{InstanceLock, LockManager};
 use crate::migrations::options::MigrationConfig;
-use crate::portable::project;
+use crate::portable::project::{self, get_stash_path, instance_name};
 
 pub struct Context {
     pub schema_dir: PathBuf,
@@ -13,7 +13,6 @@ pub struct Context {
     pub project: Option<project::Context>,
 
     instance_lock: Option<InstanceLock>,
-    project_lock: Option<ProjectLock>,
 }
 
 impl Context {
@@ -38,13 +37,21 @@ impl Context {
             default_dir
         };
 
+        let mut instance_lock = None;
+        if let Some(project) = &project {
+            let stash_path = get_stash_path(&project.location.root)?;
+            if stash_path.exists() {
+                let instance_name = instance_name(&stash_path)?;
+                instance_lock = Some(LockManager::lock_instance(&instance_name)?);
+            }
+        }
+
         Ok(Context {
             schema_dir,
             quiet,
             project,
             skip_hooks,
-            instance_lock: None,
-            project_lock: None,
+            instance_lock,
         })
     }
     pub fn for_project(project: project::Context, skip_hooks: bool) -> anyhow::Result<Context> {
@@ -52,13 +59,20 @@ impl Context {
             .manifest
             .project()
             .resolve_schema_dir(&project.location.root)?;
+
+        let mut instance_lock = None;
+        let stash_path = get_stash_path(&project.location.root)?;
+        if stash_path.exists() {
+            let instance_name = instance_name(&stash_path)?;
+            instance_lock = Some(LockManager::lock_instance(&instance_name)?);
+        }
+
         Ok(Context {
             schema_dir,
             quiet: false,
             skip_hooks,
             project: Some(project),
-            instance_lock: None,
-            project_lock: None,
+            instance_lock,
         })
     }
     /// Create a context for a temporary path.
@@ -71,7 +85,6 @@ impl Context {
             skip_hooks: true,
             project: None,
             instance_lock: None,
-            project_lock: None,
         })
     }
 }
