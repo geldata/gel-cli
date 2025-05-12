@@ -83,11 +83,11 @@ pub enum Subcommands {
     Logs(control::Logs),
     /// Resize an instance ([`BRANDING_CLOUD`] only).
     Resize(resize::Command),
-    /// Create a backup for an instance ([`BRANDING_CLOUD`] only).
+    /// Create a backup for an instance.
     Backup(backup::Backup),
-    /// Restore an instance from a backup ([`BRANDING_CLOUD`] only).
+    /// Restore an instance from a backup.
     Restore(backup::Restore),
-    /// Restore an instance from a backup ([`BRANDING_CLOUD`] only).
+    /// List backups for an instance.
     ListBackups(backup::ListBackups),
     /// Upgrade installations and instances.
     Upgrade(upgrade::Command),
