@@ -181,9 +181,7 @@ fn block_on<T: Send>(f: impl Future<Output = anyhow::Result<T>> + Send) -> anyho
             .enable_all()
             .build()
             .context("can make tokio runtime")?;
-        s.spawn(move || {
-            runtime.block_on(f)
-        }).join().unwrap()
+        s.spawn(move || runtime.block_on(f)).join().unwrap()
     })
 }
 
