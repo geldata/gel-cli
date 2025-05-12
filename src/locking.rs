@@ -14,6 +14,7 @@ use crate::portable::project::get_stash_path;
 const LOCK_FILE_NAME: &str = "gel-cli.lock";
 const SLOW_LOCK_WARNING: Duration = Duration::from_secs(10);
 const SLOW_LOCK_TIMEOUT: Duration = Duration::from_secs(30);
+const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(500);
 
 #[derive(Debug, Clone)]
 pub struct InstanceLock {
@@ -70,49 +71,51 @@ pub enum LockError {
 }
 
 fn try_create_lock(lock_type: file_guard::Lock, path: PathBuf) -> Result<LockInner, LockError> {
+    match try_create_lock_inner(lock_type, &path) {
+        Ok(None) => Ok(LockInner::NoLock),
+        Ok(Some(lock)) => {
+            debug!("Lock created: {path:?}");
+            Ok(LockInner::Local(path, Some(lock), AtomicBool::new(true)))
+        }
+        Err(e) => {
+            debug!("Failed to create lock: {e}");
+            Err(LockError::IOError {
+                path: path.clone(),
+                error: e,
+            })
+        }
+    }
+}
+
+fn try_create_lock_inner(
+    lock_type: file_guard::Lock,
+    path: &PathBuf,
+) -> std::io::Result<Option<file_guard::FileGuard<Box<File>>>> {
     // Special case: we allow "free" shared locks in hooks, since the write lock
     // is presumed to exist in the parent process.
     if lock_type == file_guard::Lock::Shared
         && *Env::in_hook().unwrap_or_default().unwrap_or_default()
     {
-        return Ok(LockInner::NoLock);
+        return Ok(None);
     }
 
     let lock_file = OpenOptions::new()
         .create(true)
+        .read(true)
         .write(true)
-        .open(&path)
-        .map_err(|e| LockError::IOError {
-            path: path.clone(),
-            error: e,
-        })?;
+        .append(true)
+        .open(path)?;
     let lock_file = Box::new(lock_file);
-    let mut lock =
-        file_guard::try_lock(lock_file, lock_type, 0, 1).map_err(|e| LockError::IOError {
-            path: path.clone(),
-            error: e,
-        })?;
-
-    lock.set_len(0).map_err(|e| LockError::IOError {
-        path: path.clone(),
-        error: e,
-    })?;
+    let mut lock = file_guard::try_lock(lock_file, lock_type, 0, 1)?;
+    // Once we get the lock, rewrite the file with our data
+    lock.set_len(0)?;
     lock.write_all(
         json!({"pid": std::process::id(), "cmd": std::env::args().collect::<Vec<_>>().join(" ")})
             .to_string()
             .as_bytes(),
-    )
-    .map_err(|e| LockError::IOError {
-        path: path.clone(),
-        error: e,
-    })?;
-    lock.flush().map_err(|e| LockError::IOError {
-        path: path.clone(),
-        error: e,
-    })?;
-
-    debug!("Lock created: {path:?}");
-    Ok(LockInner::Local(path, Some(lock), AtomicBool::new(true)))
+    )?;
+    lock.flush()?;
+    Ok(Some(lock))
 }
 
 struct LoopState {
@@ -194,7 +197,7 @@ impl LoopState {
                 Ok(lock) => return Ok(lock),
                 Err(e) => {
                     state.error(e)?;
-                    std::thread::sleep(std::time::Duration::from_millis(100));
+                    std::thread::sleep(LOCK_POLL_INTERVAL);
                     continue;
                 }
             }
@@ -212,7 +215,7 @@ impl LoopState {
                 Ok(lock) => return Ok(lock),
                 Err(e) => {
                     state.error(e)?;
-                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                    tokio::time::sleep(LOCK_POLL_INTERVAL).await;
                     continue;
                 }
             }
