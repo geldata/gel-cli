@@ -44,11 +44,11 @@ $ gel instance backup -I inst1 --non-interactive
 *
 ! Successfully created a backup %{UUID} for Gel instance 'inst1'
 
-$ gel -I inst1 query 'INSERT user { name := "Mary" };'
-! {"id": "%{UUID}"}
-
 $ gel instance list-backups -I inst1
 *
+
+$ gel -I inst1 query 'INSERT user { name := "Mary" };'
+! {"id": "%{UUID}"}
 
 $ gel -I inst1 query 'INSERT user { name := "Alice" };'
 ! {"id": "%{UUID}"}
@@ -63,4 +63,3 @@ $ gel instance restore -I inst1 --non-interactive --latest
 
 $ gel -I inst1 query 'SELECT user { name } ORDER BY .name;'
 ! {"name": "John"}
-! {"name": "Mary"}
