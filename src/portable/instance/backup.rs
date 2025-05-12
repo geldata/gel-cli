@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::bail;
 use futures_util::future;
 use gel_cli_derive::IntoArgs;
 use gel_cli_instance::instance::backup::{
@@ -134,6 +135,10 @@ fn get_instance(
 
 #[tokio::main]
 pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::Result<()> {
+    if cfg!(windows) {
+        bail!("Instance backup/restore is not yet supported on Windows");
+    }
+
     let instance = get_instance(opts, &cmd.instance)?.backup()?;
     let backups = instance.list_backups().await?;
 
@@ -174,6 +179,10 @@ pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::
 
 #[tokio::main]
 pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Result<()> {
+    if cfg!(windows) {
+        bail!("Instance backup/restore is not yet supported on Windows");
+    }
+
     let inst_name = cmd.instance.clone();
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 
@@ -226,6 +235,10 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
 
 #[tokio::main]
 pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::Result<()> {
+    if cfg!(windows) {
+        bail!("Instance backup/restore is not yet supported on Windows");
+    }
+
     let inst_name = cmd.instance.clone();
     let backup = get_instance(opts, &cmd.instance)?.backup()?;
 

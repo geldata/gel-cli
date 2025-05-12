@@ -22,44 +22,44 @@ if TARGET_OS != "windows" {
     $ rm -rf "$DATA_DIR/inst1.backups"
     %EXIT any
     *
+
+    $ gel instance create -I inst1
+    *
+
+    $ gel instance list-backups -I inst1
+    ! No backups found.
+
+    $ gel instance backup -I inst1 --non-interactive
+    *
+    ! Successfully created a backup %{UUID} for Gel instance 'inst1'
+
+    $ gel -I inst1 query "CREATE TYPE user { CREATE PROPERTY name: str };"
+    ! OK: CREATE TYPE
+
+    $ gel -I inst1 query 'INSERT user { name := "John" };'
+    ! {"id": "%{UUID}"}
+
+    $ gel instance backup -I inst1 --non-interactive
+    *
+    ! Successfully created a backup %{UUID} for Gel instance 'inst1'
+
+    $ gel instance list-backups -I inst1
+    *
+
+    $ gel -I inst1 query 'INSERT user { name := "Mary" };'
+    ! {"id": "%{UUID}"}
+
+    $ gel -I inst1 query 'INSERT user { name := "Alice" };'
+    ! {"id": "%{UUID}"}
+
+    $ gel -I inst1 query 'SELECT user { name } ORDER BY .name;'
+    ! {"name": "Alice"}
+    ! {"name": "John"}
+    ! {"name": "Mary"}
+
+    $ gel instance restore -I inst1 --non-interactive --latest
+    *
+
+    $ gel -I inst1 query 'SELECT user { name } ORDER BY .name;'
+    ! {"name": "John"}
 }
-
-$ gel instance create -I inst1
-*
-
-$ gel instance list-backups -I inst1
-! No backups found.
-
-$ gel instance backup -I inst1 --non-interactive
-*
-! Successfully created a backup %{UUID} for Gel instance 'inst1'
-
-$ gel -I inst1 query "CREATE TYPE user { CREATE PROPERTY name: str };"
-! OK: CREATE TYPE
-
-$ gel -I inst1 query 'INSERT user { name := "John" };'
-! {"id": "%{UUID}"}
-
-$ gel instance backup -I inst1 --non-interactive
-*
-! Successfully created a backup %{UUID} for Gel instance 'inst1'
-
-$ gel instance list-backups -I inst1
-*
-
-$ gel -I inst1 query 'INSERT user { name := "Mary" };'
-! {"id": "%{UUID}"}
-
-$ gel -I inst1 query 'INSERT user { name := "Alice" };'
-! {"id": "%{UUID}"}
-
-$ gel -I inst1 query 'SELECT user { name } ORDER BY .name;'
-! {"name": "Alice"}
-! {"name": "John"}
-! {"name": "Mary"}
-
-$ gel instance restore -I inst1 --non-interactive --latest
-*
-
-$ gel -I inst1 query 'SELECT user { name } ORDER BY .name;'
-! {"name": "John"}
