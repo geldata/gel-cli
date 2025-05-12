@@ -2,7 +2,7 @@ use std::{
     fs::{File, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, atomic::AtomicBool},
 };
 
 use gel_tokio::{InstanceName, dsn::StoredInformation};
@@ -16,19 +16,34 @@ pub struct InstanceLock {
     inner: Arc<InstanceLockInner>,
 }
 
+impl InstanceLock {
+    /// Notify the lock that it will be removed externally.
+    pub fn lock_will_be_removed(&self) {
+        if let InstanceLockInner::Local(_, _, must_exist) = &*self.inner {
+            must_exist.store(false, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+}
+
 #[derive(Debug)]
 enum InstanceLockInner {
     NoLock,
-    Local(PathBuf, Option<file_guard::FileGuard<Arc<File>>>),
+    Local(
+        PathBuf,
+        Option<file_guard::FileGuard<Arc<File>>>,
+        AtomicBool,
+    ),
 }
 
 impl Drop for InstanceLockInner {
     fn drop(&mut self) {
-        if let InstanceLockInner::Local(path, lock) = self {
+        if let InstanceLockInner::Local(path, lock, must_exist) = self {
             if let Some(lock) = lock.take() {
                 drop(lock);
                 if let Err(e) = std::fs::remove_file(&path) {
-                    warn!("Failed to remove lock file {path:?}: {e}");
+                    if must_exist.load(std::sync::atomic::Ordering::Relaxed) {
+                        warn!("Failed to remove lock file {path:?}: {e}");
+                    }
                 }
             }
         }
@@ -65,7 +80,11 @@ fn try_create_lock(path: PathBuf) -> Result<InstanceLockInner, LockError> {
         .unwrap();
     let lock_file = Arc::new(lock_file);
     let lock = file_guard::lock(lock_file, file_guard::Lock::Exclusive, 0, 1).unwrap();
-    Ok(InstanceLockInner::Local(path, Some(lock)))
+    Ok(InstanceLockInner::Local(
+        path,
+        Some(lock),
+        AtomicBool::new(true),
+    ))
 }
 
 fn instance_lock_path(instance: &InstanceName) -> Option<PathBuf> {

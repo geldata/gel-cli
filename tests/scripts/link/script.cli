@@ -183,7 +183,8 @@ $ gel instance destroy --instance=project1 --non-interactive
 %EXIT 8
 *
 ! gel error: Could not find Gel instance 'project1'
-optional {
+# Handle WSL bug where we duplicate this message
+if TARGET_OS == "windows" {
     *
     ! gel error: Could not find Gel instance 'project1'
 }
