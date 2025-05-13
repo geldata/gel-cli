@@ -138,13 +138,25 @@ fn try_create_lock_inner(
     let mut lock = file_guard::try_lock(lock_file, lock_type, 0, 1)?;
 
     // Once we get the lock, rewrite the file with our data
-    lock.set_len(0)?;
-    lock.write_all(
+    if cfg!(windows) {
+        // On Windows, accept a failure to write the lockfile data
+        if lock.set_len(0).is_ok() {
+            _ = lock.write_all(
+            json!({"pid": std::process::id(), "cmd": std::env::args().collect::<Vec<_>>().join(" ")})
+                .to_string()
+                .as_bytes(),
+            );
+            _ = lock.flush();
+        }
+    } else {
+        lock.set_len(0)?;
+        lock.write_all(
         json!({"pid": std::process::id(), "cmd": std::env::args().collect::<Vec<_>>().join(" ")})
             .to_string()
             .as_bytes(),
-    )?;
-    lock.flush()?;
+        )?;
+        lock.flush()?;
+    }
     Ok(Some(lock))
 }
 
