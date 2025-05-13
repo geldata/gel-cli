@@ -54,7 +54,7 @@ impl Drop for LockInner {
 
                     if !cfg!(unix) {
                         drop(lock);
-                        if let Ok(file) = OpenOptions::new().write(true).open(&path) {
+                        if let Ok(file) = OpenOptions::new().read(true).write(true).open(&path) {
                             if let Ok(lock) = file_guard::try_lock(
                                 Box::new(file),
                                 file_guard::Lock::Exclusive,
@@ -92,6 +92,16 @@ pub enum LockError {
     Locked { pid: u32, cmd: String },
     #[error("Lock file {path:?} is missing or corrupt")]
     BadLockFile { path: PathBuf },
+    #[error("Missing lock file {path:?} ({error})")]
+    MissingLockFile {
+        path: PathBuf,
+        error: Box<LockError>,
+    },
+    #[error("Failed to lock file {path:?} ({error})")]
+    FailedToLock {
+        path: PathBuf,
+        error: Box<LockError>,
+    },
     #[error("I/O error: {error}")]
     IOError {
         path: PathBuf,
@@ -185,7 +195,7 @@ impl LoopState {
         Ok((pid, cmd))
     }
 
-    fn error(&mut self, _e: LockError) -> Result<(), LockError> {
+    fn error(&mut self, e: LockError) -> Result<(), LockError> {
         if self.first {
             self.first = false;
             if let Ok((pid, cmd)) = self.load_lock_file() {
@@ -209,9 +219,17 @@ impl LoopState {
             if let Ok((pid, cmd)) = self.load_lock_file() {
                 return Err(LockError::Locked { pid, cmd });
             }
-            return Err(LockError::BadLockFile {
-                path: self.path.clone(),
-            });
+            if matches!(std::fs::exists(&self.path), Ok(true)) {
+                return Err(LockError::FailedToLock {
+                    path: self.path.clone(),
+                    error: Box::new(e),
+                });
+            } else {
+                return Err(LockError::MissingLockFile {
+                    path: self.path.clone(),
+                    error: Box::new(e),
+                });
+            }
         }
         Ok(())
     }
