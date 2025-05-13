@@ -167,3 +167,8 @@ jobs:
         run: |
           _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/link/script.cli
         shell: bash
+
+      - name: Run project/hooks.cli test
+        run: |
+          _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/project/hooks.cli
+        shell: bash
