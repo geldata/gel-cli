@@ -52,20 +52,11 @@ impl Drop for LockInner {
                         }
                     }
 
-                    if !cfg!(unix) {
+                    // On Windows, try to remove the file -- it'll fail if there
+                    // are more locks, so ignore the error.
+                    if cfg!(windows) {
                         drop(lock);
-                        if let Ok(file) = OpenOptions::new().read(true).write(true).open(&path) {
-                            if let Ok(lock) = file_guard::try_lock(
-                                Box::new(file),
-                                file_guard::Lock::Exclusive,
-                                0,
-                                1,
-                            ) {
-                                debug!("Removed shared lock file {path:?}");
-                                _ = std::fs::remove_file(&path);
-                                drop(lock);
-                            }
-                        }
+                        _ = std::fs::remove_file(&path);
                     }
                 } else if let Err(e) = std::fs::remove_file(&path) {
                     drop(lock);
