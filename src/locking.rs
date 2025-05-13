@@ -11,12 +11,13 @@ use log::{debug, warn};
 use serde_json::json;
 
 use crate::cli::env::Env;
+use crate::portable::exit_codes;
 use crate::portable::project::get_stash_path;
 
 const LOCK_FILE_NAME: &str = "gel-cli.lock";
-const SLOW_LOCK_WARNING: Duration = Duration::from_secs(10);
-const SLOW_LOCK_TIMEOUT: Duration = Duration::from_secs(30);
-const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(500);
+const SLOW_LOCK_WARNING: Duration = Duration::from_millis(500);
+const SLOW_LOCK_TIMEOUT: Duration = Duration::from_secs(1);
+const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(100);
 
 static CURRENT_LOCKS: LazyLock<Mutex<HashMap<PathBuf, LockType>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -117,6 +118,12 @@ pub enum LockError {
         path: PathBuf,
         error: std::io::Error,
     },
+}
+
+impl std::process::Termination for LockError {
+    fn report(self) -> std::process::ExitCode {
+        std::process::ExitCode::from(exit_codes::LOCK_ERROR as u8)
+    }
 }
 
 fn try_create_lock(lock_type: LockType, path: PathBuf) -> Result<LockInner, LockError> {
