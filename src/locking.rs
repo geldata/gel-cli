@@ -37,9 +37,35 @@ enum LockInner {
 impl Drop for LockInner {
     fn drop(&mut self) {
         if let LockInner::Local(path, lock, must_exist) = self {
-            if let Some(lock) = lock.take() {
-                drop(lock);
-                if let Err(e) = std::fs::remove_file(&path) {
+            if let Some(mut lock) = lock.take() {
+                let shared = lock.is_shared();
+                // For a shared lock, try to take an exclusive lock and delete the file if
+                // we can.
+                debug!("Dropping lock: {path:?}, shared: {shared}");
+                if shared {
+                    if cfg!(unix) {
+                        use file_guard::os::unix::FileGuardExt;
+                        if lock.try_upgrade().is_ok() {
+                            debug!("Removed shared lock file {path:?}");
+                            _ = std::fs::remove_file(&path);
+                        }
+                    } else {
+                        drop(lock);
+                        if let Ok(file) = OpenOptions::new().write(true).open(&path) {
+                            if let Ok(lock) = file_guard::try_lock(
+                                Box::new(file),
+                                file_guard::Lock::Exclusive,
+                                0,
+                                1,
+                            ) {
+                                debug!("Removed shared lock file {path:?}");
+                                _ = std::fs::remove_file(&path);
+                                drop(lock);
+                            }
+                        }
+                    }
+                } else if let Err(e) = std::fs::remove_file(&path) {
+                    drop(lock);
                     if must_exist.load(std::sync::atomic::Ordering::Relaxed) {
                         warn!("Failed to remove lock file {path:?}: {e}");
                     }
