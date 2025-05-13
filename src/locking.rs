@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
 use gel_tokio::InstanceName;
@@ -16,33 +18,49 @@ const SLOW_LOCK_WARNING: Duration = Duration::from_secs(10);
 const SLOW_LOCK_TIMEOUT: Duration = Duration::from_secs(30);
 const LOCK_POLL_INTERVAL: Duration = Duration::from_millis(500);
 
+static CURRENT_LOCKS: LazyLock<Mutex<HashMap<PathBuf, LockType>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
 #[derive(Debug, Clone)]
 pub struct InstanceLock {
     #[allow(unused)]
     inner: Arc<LockInner>,
 }
 
-impl InstanceLock {}
-
 #[derive(Debug)]
 enum LockInner {
-    NoLock,
+    NoLock(#[expect(unused)] LockType),
     Local(
+        LockType,
         PathBuf,
         Option<file_guard::FileGuard<Box<File>>>,
         AtomicBool,
     ),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LockType {
+    Shared,
+    Exclusive,
+}
+
+impl Into<file_guard::Lock> for LockType {
+    fn into(self) -> file_guard::Lock {
+        match self {
+            LockType::Shared => file_guard::Lock::Shared,
+            LockType::Exclusive => file_guard::Lock::Exclusive,
+        }
+    }
+}
+
 impl Drop for LockInner {
     fn drop(&mut self) {
-        if let LockInner::Local(path, lock, must_exist) = self {
+        if let LockInner::Local(lock_type, path, lock, must_exist) = self {
             if let Some(mut lock) = lock.take() {
-                let shared = lock.is_shared();
                 // For a shared lock, try to take an exclusive lock and delete the file if
                 // we can.
-                debug!("Dropping lock: {path:?}, shared: {shared}");
-                if shared {
+                debug!("Dropping lock: {path:?}, type: {lock_type:?}");
+                if *lock_type == LockType::Shared {
                     #[cfg(unix)]
                     {
                         use file_guard::os::unix::FileGuardExt;
@@ -100,15 +118,20 @@ pub enum LockError {
     },
 }
 
-fn try_create_lock(lock_type: file_guard::Lock, path: PathBuf) -> Result<LockInner, LockError> {
+fn try_create_lock(lock_type: LockType, path: PathBuf) -> Result<LockInner, LockError> {
     match try_create_lock_inner(lock_type, &path) {
-        Ok(None) => Ok(LockInner::NoLock),
+        Ok(None) => Ok(LockInner::NoLock(lock_type)),
         Ok(Some(lock)) => {
-            debug!("Lock created: {path:?}");
-            Ok(LockInner::Local(path, Some(lock), AtomicBool::new(true)))
+            debug!("{lock_type:?} lock created: {path:?}");
+            Ok(LockInner::Local(
+                lock_type,
+                path,
+                Some(lock),
+                AtomicBool::new(true),
+            ))
         }
         Err(e) => {
-            debug!("Failed to create lock: {e}");
+            debug!("Failed to create {lock_type:?} lock: {e}");
             Err(LockError::IOError {
                 path: path.clone(),
                 error: e,
@@ -118,14 +141,12 @@ fn try_create_lock(lock_type: file_guard::Lock, path: PathBuf) -> Result<LockInn
 }
 
 fn try_create_lock_inner(
-    lock_type: file_guard::Lock,
+    lock_type: LockType,
     path: &PathBuf,
 ) -> std::io::Result<Option<file_guard::FileGuard<Box<File>>>> {
     // Special case: we allow "free" shared locks in hooks, since the write lock
     // is presumed to exist in the parent process.
-    if lock_type == file_guard::Lock::Shared
-        && *Env::in_hook().unwrap_or_default().unwrap_or_default()
-    {
+    if lock_type == LockType::Shared && *Env::in_hook().unwrap_or_default().unwrap_or_default() {
         return Ok(None);
     }
 
@@ -135,7 +156,7 @@ fn try_create_lock_inner(
         .write(true)
         .open(path)?;
     let lock_file = Box::new(lock_file);
-    let mut lock = file_guard::try_lock(lock_file, lock_type, 0, 1)?;
+    let mut lock = file_guard::try_lock(lock_file, lock_type.into(), 0, 1)?;
 
     // Once we get the lock, rewrite the file with our data
     if cfg!(windows) {
@@ -238,7 +259,7 @@ impl LoopState {
     }
 
     fn try_create_lock_loop_sync(
-        lock_type: file_guard::Lock,
+        lock_type: LockType,
         path: PathBuf,
     ) -> Result<LockInner, LockError> {
         let mut state = LoopState::new(path.clone());
@@ -255,13 +276,13 @@ impl LoopState {
     }
 
     async fn try_create_lock_loop_async(
-        lock_type: file_guard::Lock,
+        lock_type: LockType,
         path: PathBuf,
     ) -> Result<LockInner, LockError> {
         let mut state = LoopState::new(path.clone());
 
         loop {
-            match try_create_lock(lock_type.clone(), path.clone()) {
+            match try_create_lock(lock_type, path.clone()) {
                 Ok(lock) => return Ok(lock),
                 Err(e) => {
                     state.error(e)?;
@@ -297,109 +318,120 @@ fn instance_lock_path(instance: &InstanceName) -> Option<PathBuf> {
     Some(lock_path)
 }
 
-impl LockManager {
-    pub fn lock_instance(instance: &InstanceName) -> Result<InstanceLock, LockError> {
-        let Some(lock_path) = instance_lock_path(instance) else {
-            return Ok(InstanceLock {
-                inner: Arc::new(LockInner::NoLock),
-            });
-        };
+fn get_existing_lock(path: &PathBuf, lock_type: LockType) -> Option<LockInner> {
+    let locks = CURRENT_LOCKS.lock().unwrap();
+    if let Some(existing_lock_type) = locks.get(path) {
+        if *existing_lock_type == lock_type {
+            warn!("{lock_type:?} lock already exists for {path:?}");
+        } else {
+            warn!("Lock type mismatch for {path:?}: {lock_type:?} != {existing_lock_type:?}");
+        }
+        return Some(LockInner::NoLock(lock_type));
+    }
+    None
+}
 
-        Ok(InstanceLock {
-            inner: Arc::new(LoopState::try_create_lock_loop_sync(
-                file_guard::Lock::Exclusive,
-                lock_path,
-            )?),
-        })
+fn lock_instance_sync(
+    instance: &InstanceName,
+    lock_type: LockType,
+) -> Result<InstanceLock, LockError> {
+    let Some(lock_path) = instance_lock_path(instance) else {
+        return Ok(InstanceLock {
+            inner: Arc::new(LockInner::NoLock(lock_type)),
+        });
+    };
+
+    if let Some(lock) = get_existing_lock(&lock_path, lock_type) {
+        return Ok(InstanceLock {
+            inner: Arc::new(lock),
+        });
     }
 
-    #[expect(unused)]
-    pub fn lock_read_instance(instance: &InstanceName) -> Result<InstanceLock, LockError> {
-        let Some(lock_path) = instance_lock_path(instance) else {
-            return Ok(InstanceLock {
-                inner: Arc::new(LockInner::NoLock),
-            });
-        };
+    let lock = InstanceLock {
+        inner: Arc::new(LoopState::try_create_lock_loop_sync(
+            lock_type,
+            lock_path.clone(),
+        )?),
+    };
 
-        Ok(InstanceLock {
-            inner: Arc::new(LoopState::try_create_lock_loop_sync(
-                file_guard::Lock::Shared,
-                lock_path,
-            )?),
-        })
+    CURRENT_LOCKS.lock().unwrap().insert(lock_path, lock_type);
+    Ok(lock)
+}
+
+async fn lock_instance_async(
+    instance: &InstanceName,
+    lock_type: LockType,
+) -> Result<InstanceLock, LockError> {
+    let Some(lock_path) = instance_lock_path(instance) else {
+        return Ok(InstanceLock {
+            inner: Arc::new(LockInner::NoLock(lock_type)),
+        });
+    };
+
+    if let Some(lock) = get_existing_lock(&lock_path, lock_type) {
+        return Ok(InstanceLock {
+            inner: Arc::new(lock),
+        });
+    }
+
+    let lock = InstanceLock {
+        inner: Arc::new(LoopState::try_create_lock_loop_async(lock_type, lock_path.clone()).await?),
+    };
+
+    CURRENT_LOCKS.lock().unwrap().insert(lock_path, lock_type);
+    Ok(lock)
+}
+
+impl LockManager {
+    pub fn lock_instance(instance: &InstanceName) -> Result<InstanceLock, LockError> {
+        lock_instance_sync(instance, LockType::Exclusive)
     }
 
     pub async fn lock_instance_async(instance: &InstanceName) -> Result<InstanceLock, LockError> {
-        let Some(lock_path) = instance_lock_path(instance) else {
-            return Ok(InstanceLock {
-                inner: Arc::new(LockInner::NoLock),
-            });
-        };
-
-        Ok(InstanceLock {
-            inner: Arc::new(
-                LoopState::try_create_lock_loop_async(file_guard::Lock::Exclusive, lock_path)
-                    .await?,
-            ),
-        })
+        lock_instance_async(instance, LockType::Exclusive).await
     }
 
     pub async fn lock_maybe_read_instance_async(
         instance: &InstanceName,
         read_only: bool,
     ) -> Result<InstanceLock, LockError> {
-        let Some(lock_path) = instance_lock_path(instance) else {
-            return Ok(InstanceLock {
-                inner: Arc::new(LockInner::NoLock),
-            });
-        };
+        lock_instance_async(
+            instance,
+            if read_only {
+                LockType::Shared
+            } else {
+                LockType::Exclusive
+            },
+        )
+        .await
+    }
 
-        Ok(InstanceLock {
-            inner: Arc::new(
-                LoopState::try_create_lock_loop_async(
-                    if read_only {
-                        file_guard::Lock::Shared
-                    } else {
-                        file_guard::Lock::Exclusive
-                    },
-                    lock_path,
-                )
-                .await?,
-            ),
-        })
+    #[expect(unused)]
+    pub fn lock_read_instance(instance: &InstanceName) -> Result<InstanceLock, LockError> {
+        lock_instance_sync(instance, LockType::Shared)
     }
 
     pub async fn lock_read_instance_async(
         instance: &InstanceName,
     ) -> Result<InstanceLock, LockError> {
-        let Some(lock_path) = instance_lock_path(instance) else {
-            return Ok(InstanceLock {
-                inner: Arc::new(LockInner::NoLock),
-            });
-        };
-
-        Ok(InstanceLock {
-            inner: Arc::new(
-                LoopState::try_create_lock_loop_async(file_guard::Lock::Shared, lock_path).await?,
-            ),
-        })
+        lock_instance_async(instance, LockType::Shared).await
     }
 
     pub fn lock_project(path: impl AsRef<Path>) -> Result<ProjectLock, LockError> {
         let Ok(stash_path) = get_stash_path(path.as_ref()) else {
             return Ok(ProjectLock {
-                inner: Arc::new(LockInner::NoLock),
+                inner: Arc::new(LockInner::NoLock(LockType::Exclusive)),
             });
         };
         if !stash_path.exists() {
             return Ok(ProjectLock {
-                inner: Arc::new(LockInner::NoLock),
+                inner: Arc::new(LockInner::NoLock(LockType::Exclusive)),
             });
         }
         let lock_path = stash_path.join(LOCK_FILE_NAME);
         Ok(ProjectLock {
             inner: Arc::new(LoopState::try_create_lock_loop_sync(
-                file_guard::Lock::Exclusive,
+                LockType::Exclusive,
                 lock_path,
             )?),
         })
@@ -408,19 +440,18 @@ impl LockManager {
     pub async fn lock_project_async(path: impl AsRef<Path>) -> Result<ProjectLock, LockError> {
         let Ok(stash_path) = get_stash_path(path.as_ref()) else {
             return Ok(ProjectLock {
-                inner: Arc::new(LockInner::NoLock),
+                inner: Arc::new(LockInner::NoLock(LockType::Exclusive)),
             });
         };
         if !stash_path.exists() {
             return Ok(ProjectLock {
-                inner: Arc::new(LockInner::NoLock),
+                inner: Arc::new(LockInner::NoLock(LockType::Exclusive)),
             });
         }
         let lock_path = stash_path.join(LOCK_FILE_NAME);
         Ok(ProjectLock {
             inner: Arc::new(
-                LoopState::try_create_lock_loop_async(file_guard::Lock::Exclusive, lock_path)
-                    .await?,
+                LoopState::try_create_lock_loop_async(LockType::Exclusive, lock_path).await?,
             ),
         })
     }
