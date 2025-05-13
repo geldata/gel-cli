@@ -21,6 +21,7 @@ impl Context {
         cfg: &MigrationConfig,
         quiet: bool,
         skip_hooks: bool,
+        read_only: bool,
     ) -> anyhow::Result<Context> {
         let project = project::load_ctx(None).await?;
 
@@ -43,7 +44,10 @@ impl Context {
             let stash_path = get_stash_path(&project.location.root)?;
             if stash_path.exists() {
                 let instance_name = instance_name(&stash_path)?;
-                instance_lock = Some(LockManager::lock_instance(&instance_name)?);
+                instance_lock = Some(LockManager::lock_maybe_read_instance(
+                    &instance_name,
+                    read_only,
+                )?);
             }
         }
 

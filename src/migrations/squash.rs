@@ -27,7 +27,8 @@ pub async fn run(
     conn: &mut Connection,
     opts: &Options,
 ) -> anyhow::Result<()> {
-    let ctx = Context::for_migration_config(&cmd.cfg, cmd.non_interactive, opts.skip_hooks).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, cmd.non_interactive, opts.skip_hooks, false)
+        .await?;
     let migrations = migration::read_all(&ctx, true).await?;
     let Some(db_rev) = migrations_applied(conn, &ctx, &migrations).await? else {
         return Err(ExitCode::new(3).into());

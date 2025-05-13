@@ -85,7 +85,7 @@ pub struct Command {
 }
 
 async fn run_inner(cmd: &Command, conn: &mut Connection, options: &Options) -> anyhow::Result<()> {
-    let ctx = Context::for_migration_config(&cmd.cfg, false, options.skip_hooks).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, false, options.skip_hooks, true).await?;
 
     if dev_mode::check_client(conn).await? {
         let dev_num = query_row::<i64>(

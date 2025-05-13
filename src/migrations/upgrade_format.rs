@@ -13,7 +13,7 @@ pub async fn upgrade_format(
     cmd: &MigrationUpgradeFormat,
     opts: &Options,
 ) -> anyhow::Result<()> {
-    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks, false).await?;
 
     _upgrade_format(&ctx).await
 }

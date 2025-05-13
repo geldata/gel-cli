@@ -56,6 +56,7 @@ impl Into<file_guard::Lock> for LockType {
 impl Drop for LockInner {
     fn drop(&mut self) {
         if let LockInner::Local(lock_type, path, lock, must_exist) = self {
+            CURRENT_LOCKS.lock().unwrap().remove(path);
             if let Some(mut lock) = lock.take() {
                 // For a shared lock, try to take an exclusive lock and delete the file if
                 // we can.
@@ -404,6 +405,20 @@ impl LockManager {
             },
         )
         .await
+    }
+
+    pub fn lock_maybe_read_instance(
+        instance: &InstanceName,
+        read_only: bool,
+    ) -> Result<InstanceLock, LockError> {
+        lock_instance_sync(
+            instance,
+            if read_only {
+                LockType::Shared
+            } else {
+                LockType::Exclusive
+            },
+        )
     }
 
     #[expect(unused)]

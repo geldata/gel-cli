@@ -87,7 +87,8 @@ async fn run_inner(
     conn: &mut Connection,
     options: &Options,
 ) -> Result<(), anyhow::Error> {
-    let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, options.skip_hooks).await?;
+    // migrate apply needs to be able to run during gel watch.
+    let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, options.skip_hooks, true).await?;
     if cmd.dev_mode {
         let bar = if cmd.quiet {
             ProgressBar::hidden()
