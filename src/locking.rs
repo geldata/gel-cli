@@ -43,13 +43,16 @@ impl Drop for LockInner {
                 // we can.
                 debug!("Dropping lock: {path:?}, shared: {shared}");
                 if shared {
-                    if cfg!(unix) {
+                    #[cfg(unix)]
+                    {
                         use file_guard::os::unix::FileGuardExt;
                         if lock.try_upgrade().is_ok() {
                             debug!("Removed shared lock file {path:?}");
                             _ = std::fs::remove_file(&path);
                         }
-                    } else {
+                    }
+
+                    if !cfg!(unix) {
                         drop(lock);
                         if let Ok(file) = OpenOptions::new().write(true).open(&path) {
                             if let Ok(lock) = file_guard::try_lock(
