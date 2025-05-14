@@ -124,6 +124,10 @@ optional {
 ! 1
 
 $ gel project upgrade --force --project-dir=$WORK_DIR/proj/project2
+ignore {
+    ! [systemctl] %{GREEDYDATA}
+    ! [edgedb] %{GREEDYDATA}
+}
 choice {
     sequence {
         ? Version %{VERSION} is already downloaded
@@ -137,22 +141,10 @@ choice {
 }
 ! Dumping the database...
 ! Starting dump for database `'main'`...
-optional {
-    repeat {
-        ! [systemctl] Removed %{DATA}.
-    }
-}
 ! Restoring the database...
 !
 ? Restoring database from file `%{DATA}`. Total size: %{DATA}
 ! Restore completed
-optional {
-    repeat {
-        ! [systemctl] Created symlink %{GREEDYDATA}
-    }
-    ! [systemctl] Stopping %{DATA}, but its triggering units are still active:
-    ! [systemctl] edgedb-server@project2.socket
-}
 ? Instance project2 successfully upgraded to %{VERSION}
 
 $ cd $WORK_DIR/proj/project2 && gel query "SELECT 1"

@@ -109,7 +109,6 @@ fn dockerfile() -> String {
 }
 
 #[test_case("portable_smoke")]
-#[test_case("portable_project")]
 #[test_case("shared_client_tests")]
 fn run_test(name: &'static str) {
     let file_name = TEST_EXECUTABLES

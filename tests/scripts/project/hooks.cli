@@ -1,0 +1,128 @@
+#!/usr/bin/env clitest --v0
+
+$ mktemp -d
+%SET WORK_DIR
+*
+
+$ cp -R ../../proj $WORK_DIR
+*
+
+$ gel instance destroy -I inst2 --force
+%EXIT any
+*
+
+# Create instance
+$ gel instance create inst2 default-branch-name --non-interactive
+*
+
+# Initialize project
+$ cd $WORK_DIR/proj/project3 && gel project init --link --server-instance=inst2 --non-interactive
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!project.init.after|migration.apply.before|schema.update.before|migration.apply.after|schema.update.after): %{GREEDYDATA}
+}
+*
+! hook project.init.after: true
+*
+! hook migration.apply.before: true
+*
+! hook schema.update.before: true
+*
+! hook migration.apply.after: true
+*
+! hook schema.update.after: true
+*
+
+# Switch to a new branch
+$ cd $WORK_DIR/proj/project3 && gel branch switch --create --empty another
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!branch.switch.before|branch.switch.after|schema.update.before|schema.update.after): %{GREEDYDATA}
+}
+*
+! hook branch.switch.before: true
+*
+! hook schema.update.before: true
+*
+! hook branch.switch.after: gel branch current --plain >> branch.log
+*
+! hook schema.update.after: true
+*
+
+# Verify branch log
+$ cat $WORK_DIR/proj/project3/branch.log
+! another
+
+# Merge branch
+$ cd $WORK_DIR/proj/project3 && gel branch merge default-branch-name
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!migration.apply.before|schema.update.before|migration.apply.after|schema.update.after): %{GREEDYDATA}
+}
+*
+! hook migration.apply.before: true
+*
+! hook schema.update.before: true
+*
+! hook migration.apply.after: true
+*
+! hook schema.update.after: true
+*
+
+# Wipe branch
+$ cd $WORK_DIR/proj/project3 && gel branch wipe another --non-interactive
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!branch.wipe.before|schema.update.before|branch.wipe.after|schema.update.after): %{GREEDYDATA}
+}
+*
+! hook branch.wipe.before: true
+*
+! hook schema.update.before: true
+*
+! hook branch.wipe.after: true
+*
+! hook schema.update.after: true
+*
+
+# Switch back to default branch
+$ cd $WORK_DIR/proj/project3 && gel branch switch default-branch-name
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!branch.switch.before|schema.update.before|branch.switch.after|schema.update.after): %{GREEDYDATA}
+}
+*
+! hook branch.switch.before: true
+*
+! hook schema.update.before: true
+*
+! hook branch.switch.after: gel branch current --plain >> branch.log
+*
+! hook schema.update.after: true
+*
+
+# Verify branch log again
+$ cat $WORK_DIR/proj/project3/branch.log
+! another
+! default-branch-name
+
+# Test branch switch with --instance flag (should not trigger hooks)
+$ cd $WORK_DIR/proj/project3 && gel --instance=inst2 branch switch another
+reject {
+    ! hook %{GREEDYDATA}
+}
+*
+
+# Test branch switch with --skip-hooks flag
+$ cd $WORK_DIR/proj/project3 && gel --skip-hooks branch switch another
+reject {
+    ! hook %{GREEDYDATA}
+}
+*
+
+# Test branch switch with GEL_SKIP_HOOKS environment variable
+$ cd $WORK_DIR/proj/project3 && GEL_SKIP_HOOKS=1 gel branch switch default-branch-name
+reject {
+    ! hook %{GREEDYDATA}
+}
+*

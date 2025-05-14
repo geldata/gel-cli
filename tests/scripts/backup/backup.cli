@@ -9,11 +9,11 @@ ignore {
     ! Connecting to Gel instance 'inst1' at localhost:10700...
 }
 
-$ gel instance destroy -I inst1 --force
-%EXIT any
-*
-
 if TARGET_OS != "windows" {
+    $ gel instance destroy -I inst1 --force
+    %EXIT any
+    *
+
     $ gel instance create -I inst1
     *
 
