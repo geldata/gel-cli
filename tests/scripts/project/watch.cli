@@ -86,10 +86,10 @@ $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
 *
 
-$ echo "" >> dbschema/default.gel
+$ gel migrate --dev-mode
 *
 
-$ sleep 5
+$ sleep 1
 
 $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
