@@ -1,0 +1,96 @@
+#!/usr/bin/env clitest --v0
+
+$ gel instance destroy -I watch_test --force
+%EXIT any
+*
+
+$ mktemp -d
+%SET WORK_DIR
+*
+
+defer {
+    $ rm -rf $WORK_DIR
+}
+
+$ mkdir $WORK_DIR/watch_test && echo "$WORK_DIR/watch_test"
+%SET PWD
+*
+
+$ gel project init --instance=watch_test --non-interactive
+*
+
+$ find .
+*
+
+background {
+   $ gel watch --migrate --verbose
+   %EXIT any
+   *
+}
+
+# Give it a second to start up
+$ sleep 1
+
+# Project is locked, so we can't switch to another branch
+$ gel branch switch --create --empty other
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*
+
+$ echo "module test {
+    type User {
+        name: str;
+    }
+}" > dbschema/default.gel
+*
+
+$ sleep 1
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*
+
+$ echo "module test {
+    type User {
+        name: str;
+    }
+    type User2 {
+        name: str;
+    }
+}" > dbschema/default.gel
+*
+
+$ sleep 1
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*
+
+$ gel migration create --non-interactive
+*
+
+$ find dbschema/
+*
+
+$ cat dbschema/migrations/*
+*
+
+$ sleep 1
+*
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*
+
+$ echo "" >> dbschema/default.gel
+*
+
+$ sleep 5
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*

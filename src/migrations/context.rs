@@ -1,8 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use crate::locking::{InstanceLock, LockManager};
 use crate::migrations::options::MigrationConfig;
-use crate::portable::project::{self, get_stash_path, instance_name};
+use crate::portable::project::{self};
 
 pub struct Context {
     pub schema_dir: PathBuf,
@@ -11,9 +10,6 @@ pub struct Context {
     pub skip_hooks: bool,
 
     pub project: Option<project::Context>,
-
-    #[allow(unused)]
-    instance_lock: Option<InstanceLock>,
 }
 
 impl Context {
@@ -39,47 +35,28 @@ impl Context {
             default_dir
         };
 
-        let mut instance_lock = None;
-        if let Some(project) = &project {
-            let stash_path = get_stash_path(&project.location.root)?;
-            if stash_path.exists() {
-                let instance_name = instance_name(&stash_path)?;
-                instance_lock = Some(LockManager::lock_maybe_read_instance(
-                    &instance_name,
-                    read_only,
-                )?);
-            }
-        }
-
         Ok(Context {
             schema_dir,
             quiet,
             project,
             skip_hooks,
-            instance_lock,
         })
     }
+
     pub fn for_project(project: project::Context, skip_hooks: bool) -> anyhow::Result<Context> {
         let schema_dir = project
             .manifest
             .project()
             .resolve_schema_dir(&project.location.root)?;
 
-        let mut instance_lock = None;
-        let stash_path = get_stash_path(&project.location.root)?;
-        if stash_path.exists() {
-            let instance_name = instance_name(&stash_path)?;
-            instance_lock = Some(LockManager::lock_instance(&instance_name)?);
-        }
-
         Ok(Context {
             schema_dir,
             quiet: false,
             skip_hooks,
             project: Some(project),
-            instance_lock,
         })
     }
+
     /// Create a context for a temporary path.
     ///
     /// Hooks are skipped.
@@ -89,7 +66,6 @@ impl Context {
             quiet: false,
             skip_hooks: true,
             project: None,
-            instance_lock: None,
         })
     }
 }
