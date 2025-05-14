@@ -121,7 +121,7 @@ impl From<anyhow::Error> for ErrorJson {
                         "see the window running \
                            `",
                         BRANDING_CLI_CMD,
-                        "watch` for more info"
+                        " watch` for more info"
                     )
                     .into(),
                 ),

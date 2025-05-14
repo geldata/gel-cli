@@ -17,6 +17,10 @@ $ gel instance create inst2 default-branch-name --non-interactive
 
 # Initialize project
 $ cd $WORK_DIR/proj/project3 && gel project init --link --server-instance=inst2 --non-interactive
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!project.init.after|migration.apply.before|schema.update.before|migration.apply.after|schema.update.after): %{GREEDYDATA}
+}
 *
 ! hook project.init.after: true
 *
@@ -31,6 +35,10 @@ $ cd $WORK_DIR/proj/project3 && gel project init --link --server-instance=inst2 
 
 # Switch to a new branch
 $ cd $WORK_DIR/proj/project3 && gel branch switch --create --empty another
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!branch.switch.before|branch.switch.after|schema.update.before|schema.update.after): %{GREEDYDATA}
+}
 *
 ! hook branch.switch.before: true
 *
@@ -47,6 +55,10 @@ $ cat $WORK_DIR/proj/project3/branch.log
 
 # Merge branch
 $ cd $WORK_DIR/proj/project3 && gel branch merge default-branch-name
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!migration.apply.before|schema.update.before|migration.apply.after|schema.update.after): %{GREEDYDATA}
+}
 *
 ! hook migration.apply.before: true
 *
@@ -59,6 +71,10 @@ $ cd $WORK_DIR/proj/project3 && gel branch merge default-branch-name
 
 # Wipe branch
 $ cd $WORK_DIR/proj/project3 && gel branch wipe another --non-interactive
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!branch.wipe.before|schema.update.before|branch.wipe.after|schema.update.after): %{GREEDYDATA}
+}
 *
 ! hook branch.wipe.before: true
 *
@@ -71,6 +87,10 @@ $ cd $WORK_DIR/proj/project3 && gel branch wipe another --non-interactive
 
 # Switch back to default branch
 $ cd $WORK_DIR/proj/project3 && gel branch switch default-branch-name
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!branch.switch.before|schema.update.before|branch.switch.after|schema.update.after): %{GREEDYDATA}
+}
 *
 ! hook branch.switch.before: true
 *
