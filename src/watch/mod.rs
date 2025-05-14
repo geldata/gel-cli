@@ -41,7 +41,12 @@ pub struct Command {
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn run(options: &Options, cmd: &Command) -> anyhow::Result<()> {
-    let project = project::ensure_ctx_async(None).await?;
+    // Lock the project and instance exclusively, and then drop the project lock
+    // and leave the instance lock shared
+    let mut project = project::ensure_ctx_async(None).await?;
+    project.downgrade_instance_lock()?;
+    project.drop_project_lock();
+
     let ctx = Arc::new(Context {
         project,
         options: options.clone(),

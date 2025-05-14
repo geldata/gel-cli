@@ -23,7 +23,7 @@ impl Context {
         skip_hooks: bool,
         read_only: bool,
     ) -> anyhow::Result<Context> {
-        let project = project::load_ctx(None).await?;
+        let project = project::load_ctx(None, read_only).await?;
 
         let schema_dir = if let Some(schema_dir) = &cfg.schema_dir {
             schema_dir.clone()

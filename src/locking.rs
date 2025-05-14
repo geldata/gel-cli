@@ -28,21 +28,45 @@ pub struct InstanceLock {
     inner: Arc<LockInner>,
 }
 
+impl InstanceLock {
+    pub fn downgrade(&self) -> std::io::Result<()> {
+        self.inner.downgrade()
+    }
+}
+
 #[derive(Debug)]
 enum LockInner {
     NoLock(#[expect(unused)] LockType),
     Local(
-        LockType,
         PathBuf,
-        Option<file_guard::FileGuard<Box<File>>>,
+        Mutex<(LockType, Option<file_guard::FileGuard<Box<File>>>)>,
         AtomicBool,
     ),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+impl LockInner {
+    pub fn downgrade(&self) -> std::io::Result<()> {
+        if let LockInner::Local(_, lock, _) = self {
+            let lock = &mut *lock.lock().unwrap();
+            lock.1.as_mut().unwrap().downgrade()?;
+            lock.0 = LockType::Shared;
+            return Ok(());
+        }
+        Ok(())
+    }
+}
+
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 enum LockType {
     Shared,
+    #[default]
     Exclusive,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LockDomain {
+    Instance,
+    Project,
 }
 
 impl Into<file_guard::Lock> for LockType {
@@ -56,13 +80,13 @@ impl Into<file_guard::Lock> for LockType {
 
 impl Drop for LockInner {
     fn drop(&mut self) {
-        if let LockInner::Local(lock_type, path, lock, must_exist) = self {
+        if let LockInner::Local(path, lock, must_exist) = self {
             CURRENT_LOCKS.lock().unwrap().remove(path);
-            if let Some(mut lock) = lock.take() {
+            if let (lock_type, Some(mut lock)) = std::mem::take(&mut *lock.lock().unwrap()) {
                 // For a shared lock, try to take an exclusive lock and delete the file if
                 // we can.
                 debug!("Dropping lock: {path:?}, type: {lock_type:?}");
-                if *lock_type == LockType::Shared {
+                if lock_type == LockType::Shared {
                     #[cfg(unix)]
                     {
                         use file_guard::os::unix::FileGuardExt;
@@ -93,6 +117,12 @@ impl Drop for LockInner {
 pub struct ProjectLock {
     #[allow(unused)]
     inner: Arc<LockInner>,
+}
+
+impl ProjectLock {
+    pub fn downgrade(&self) -> std::io::Result<()> {
+        self.inner.downgrade()
+    }
 }
 
 pub struct LockManager {}
@@ -132,9 +162,8 @@ fn try_create_lock(lock_type: LockType, path: PathBuf) -> Result<LockInner, Lock
         Ok(Some(lock)) => {
             debug!("{lock_type:?} lock created: {path:?}");
             Ok(LockInner::Local(
-                lock_type,
                 path,
-                Some(lock),
+                Mutex::new((lock_type, Some(lock))),
                 AtomicBool::new(true),
             ))
         }
@@ -227,22 +256,27 @@ impl LoopState {
         Ok((pid, cmd))
     }
 
-    fn error(&mut self, e: LockError) -> Result<(), LockError> {
+    fn error(&mut self, domain: LockDomain, e: LockError) -> Result<(), LockError> {
         if self.first {
             self.first = false;
             if let Ok((pid, cmd)) = self.load_lock_file() {
-                warn!("Waiting for lock held by process {pid} running {cmd:?}",);
+                warn!("Waiting for {domain:?} lock held by process {pid} running {cmd:?}",);
             } else {
-                warn!("Waiting for lock ({})", self.path.display());
+                warn!("Waiting for {domain:?} lock ({})", self.path.display());
             }
             self.first = false;
         }
         if self.start.elapsed() > SLOW_LOCK_WARNING {
             if !self.warned {
                 if let Ok((pid, cmd)) = self.load_lock_file() {
-                    warn!("Still waiting for lock held by process {pid} running {cmd:?}",);
+                    warn!(
+                        "Still waiting for {domain:?} lock held by process {pid} running {cmd:?}",
+                    );
                 } else {
-                    warn!("Still waiting for lock ({})", self.path.display());
+                    warn!(
+                        "Still waiting for {domain:?} lock ({})",
+                        self.path.display()
+                    );
                 }
                 self.warned = true;
             }
@@ -268,6 +302,7 @@ impl LoopState {
 
     fn try_create_lock_loop_sync(
         lock_type: LockType,
+        domain: LockDomain,
         path: PathBuf,
     ) -> Result<LockInner, LockError> {
         let mut state = LoopState::new(path.clone());
@@ -275,7 +310,7 @@ impl LoopState {
             match try_create_lock(lock_type, path.clone()) {
                 Ok(lock) => return Ok(lock),
                 Err(e) => {
-                    state.error(e)?;
+                    state.error(domain, e)?;
                     std::thread::sleep(LOCK_POLL_INTERVAL);
                     continue;
                 }
@@ -285,6 +320,7 @@ impl LoopState {
 
     async fn try_create_lock_loop_async(
         lock_type: LockType,
+        domain: LockDomain,
         path: PathBuf,
     ) -> Result<LockInner, LockError> {
         let mut state = LoopState::new(path.clone());
@@ -293,7 +329,7 @@ impl LoopState {
             match try_create_lock(lock_type, path.clone()) {
                 Ok(lock) => return Ok(lock),
                 Err(e) => {
-                    state.error(e)?;
+                    state.error(domain, e)?;
                     tokio::time::sleep(LOCK_POLL_INTERVAL).await;
                     continue;
                 }
@@ -358,6 +394,7 @@ fn lock_instance_sync(
     let lock = InstanceLock {
         inner: Arc::new(LoopState::try_create_lock_loop_sync(
             lock_type,
+            LockDomain::Instance,
             lock_path.clone(),
         )?),
     };
@@ -383,7 +420,14 @@ async fn lock_instance_async(
     }
 
     let lock = InstanceLock {
-        inner: Arc::new(LoopState::try_create_lock_loop_async(lock_type, lock_path.clone()).await?),
+        inner: Arc::new(
+            LoopState::try_create_lock_loop_async(
+                lock_type,
+                LockDomain::Instance,
+                lock_path.clone(),
+            )
+            .await?,
+        ),
     };
 
     CURRENT_LOCKS.lock().unwrap().insert(lock_path, lock_type);
@@ -454,6 +498,7 @@ impl LockManager {
         Ok(ProjectLock {
             inner: Arc::new(LoopState::try_create_lock_loop_sync(
                 LockType::Exclusive,
+                LockDomain::Project,
                 lock_path,
             )?),
         })
@@ -473,7 +518,43 @@ impl LockManager {
         let lock_path = stash_path.join(LOCK_FILE_NAME);
         Ok(ProjectLock {
             inner: Arc::new(
-                LoopState::try_create_lock_loop_async(LockType::Exclusive, lock_path).await?,
+                LoopState::try_create_lock_loop_async(
+                    LockType::Exclusive,
+                    LockDomain::Project,
+                    lock_path,
+                )
+                .await?,
+            ),
+        })
+    }
+
+    pub async fn lock_maybe_read_project_async(
+        path: impl AsRef<Path>,
+        read_only: bool,
+    ) -> Result<ProjectLock, LockError> {
+        let Ok(stash_path) = get_stash_path(path.as_ref()) else {
+            return Ok(ProjectLock {
+                inner: Arc::new(LockInner::NoLock(LockType::Exclusive)),
+            });
+        };
+        if !stash_path.exists() {
+            return Ok(ProjectLock {
+                inner: Arc::new(LockInner::NoLock(LockType::Exclusive)),
+            });
+        }
+        let lock_path = stash_path.join(LOCK_FILE_NAME);
+        Ok(ProjectLock {
+            inner: Arc::new(
+                LoopState::try_create_lock_loop_async(
+                    if read_only {
+                        LockType::Shared
+                    } else {
+                        LockType::Exclusive
+                    },
+                    LockDomain::Project,
+                    lock_path,
+                )
+                .await?,
             ),
         })
     }
