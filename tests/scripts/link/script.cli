@@ -50,6 +50,9 @@ repeat {
 ? └%{DATA}┴%{DATA}┴%{DATA}┘
 
 $ gel instance create inst1
+ignore {
+    ! [edgedb] %{GREEDYDATA}
+}
 choice {
     sequence {
         ? Downloading package...
