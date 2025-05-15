@@ -12,9 +12,17 @@ defer {
     $ rm -rf $WORK_DIR
 }
 
-$ mkdir $WORK_DIR/watch_test && echo "$WORK_DIR/watch_test"
-%SET PWD
-*
+if TARGET_OS == "windows" {
+    $ mkdir $WORK_DIR/watch_test && cmd //c echo "%WORK_DIR%/watch_test"
+    %SET PWD
+    *
+}
+
+if TARGET_OS != "windows" {
+    $ mkdir $WORK_DIR/watch_test && echo "$WORK_DIR/watch_test"
+    %SET PWD
+    *
+}
 
 $ gel project init --instance=watch_test --non-interactive
 *

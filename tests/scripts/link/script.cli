@@ -179,6 +179,7 @@ $ gel instance destroy --instance=project1 --non-interactive
 *
 ! gel error: Could not find Gel instance 'project1'
 optional {
+    # Windows bug: duplicated message
     *
     ! gel error: Could not find Gel instance 'project1'
 }
