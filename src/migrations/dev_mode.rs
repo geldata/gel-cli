@@ -164,15 +164,28 @@ async fn get_db_migration(cli: &mut Connection) -> anyhow::Result<Option<String>
 async fn migrate_to_schema(cli: &mut Connection, ctx: &Context) -> anyhow::Result<bool> {
     use gel_protocol::server_message::TransactionState::NotInTransaction;
 
-    let old_timeout = timeout::inhibit_for_transaction(cli).await?;
-    async_try! {
-        async {
-            if matches!(cli.transaction_state(), NotInTransaction) {
+    if matches!(cli.transaction_state(), NotInTransaction) {
+        let old_timeout = timeout::inhibit_for_transaction(cli).await?;
+        let rv = async_try! {
+            async {
                 execute(cli, "START TRANSACTION", None).await?;
                 async_try! {
                     async {
-                        let apply_hooks = true;
-                        _migrate_to_schema(cli, ctx, apply_hooks).await
+                        let migs = _populate_migration(cli, ctx).await?;
+                        if migs.is_empty() {
+                            Ok(false)
+                        } else {
+                            if !ctx.skip_hooks {
+                                // It's okay to run hooks here in a transaction, because
+                                // _populate_migration() shouldn't lock anything
+                                if let Some(project) = &ctx.project {
+                                    hooks::on_action("migration.apply.before", project).await?;
+                                    hooks::on_action("schema.update.before", project).await?;
+                                }
+                            }
+
+                            ddl::apply_statements(cli, &migs).await.map(|()| true)
+                        }
                     },
                     except async {
                         execute_if_connected(cli, "ROLLBACK").await
@@ -181,22 +194,33 @@ async fn migrate_to_schema(cli: &mut Connection, ctx: &Context) -> anyhow::Resul
                         execute_if_connected(cli, "COMMIT").await
                     }
                 }
-            } else {
-                let apply_hooks = false;
-                _migrate_to_schema(cli, ctx, apply_hooks).await
+            },
+            finally async {
+                timeout::restore_for_transaction(cli, old_timeout).await
             }
-        },
-        finally async {
-            timeout::restore_for_transaction(cli, old_timeout).await
+        }?;
+
+        if rv && !ctx.skip_hooks {
+            // Hooks must be run after commit, because they may deadlock with the transaction
+            if let Some(project) = &ctx.project {
+                hooks::on_action("migration.apply.after", project).await?;
+                hooks::on_action("schema.update.after", project).await?;
+            }
+        }
+
+        Ok(rv)
+    } else {
+        let migs = _populate_migration(cli, ctx).await?;
+        if migs.is_empty() {
+            Ok(false)
+        } else {
+            ddl::apply_statements(cli, &migs).await?;
+            Ok(true)
         }
     }
 }
 
-async fn _migrate_to_schema(
-    cli: &mut Connection,
-    ctx: &Context,
-    apply_hooks: bool,
-) -> anyhow::Result<bool> {
+async fn _populate_migration(cli: &mut Connection, ctx: &Context) -> anyhow::Result<Vec<String>> {
     execute(cli, "DECLARE SAVEPOINT migrate_to_schema", None).await?;
     let descr = async_try! {
         async {
@@ -238,27 +262,7 @@ async fn _migrate_to_schema(
             }
         }?
     };
-    if !descr.confirmed.is_empty() {
-        if apply_hooks && !ctx.skip_hooks {
-            if let Some(project) = &ctx.project {
-                hooks::on_action("migration.apply.before", project).await?;
-                hooks::on_action("schema.update.before", project).await?;
-            }
-        }
-
-        ddl::apply_statements(cli, &descr.confirmed).await?;
-
-        if apply_hooks && !ctx.skip_hooks {
-            if let Some(project) = &ctx.project {
-                hooks::on_action("migration.apply.after", project).await?;
-                hooks::on_action("schema.update.after", project).await?;
-            }
-        }
-
-        Ok(true)
-    } else {
-        Ok(false)
-    }
+    Ok(descr.confirmed)
 }
 
 pub async fn rebase_to_schema(
