@@ -13,7 +13,7 @@ defer {
 }
 
 if TARGET_OS == "windows" {
-    $ mkdir $WORK_DIR/watch_test && cmd //c echo "%WORK_DIR%/watch_test"
+    $ mkdir $WORK_DIR/watch_test && cmd //c echo "%WORK_DIR%/watch_test" 2> /dev/null
     %SET PWD
     *
 }
