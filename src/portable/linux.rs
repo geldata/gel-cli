@@ -241,14 +241,14 @@ pub fn server_cmd(
 }
 
 pub fn detect_systemd(instance: &str) -> bool {
-    // Never use systemd on gel-managed WSL instances
-    if windows::is_wrapped() {
-        return false;
-    }
     _detect_systemd(instance).is_some()
 }
 
 fn preliminary_detect() -> Option<PathBuf> {
+    // Never use systemd on gel-managed WSL instances
+    if windows::is_wrapped() {
+        return None;
+    }
     env::var_os("XDG_RUNTIME_DIR").or_else(|| env::var_os("DBUS_SESSION_BUS_ADDRESS"))?;
     if let Ok(path) = which::which("systemctl") {
         Some(path)
