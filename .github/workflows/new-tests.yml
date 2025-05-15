@@ -138,6 +138,7 @@ jobs:
 
       - name: Setup WSL
         if: runner.os == 'Windows'
+        shell: bash
         run: |
           gel instance create -I _placeholder_
           gel instance destroy --non-interactive -I _placeholder_
