@@ -80,6 +80,7 @@ $ echo "password" | gel -I dump_restore2 instance reset-password --password-from
 background {
     $ gel -I dump_restore2 instance logs --tail 10 --follow
     *
+    %EXIT any
 }
 
 $ gel -I dump_restore2 restore --all $WORK_DIR/dump_all
