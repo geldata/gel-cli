@@ -7,7 +7,6 @@ use fn_error_context::context;
 use gel_tokio::InstanceName;
 
 use crate::branding::BRANDING_CLOUD;
-use crate::cli::env::Env;
 use crate::commands::ExitCode;
 use crate::platform::{current_exe, detect_ipv6, home_dir};
 use crate::portable::instance::control;

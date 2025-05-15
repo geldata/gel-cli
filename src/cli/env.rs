@@ -105,11 +105,11 @@ define_env! {
     _wsl_skip_update: bool,
 
     /// WSL distro name
-    #[env(_GEL_WSL_DISTRO, _EDGEDB_WSL_DISTRO)]
+    #[env(_GEL_WSL_DISTRO)]
     _wsl_distro: String,
 
     /// Path to WSL Linux binary
-    #[env(_GEL_WSL_LINUX_BINARY, _EDGEDB_WSL_LINUX_BINARY)]
+    #[env(_GEL_WSL_LINUX_BINARY)]
     _wsl_linux_binary: PathBuf,
 
     /// Flag indicating Windows wrapper

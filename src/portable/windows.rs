@@ -63,6 +63,15 @@ static IS_IN_WSL: LazyLock<bool> = LazyLock::new(|| {
 
 const USR_BIN_EXE: &str = const_format::concatcp!("/usr/bin/", BRANDING_CLI_CMD);
 
+#[derive(clap::Args, Clone, Debug)]
+pub struct InitWslCommand {
+}
+
+pub fn init_wsl(_cmd: &InitWslCommand, _opts: &crate::Options) -> anyhow::Result<()> {
+    ensure_wsl()?;
+    Ok(())
+}
+
 #[derive(Debug, thiserror::Error)]
 #[error("WSL distribution is not installed")]
 pub struct NoDistribution;

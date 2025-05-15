@@ -158,8 +158,8 @@ jobs:
         test: [portable_smoke, shared_client_tests]
       fail-fast: false
     env:
-      _EDGEDB_WSL_DISTRO: Debian
-      _EDGEDB_WSL_LINUX_BINARY: ./linux-binary/gel
+      _GEL_WSL_DISTRO: Debian
+      _GEL_WSL_LINUX_BINARY: ./linux-binary/gel
     steps:
       - uses: actions/checkout@v4
         with:
