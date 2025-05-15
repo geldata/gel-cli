@@ -141,8 +141,9 @@ jobs:
         run: |
           gel instance create -I _placeholder_
           gel instance destroy --non-interactive -I _placeholder_
-          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/gel.new
-          wsl --exec sh -c 'cp /usr/bin/gel.new /usr/bin/gel && cp /usr/bin/gel.new /usr/bin/edgedb'
+          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/edgedb
+          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/gel
+          echo "_GEL_WSL_SKIP_UPDATE=true" >> $GITHUB_ENV
 
       - name: Set executable permissions
         if: runner.os != 'Windows'
@@ -155,25 +156,25 @@ jobs:
 
       - name: Run backup/backup.cli test
         run: |
-          _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/backup/backup.cli
+          TERM=xterm-256color clitest tests/scripts/backup/backup.cli
         shell: bash
 
       - name: Run dump/dump.cli test
         run: |
-          _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/dump/dump.cli
+          TERM=xterm-256color clitest tests/scripts/dump/dump.cli
         shell: bash
 
       - name: Run link/script.cli test
         run: |
-          _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/link/script.cli
+          TERM=xterm-256color clitest tests/scripts/link/script.cli
         shell: bash
 
       - name: Run project/hooks.cli test
         run: |
-          _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/project/hooks.cli
+          TERM=xterm-256color clitest tests/scripts/project/hooks.cli
         shell: bash
 
       - name: Run project/watch.cli test
         run: |
-          _GEL_WSL_SKIP_UPDATE=true TERM=xterm-256color clitest tests/scripts/project/watch.cli
+          TERM=xterm-256color clitest tests/scripts/project/watch.cli
         shell: bash
