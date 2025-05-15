@@ -96,6 +96,9 @@ $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
 *
 
+$ sleep 1
+
+# This seems to be racing with gel watch
 $ gel migrate --dev-mode
 *
 
