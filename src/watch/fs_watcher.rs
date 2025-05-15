@@ -33,7 +33,8 @@ impl FsWatcher {
         {
             let abort_tx = abort_tx.clone();
             abort_tasks.push(tokio::spawn(async move {
-                _ = tokio::signal::ctrl_c().await;
+                let ctrl_c = crate::interrupt::Interrupt::ctrl_c();
+                _ = ctrl_c.wait().await;
                 _ = abort_tx.send(());
             }));
         }
@@ -163,6 +164,7 @@ impl notify::EventHandler for WatchHandler {
     }
 }
 
+#[derive(Debug)]
 pub enum Event {
     /// Files have changed
     Changed(HashSet<PathBuf>),
