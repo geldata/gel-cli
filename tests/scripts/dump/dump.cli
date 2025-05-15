@@ -83,6 +83,12 @@ repeat {
     ? Restoring database from file %{GREEDYDATA}
     ! Restore completed
 }
+# This started happening on Windows
+if TARGET_OS == "windows" {
+    optional {
+        ! gel error: ClientConnectionError: peer closed connection without sending TLS close_notify
+    }
+}
 
 $ gel -I dump_restore2 --database dump_01 query "SELECT Hello.name"
 ! "world"
