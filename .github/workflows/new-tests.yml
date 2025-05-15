@@ -140,10 +140,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          gel instance create -I _placeholder_
-          gel instance destroy --non-interactive -I _placeholder_
-          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/edgedb
-          wsl cp artifacts/debug-gel-cli-Linux/gel /usr/bin/gel
+          _GEL_WSL_LINUX_BINARY=artifacts/debug-gel-cli-Linux/gel gel cli __initwsl
           echo "_GEL_WSL_SKIP_UPDATE=true" >> $GITHUB_ENV
 
       - name: Set executable permissions
