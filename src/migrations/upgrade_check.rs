@@ -59,7 +59,7 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
                     break;
                 }
             }
-            let ctx = Context::for_migration_config(&options.cfg, false, true).await?;
+            let ctx = Context::for_migration_config(&options.cfg, false, true, true).await?;
 
             Box::pin(do_check(
                 &ctx,
@@ -112,7 +112,12 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    let ctx = runtime.block_on(Context::for_migration_config(&options.cfg, false, true))?;
+    let ctx = runtime.block_on(Context::for_migration_config(
+        &options.cfg,
+        false,
+        true,
+        true,
+    ))?;
 
     let mut watch_options = WatchOptions::default();
     if !options.no_exit_with_parent {

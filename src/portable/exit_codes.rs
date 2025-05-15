@@ -6,3 +6,4 @@ pub const INVALID_CONFIG: i32 = 4;
 pub const NOT_CONFIRMED: i32 = 6;
 pub const PARTIAL_SUCCESS: i32 = 7;
 pub const INSTANCE_NOT_FOUND: i32 = 8;
+pub const LOCK_ERROR: i32 = 9;

@@ -1256,6 +1256,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "file-guard"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21ef72acf95ec3d7dbf61275be556299490a245f017cf084bd23b4f68cf9407c"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1503,6 +1513,7 @@ dependencies = [
  "edgeql-parser",
  "env_logger",
  "fd-lock",
+ "file-guard",
  "fn-error-context",
  "fs-err",
  "fs_extra",

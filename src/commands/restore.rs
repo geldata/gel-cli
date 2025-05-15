@@ -26,6 +26,7 @@ use crate::commands::Options;
 use crate::commands::list_databases;
 use crate::commands::parser::Restore as RestoreCmd;
 use crate::connect::Connection;
+use crate::locking::LockManager;
 use crate::statement::{EndOfFile, read_statement};
 
 type Input = Box<dyn AsyncRead + Unpin + Send>;
@@ -226,6 +227,11 @@ pub async fn restore(
     options: &Options,
     params: &RestoreCmd,
 ) -> Result<(), anyhow::Error> {
+    let _lock = if let Some(instance) = &options.instance_name {
+        Some(LockManager::lock_instance_async(&instance).await?)
+    } else {
+        None
+    };
     if params.all {
         Box::pin(restore_all(cli, options, params)).await
     } else {

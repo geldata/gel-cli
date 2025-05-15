@@ -48,6 +48,7 @@ pub async fn run_script(
         process::Native::new("", marker, "/bin/sh")
             .arg("-c")
             .arg(script)
+            .env("_GEL_IN_HOOK", "1")
             .current_dir(current_dir)
             .run_for_status()
             .await?
@@ -55,6 +56,7 @@ pub async fn run_script(
         process::Native::new("", marker, "cmd.exe")
             .arg("/c")
             .arg(script)
+            .env("_GEL_IN_HOOK", "1")
             .current_dir(current_dir)
             .run_for_status()
             .await?

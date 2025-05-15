@@ -1,7 +1,7 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::migrations::options::MigrationConfig;
-use crate::portable::project;
+use crate::portable::project::{self};
 
 pub struct Context {
     pub schema_dir: PathBuf,
@@ -17,8 +17,9 @@ impl Context {
         cfg: &MigrationConfig,
         quiet: bool,
         skip_hooks: bool,
+        read_only: bool,
     ) -> anyhow::Result<Context> {
-        let project = project::load_ctx(None).await?;
+        let project = project::load_ctx(None, read_only).await?;
 
         let schema_dir = if let Some(schema_dir) = &cfg.schema_dir {
             schema_dir.clone()
@@ -41,16 +42,30 @@ impl Context {
             skip_hooks,
         })
     }
+
     pub fn for_project(project: project::Context, skip_hooks: bool) -> anyhow::Result<Context> {
         let schema_dir = project
             .manifest
             .project()
             .resolve_schema_dir(&project.location.root)?;
+
         Ok(Context {
             schema_dir,
             quiet: false,
             skip_hooks,
             project: Some(project),
+        })
+    }
+
+    /// Create a context for a temporary path.
+    ///
+    /// Hooks are skipped.
+    pub fn for_temp_path(path: impl AsRef<Path>) -> anyhow::Result<Context> {
+        Ok(Context {
+            schema_dir: path.as_ref().to_path_buf(),
+            quiet: false,
+            skip_hooks: true,
+            project: None,
         })
     }
 }

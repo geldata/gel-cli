@@ -47,19 +47,15 @@ pub async fn extract(
     opts: &Options,
 ) -> anyhow::Result<()> {
     let src_ctx =
-        Context::for_migration_config(&cmd.cfg, cmd.non_interactive, opts.skip_hooks).await?;
+        Context::for_migration_config(&cmd.cfg, cmd.non_interactive, opts.skip_hooks, false)
+            .await?;
     let current = migration::read_all(&src_ctx, false).await?;
     let mut disk_iter = current.into_iter();
 
     let migrations = db_migration::read_all(cli, true, false).await?;
     let mut db_iter = migrations.into_iter().enumerate();
     let temp_dir = tempfile::tempdir()?;
-    let temp_ctx = Context {
-        schema_dir: temp_dir.path().to_path_buf(),
-        quiet: false,
-        project: None,
-        skip_hooks: true,
-    };
+    let temp_ctx = Context::for_temp_path(temp_dir.path())?;
     let mut to_delete = Vec::new();
 
     loop {

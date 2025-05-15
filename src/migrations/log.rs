@@ -48,7 +48,7 @@ pub async fn log_fs(cmd: &MigrationLog, opts: &Options) -> Result<(), anyhow::Er
 async fn log_fs_async(cmd: &MigrationLog, opts: &Options) -> Result<(), anyhow::Error> {
     assert!(cmd.from_fs);
 
-    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks, true).await?;
     let migrations = migration::read_all(&ctx, true).await?;
     print(&migrations, cmd);
     Ok(())

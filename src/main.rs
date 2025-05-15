@@ -34,6 +34,7 @@ mod hint;
 mod hooks;
 mod interactive;
 mod interrupt;
+mod locking;
 mod log_levels;
 mod markdown;
 mod migrations;

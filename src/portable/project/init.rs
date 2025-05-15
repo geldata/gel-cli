@@ -639,7 +639,7 @@ fn init_new(
             watch: Vec::new(),
         };
         project::manifest::write(&location.manifest, &manifest)?;
-        let ctx = project::Context { location, manifest };
+        let ctx = project::Context::new(location, manifest)?;
         if !schema_files {
             project::write_schema_default(&schema_dir_path, &ctx.manifest.instance.server_version)?;
         }
@@ -704,7 +704,7 @@ fn init_new(
                 watch: Vec::new(),
             };
             project::manifest::write(&location.manifest, &manifest)?;
-            let ctx = project::Context { location, manifest };
+            let ctx = project::Context::new(location, manifest)?;
             if !schema_files {
                 project::write_schema_default(&schema_dir_path, &Query::from_version(&version)?)?;
             }
@@ -771,7 +771,7 @@ fn init_new(
             };
 
             project::manifest::write(&location.manifest, &manifest)?;
-            let project = project::Context { location, manifest };
+            let project = project::Context::new(location, manifest)?;
             if !schema_files {
                 project::write_schema_default(
                     &schema_dir_path,

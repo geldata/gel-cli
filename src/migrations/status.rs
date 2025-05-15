@@ -47,7 +47,7 @@ pub async fn status(
     cmd: &ShowStatus,
     opts: &Options,
 ) -> Result<(), anyhow::Error> {
-    let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, opts.skip_hooks).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, opts.skip_hooks, true).await?;
     let migrations = migration::read_all(&ctx, true).await?;
     match up_to_date_check(cli, &ctx, &migrations).await? {
         Some(_) if cmd.quiet => Ok(()),
