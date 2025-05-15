@@ -7,6 +7,7 @@ use fn_error_context::context;
 use gel_tokio::InstanceName;
 
 use crate::branding::BRANDING_CLOUD;
+use crate::cli::env::Env;
 use crate::commands::ExitCode;
 use crate::platform::{current_exe, detect_ipv6, home_dir};
 use crate::portable::instance::control;
@@ -15,6 +16,8 @@ use crate::portable::instance::status;
 use crate::portable::local::{InstanceInfo, log_file, runstate_dir};
 use crate::print;
 use crate::process;
+
+use super::windows;
 
 pub fn unit_dir() -> anyhow::Result<PathBuf> {
     Ok(home_dir()?.join(".config/systemd/user"))
@@ -238,6 +241,10 @@ pub fn server_cmd(
 }
 
 pub fn detect_systemd(instance: &str) -> bool {
+    // Never use systemd on gel-managed WSL instances
+    if windows::is_wrapped() {
+        return false;
+    }
     _detect_systemd(instance).is_some()
 }
 
