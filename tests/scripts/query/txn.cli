@@ -2,6 +2,7 @@
 
 ignore {
     ! Newer version of gel tool exists %{GREEDYDATA}
+    ! Connecting to Gel instance %{GREEDYDATA}
 }
 
 $ gel instance destroy -I txn_test --force
@@ -24,3 +25,6 @@ $ sleep 1
 $ gel -I txn_test query "create type MyUser { create property name: str; }"
 %EXIT 1
 ! gel error: TransactionSerializationError: could not serialize access due to concurrent update
+
+$ sleep 1
+*
