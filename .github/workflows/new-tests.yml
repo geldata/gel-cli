@@ -172,7 +172,9 @@ jobs:
           TERM=xterm-256color clitest tests/scripts/project/hooks.cli
         shell: bash
 
+      # WSL networking issues...
       - name: Run project/watch.cli test
+        if: runner.os != 'Windows'
         run: |
           TERM=xterm-256color clitest tests/scripts/project/watch.cli
         shell: bash
