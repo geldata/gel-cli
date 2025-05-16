@@ -14,17 +14,19 @@ $ gel instance create -I txn_test
 
 background {
     $ (echo "start transaction;"; echo "create type MyUser { create property name: str; };"; sleep 10; echo "commit";) | gel -I txn_test
+    %EXIT any
     ! OK: START TRANSACTION
     ! OK: CREATE TYPE
     ! OK: COMMIT TRANSACTION
 }
 
-$ sleep 1
+$ sleep 5
 *
 
 $ gel -I txn_test query "create type MyUser { create property name: str; }"
 %EXIT 1
 ! gel error: TransactionSerializationError: could not serialize access due to concurrent update
 
+# Allow the background transaction to complete
 $ sleep 1
 *
