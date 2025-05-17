@@ -38,6 +38,12 @@ background {
    *
 }
 
+background {
+    $ gel instance logs -I watch_test --follow --tail 10
+    %EXIT any
+    *
+}
+
 # Give it a second to start up
 $ sleep 1
 
@@ -97,10 +103,6 @@ $ gel query "select schema::Migration {*} filter .generated_by =
 *
 
 $ sleep 1
-
-defer {
-    $ gel instance logs -I watch_test
-}
 
 # This seems to be racing with gel watch
 $ RUST_LOG=debug gel migrate --dev-mode
