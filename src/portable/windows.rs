@@ -736,6 +736,7 @@ pub fn server_cmd(instance: &str, _is_shutdown_supported: bool) -> anyhow::Resul
         cmd.arg("instance").arg("stop").arg("-I").arg(&instance);
         cmd
     });
+    pro.no_proxy();
     Ok(pro)
 }
 

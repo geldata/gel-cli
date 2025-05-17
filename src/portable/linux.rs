@@ -236,6 +236,7 @@ pub fn server_cmd(
             pro.arg("--auto-shutdown-after=600");
         }
     }
+    pro.no_proxy();
     Ok(pro)
 }
 
