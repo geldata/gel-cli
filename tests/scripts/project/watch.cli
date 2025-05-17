@@ -1,0 +1,121 @@
+#!/usr/bin/env clitest --v0
+
+$ gel instance destroy -I watch_test --force
+%EXIT any
+*
+
+$ mktemp -d
+%SET WORK_DIR
+*
+
+defer {
+    $ rm -rf $WORK_DIR
+}
+
+if TARGET_OS == "windows" {
+    # Because mktemp is MINGW and doesn't use real windows paths, we need to
+    # set PWD using the translated path.
+    $ mkdir $WORK_DIR/watch_test && cmd //c echo "%WORK_DIR%/watch_test" 2> /dev/null
+    %SET PWD
+    *
+}
+
+if TARGET_OS != "windows" {
+    $ mkdir $WORK_DIR/watch_test && echo "$WORK_DIR/watch_test"
+    %SET PWD
+    *
+}
+
+$ gel project init --instance=watch_test --non-interactive
+*
+
+$ find .
+*
+
+background {
+   $ gel watch --migrate --verbose
+   %EXIT any
+   *
+}
+
+background {
+    $ gel instance logs -I watch_test --follow --tail 10
+    %EXIT any
+    *
+}
+
+# Give it a second to start up
+$ sleep 1
+
+# Project is locked, so we can't switch to another branch
+# Waiting on PR 1616
+# $ gel branch switch --create --empty other
+# %EXIT 1
+# *
+# ! gel error: Could not acquire lock %{GREEDYDATA}
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*
+
+$ echo "module test {
+    type User {
+        name: str;
+    }
+}" > dbschema/default.gel
+*
+
+$ sleep 1
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*
+
+$ echo "module test {
+    type User {
+        name: str;
+    }
+    type User2 {
+        name: str;
+    }
+}" > dbschema/default.gel
+*
+
+$ sleep 1
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*
+
+$ gel migration create --non-interactive
+*
+
+$ find dbschema/
+*
+
+$ cat dbschema/migrations/*
+*
+
+$ sleep 1
+*
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*
+
+$ sleep 1
+
+defer {
+    $ cat /tmp/log
+    *
+}
+
+# This seems to be racing with gel watch
+$ RUST_LOG=debug gel migrate --dev-mode 2> /tmp/log
+*
+
+$ sleep 1
+
+$ gel query "select schema::Migration {*} filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode;"
+*

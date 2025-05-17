@@ -1,3 +1,5 @@
+use crate::portable;
+
 pub mod env;
 pub mod gen_completions;
 pub mod install;
@@ -22,6 +24,9 @@ pub enum Subcommand {
     /// Install the [`BRANDING_CLI_CMD`] command-line tool
     #[command(hide = true)]
     Install(install::Command),
+    /// Force WSL initialization
+    #[command(hide = true)]
+    __InitWsl(portable::windows::InitWslCommand),
 }
 
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
@@ -30,5 +35,6 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
     match &cmd.subcommand {
         Upgrade(s) => upgrade::run(s),
         Install(s) => install::run(s, Some(opts)),
+        __InitWsl(s) => portable::windows::init_wsl(s, opts),
     }
 }
