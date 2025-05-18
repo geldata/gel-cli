@@ -9,6 +9,11 @@ $ mktemp -d
 *
 
 defer {
+    $ cat /tmp/log
+    *
+}
+
+defer {
     $ rm -rf $WORK_DIR
 }
 
@@ -103,11 +108,6 @@ $ gel query "select schema::Migration {*} filter .generated_by =
 *
 
 $ sleep 1
-
-defer {
-    $ cat /tmp/log
-    *
-}
 
 # This seems to be racing with gel watch
 $ RUST_LOG=debug gel migrate --dev-mode 2> /tmp/log
