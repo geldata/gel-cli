@@ -150,12 +150,7 @@ pub async fn write_merge_migrations(
     migrations: &mut MergeMigrations,
 ) -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
-    let temp_ctx = Context {
-        schema_dir: temp_dir.path().to_path_buf(),
-        quiet: false,
-        project: None,
-        skip_hooks: true,
-    };
+    let temp_ctx = Context::for_temp_path(temp_dir.path())?;
 
     for (_, migration) in migrations.flatten() {
         write_migration(&temp_ctx, migration, false).await?;

@@ -131,6 +131,10 @@ define_env! {
     /// Skip any project hooks defined in gel.toml
     #[env(GEL_SKIP_HOOKS)]
     skip_hooks: BoolFlag,
+
+    /// Whether we are running in a hook
+    #[env(_GEL_IN_HOOK)]
+    in_hook: BoolFlag,
 }
 
 pub fn get_envs(names: &[&str]) -> Result<Option<(String, String)>, anyhow::Error> {
@@ -192,6 +196,7 @@ impl std::str::FromStr for InstallInDocker {
     }
 }
 
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct BoolFlag(pub bool);
 
 impl std::str::FromStr for BoolFlag {
@@ -203,5 +208,13 @@ impl std::str::FromStr for BoolFlag {
             "false" | "0" => Ok(Self(false)),
             _ => Err(format!("Invalid boolean value: {}", s)),
         }
+    }
+}
+
+impl std::ops::Deref for BoolFlag {
+    type Target = bool;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

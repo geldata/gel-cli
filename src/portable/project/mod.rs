@@ -22,6 +22,9 @@ use crate::branding::QUERY_TAG;
 use crate::branding::{BRANDING_SCHEMA_FILE_EXT, MANIFEST_FILE_DISPLAY_NAME};
 use crate::cloud::client::CloudClient;
 use crate::connect::Connection;
+use crate::locking::InstanceLock;
+use crate::locking::LockManager;
+use crate::locking::ProjectLock;
 use crate::platform::{bytes_to_path, path_bytes};
 use crate::platform::{config_dir, is_schema_file, symlink_dir, tmp_file_path};
 use crate::portable::local::InstanceInfo;
@@ -316,6 +319,46 @@ pub fn database_name(stash_dir: &Path) -> anyhow::Result<DatabaseBranch> {
 pub struct Context {
     pub location: Location,
     pub manifest: manifest::Manifest,
+
+    #[allow(unused)]
+    project_lock: Option<ProjectLock>,
+
+    #[allow(unused)]
+    instance_lock: Option<InstanceLock>,
+}
+
+impl Context {
+    pub fn new(location: Location, manifest: manifest::Manifest) -> Result<Self, anyhow::Error> {
+        let project_lock = LockManager::lock_project(&location.root)?;
+        let stash_path = get_stash_path(&location.root)?;
+        let mut instance_lock = None;
+        if stash_path.exists() {
+            let instance_name = instance_name(&stash_path)?;
+            instance_lock = Some(LockManager::lock_maybe_read_instance(
+                &instance_name,
+                false,
+            )?);
+        }
+
+        Ok(Self {
+            location,
+            manifest,
+            project_lock: Some(project_lock),
+            instance_lock,
+        })
+    }
+
+    pub fn downgrade_instance_lock(&self) -> anyhow::Result<()> {
+        if let Some(lock) = &self.instance_lock {
+            Ok(lock.downgrade()?)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn drop_project_lock(&mut self) {
+        self.project_lock = None;
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -349,13 +392,30 @@ pub fn find_project(override_dir: Option<&Path>) -> anyhow::Result<Option<Locati
     }))
 }
 
-pub async fn load_ctx(override_dir: Option<&Path>) -> anyhow::Result<Option<Context>> {
+pub async fn load_ctx(
+    override_dir: Option<&Path>,
+    read_only: bool,
+) -> anyhow::Result<Option<Context>> {
     let Some(location) = find_project_async(override_dir).await? else {
         return Ok(None);
     };
 
     let manifest = manifest::read(&location.manifest)?;
-    Ok(Some(Context { location, manifest }))
+    let stash_path = get_stash_path(&location.root)?;
+    let mut instance_lock = None;
+    if stash_path.exists() {
+        let instance_name = instance_name(&stash_path)?;
+        instance_lock =
+            Some(LockManager::lock_maybe_read_instance_async(&instance_name, read_only).await?);
+    }
+
+    let lock = LockManager::lock_maybe_read_project_async(&location.root, read_only).await?;
+    Ok(Some(Context {
+        location,
+        manifest,
+        project_lock: Some(lock),
+        instance_lock,
+    }))
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -365,7 +425,20 @@ pub async fn load_ctx_at(location: Location) -> anyhow::Result<Context> {
 
 pub async fn load_ctx_at_async(location: Location) -> anyhow::Result<Context> {
     let manifest = manifest::read(&location.manifest)?;
-    Ok(Context { location, manifest })
+    let lock = LockManager::lock_project_async(&location.root).await?;
+    let stash_path = get_stash_path(&location.root)?;
+    let mut instance_lock = None;
+    if stash_path.exists() {
+        let instance_name = instance_name(&stash_path)?;
+        instance_lock =
+            Some(LockManager::lock_maybe_read_instance_async(&instance_name, false).await?);
+    }
+    Ok(Context {
+        location,
+        manifest,
+        project_lock: Some(lock),
+        instance_lock,
+    })
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -374,7 +447,7 @@ pub async fn ensure_ctx(override_dir: Option<&Path>) -> anyhow::Result<Context> 
 }
 
 pub async fn ensure_ctx_async(override_dir: Option<&Path>) -> anyhow::Result<Context> {
-    let Some(ctx) = load_ctx(override_dir).await? else {
+    let Some(ctx) = load_ctx(override_dir, false).await? else {
         return Err(anyhow::anyhow!(
             "`{MANIFEST_FILE_DISPLAY_NAME}` not found, unable to perform this action without an initialized project."
         ));

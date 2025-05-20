@@ -13,7 +13,7 @@ pub async fn upgrade_format(
     cmd: &MigrationUpgradeFormat,
     opts: &Options,
 ) -> anyhow::Result<()> {
-    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks, false).await?;
 
     _upgrade_format(&ctx).await
 }
@@ -74,12 +74,7 @@ mod test {
         fs_extra::dir::copy(original_schema_dir, &tmp_dir, &Default::default()).unwrap();
         let schema_dir = tmp_dir.path().to_path_buf();
 
-        let ctx = Context {
-            schema_dir,
-            quiet: false,
-            project: None,
-            skip_hooks: true,
-        };
+        let ctx = Context::for_temp_path(schema_dir).unwrap();
 
         _upgrade_format(&ctx).await.unwrap();
 

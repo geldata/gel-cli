@@ -70,7 +70,7 @@ fn print_diff(path1: &Path, data1: &str, path2: &Path, data2: &str) {
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn edit_no_check(cmd: &MigrationEdit, opts: &Options) -> Result<(), anyhow::Error> {
-    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks, false).await?;
     // TODO(tailhook) do we have to make the full check of whether there are no
     // gaps and parent revisions are okay?
     let (_n, path) = read_names(&ctx)
@@ -128,7 +128,7 @@ pub async fn edit(cli: &mut Connection, cmd: &MigrationEdit, opts: &Options) -> 
 }
 
 async fn _edit(cli: &mut Connection, cmd: &MigrationEdit, opts: &Options) -> anyhow::Result<()> {
-    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks).await?;
+    let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks, false).await?;
     // TODO(tailhook) do we have to make the full check of whether there are no
     // gaps and parent revisions are okay?
     let (n, path) = cli

@@ -6,6 +6,7 @@ use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::commands::ExitCode;
+use crate::locking::LockManager;
 use crate::options::{CloudOptions, InstanceOptionsLegacy, Options};
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
@@ -17,6 +18,8 @@ use crate::{credentials, question};
 
 pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {
     let name = options.instance_opts.instance()?;
+    let _lock = LockManager::lock_instance(&name)?;
+
     let name_str = name.to_string();
     with_projects(&name_str, options.force, print_warning, || {
         if !options.force && !options.non_interactive {
@@ -115,7 +118,8 @@ fn destroy_local(name: &str) -> anyhow::Result<bool> {
         }
     }
     if paths.runstate_dir.exists() {
-        found = true;
+        // Don't set 'found' if the runstate exists since we might have a lock
+        // only
         log::info!("Removing runstate directory {:?}", paths.runstate_dir);
         fs::remove_dir_all(&paths.runstate_dir)?;
     }

@@ -14,6 +14,7 @@ use gel_tokio::{CloudName, InstanceName};
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
 use crate::commands::{self, ExitCode};
 use crate::connect::{Connection, Connector};
+use crate::locking::LockManager;
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
@@ -29,6 +30,7 @@ use crate::question;
 use crate::{cloud, credentials};
 
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
+    let _lock = LockManager::lock_instance(&cmd.instance_opts.instance()?)?;
     match cmd.instance_opts.instance()? {
         InstanceName::Local(name) => upgrade_local_cmd(cmd, &name, opts),
         InstanceName::Cloud(name) => upgrade_cloud_cmd(cmd, &name, opts),

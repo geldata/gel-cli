@@ -141,13 +141,6 @@ impl ServerGuard {
         spawn_command(cmd, Some(10000)).expect("start interactive")
     }
 
-    pub fn database_cmd(&self, database_name: &str) -> Command {
-        let mut cmd = self.admin_cmd();
-        cmd.arg("--tls-ca-file").arg(&self.0.info.tls_cert_file);
-        cmd.arg("--database").arg(database_name);
-        cmd
-    }
-
     pub fn ensure_instance_linked(&self) -> &'static str {
         const INSTANCE_NAME: &str = "_test_inst";
         edgedb_cli_cmd()
