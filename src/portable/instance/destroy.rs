@@ -176,7 +176,7 @@ fn do_destroy(options: &Command, opts: &Options, instance: &InstanceName) -> any
                     log::warn!("Credentials unexpectedly missing for {:#}", instance);
                 }
             }
-            if !found {
+            if !found && !windows::is_wrapped() {
                 msg!("{} Could not find {:#}", print::err_marker(), instance);
                 return Err(ExitCode::new(exit_codes::INSTANCE_NOT_FOUND).into());
             }
