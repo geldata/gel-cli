@@ -110,7 +110,7 @@ $ gel query "select schema::Migration {*} filter .generated_by =
 $ sleep 1
 
 # This seems to be racing with gel watch
-$ RUST_LOG=debug gel migrate --dev-mode 2> /tmp/log
+$ gel migrate --dev-mode 2> /tmp/log
 *
 
 $ sleep 1
