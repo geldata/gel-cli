@@ -148,9 +148,10 @@ jobs:
         run: |
           chmod +x ${{ env.CARGO_HOME }}/bin/*
 
-      - name: Print version
+      - name: Print versions
         run: |
-          gel --version
+          echo "gel: $(gel --version)"
+          echo "clitest: $(clitest --version)"
 
       - name: Run backup/backup.cli test
         run: |
