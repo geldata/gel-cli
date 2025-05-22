@@ -10,6 +10,8 @@ pub mod rename;
 pub mod switch;
 pub mod wipe;
 
+use futures_util::FutureExt;
+
 use crate::branding::BRANDING;
 use crate::commands::Options;
 use crate::connect::{Connection, Connector};
@@ -32,7 +34,9 @@ pub async fn run(
 
     // commands that don't need connection
     match &cmd {
-        Subcommand::Switch(switch) => return switch::run(switch, &context, &mut connector).await,
+        Subcommand::Switch(switch) => {
+            return switch::run(switch, &context, &mut connector).boxed().await;
+        }
         Subcommand::Wipe(wipe) => {
             wipe::main(wipe, &context, &mut connector).await?;
             return Ok(CommandResult::default());

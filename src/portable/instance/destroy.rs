@@ -171,10 +171,15 @@ fn do_destroy(options: &Command, opts: &Options, instance: &InstanceName) -> any
                 found = true;
                 credentials::delete(instance)?;
             } else {
-                log::warn!("Credentials unexpectedly missing for {:#}", instance);
+                // Only warn if we actually found any instance data.
+                if found {
+                    log::warn!("Credentials unexpectedly missing for {:#}", instance);
+                }
             }
             if !found {
-                msg!("{} Could not find {:#}", print::err_marker(), instance);
+                if !windows::is_wrapped() {
+                    msg!("{} Could not find {:#}", print::err_marker(), instance);
+                }
                 return Err(ExitCode::new(exit_codes::INSTANCE_NOT_FOUND).into());
             }
             Ok(())

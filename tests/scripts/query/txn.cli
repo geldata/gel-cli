@@ -1,0 +1,32 @@
+#!/usr/bin/env clitest --v0
+
+ignore {
+    ! Newer version of gel tool exists %{GREEDYDATA}
+    ! Connecting to Gel instance %{GREEDYDATA}
+}
+
+$ gel instance destroy -I txn_test --force
+%EXIT any
+*
+
+$ gel instance create -I txn_test
+*
+
+background {
+    $ (echo "start transaction;"; echo "create type MyUser { create property name: str; };"; sleep 10; echo "commit";) | gel -I txn_test
+    %EXIT any
+    ! OK: START TRANSACTION
+    ! OK: CREATE TYPE
+    ! OK: COMMIT TRANSACTION
+}
+
+$ sleep 5
+*
+
+$ gel -I txn_test query "create type MyUser { create property name: str; }"
+%EXIT 1
+! gel error: TransactionSerializationError: could not serialize access due to concurrent update
+
+# Allow the background transaction to complete
+$ sleep 1
+*

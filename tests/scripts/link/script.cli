@@ -16,8 +16,8 @@ pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]
 
 ignore {
     ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
-    ? WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
-    ? CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! [edgedb] WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! [edgedb] CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
 }
 
 $ gel instance destroy -I inst1 --force
@@ -126,7 +126,6 @@ optional {
 $ gel project upgrade --force --project-dir=$WORK_DIR/proj/project2
 ignore {
     ! [systemctl] %{GREEDYDATA}
-    ! [edgedb] %{GREEDYDATA}
 }
 choice {
     sequence {
@@ -175,11 +174,6 @@ $ gel instance destroy --instance=project1 --non-interactive
 %EXIT 8
 *
 ! gel error: Could not find Gel instance 'project1'
-# Handle WSL bug where we duplicate this message
-if TARGET_OS == "windows" {
-    *
-    ! gel error: Could not find Gel instance 'project1'
-}
 
 $ gel instance list
 *

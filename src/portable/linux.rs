@@ -16,6 +16,8 @@ use crate::portable::local::{InstanceInfo, log_file, runstate_dir};
 use crate::print;
 use crate::process;
 
+use super::windows;
+
 pub fn unit_dir() -> anyhow::Result<PathBuf> {
     Ok(home_dir()?.join(".config/systemd/user"))
 }
@@ -234,6 +236,7 @@ pub fn server_cmd(
             pro.arg("--auto-shutdown-after=600");
         }
     }
+    pro.no_proxy();
     Ok(pro)
 }
 
@@ -242,6 +245,10 @@ pub fn detect_systemd(instance: &str) -> bool {
 }
 
 fn preliminary_detect() -> Option<PathBuf> {
+    // Never use systemd on gel-managed WSL instances
+    if windows::is_wrapped() {
+        return None;
+    }
     env::var_os("XDG_RUNTIME_DIR").or_else(|| env::var_os("DBUS_SESSION_BUS_ADDRESS"))?;
     if let Ok(path) = which::which("systemctl") {
         Some(path)

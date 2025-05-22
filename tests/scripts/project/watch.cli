@@ -9,12 +9,27 @@ $ mktemp -d
 *
 
 defer {
+    $ cat /tmp/log
+    *
+}
+
+defer {
     $ rm -rf $WORK_DIR
 }
 
-$ mkdir $WORK_DIR/watch_test && echo "$WORK_DIR/watch_test"
-%SET PWD
-*
+if TARGET_OS == "windows" {
+    # Because mktemp is MINGW and doesn't use real windows paths, we need to
+    # set PWD using the translated path.
+    $ mkdir $WORK_DIR/watch_test && cmd //c echo "%WORK_DIR%/watch_test" 2> /dev/null
+    %SET PWD
+    *
+}
+
+if TARGET_OS != "windows" {
+    $ mkdir $WORK_DIR/watch_test && echo "$WORK_DIR/watch_test"
+    %SET PWD
+    *
+}
 
 $ gel project init --instance=watch_test --non-interactive
 *
@@ -26,6 +41,12 @@ background {
    $ gel watch --migrate --verbose
    %EXIT any
    *
+}
+
+background {
+    $ gel instance logs -I watch_test --follow --tail 10
+    %EXIT any
+    *
 }
 
 # Give it a second to start up
@@ -86,7 +107,10 @@ $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
 *
 
-$ gel migrate --dev-mode
+$ sleep 1
+
+# This seems to be racing with gel watch
+$ gel migrate --dev-mode 2> /tmp/log
 *
 
 $ sleep 1
