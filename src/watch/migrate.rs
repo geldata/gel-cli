@@ -61,12 +61,12 @@ impl Migrator {
                             std::process::exit(1);
                         }
                         Some(..) if !first_detatched => {
-                            msg!("Repository is no longer detached, resuming watch mode");
+                            msg!("git repository is no longer detached, resuming watch mode");
                             break;
                         }
                         Some(..) => break,
                         None if first_detatched => {
-                            msg!("Repository HEAD is detached, pausing watch mode");
+                            msg!("git repository HEAD is detached, pausing watch mode");
                             first_detatched = false;
                             continue;
                         }
