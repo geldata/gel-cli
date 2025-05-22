@@ -56,7 +56,7 @@ impl Migrator {
                     match branch {
                         Some(current_branch) if &current_branch != git_branch => {
                             print::error!(
-                                "Current git branch ({current_branch}) is different from the branch used to create the database ({git_branch}), exiting watch mode"
+                                "Current git branch ({current_branch}) is different from the branch used to start watch mode ({git_branch}), exiting."
                             );
                             std::process::exit(1);
                         }
