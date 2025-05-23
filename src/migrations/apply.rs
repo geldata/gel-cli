@@ -29,17 +29,6 @@ use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
 use crate::print::{self, Highlight};
 
-pub async fn run(
-    cmd: &Command,
-    conn: &mut Connection,
-    options: &Options,
-) -> Result<(), anyhow::Error> {
-    let old_state = conn.set_ignore_error_state();
-    let res = run_inner(cmd, conn, options).await;
-    conn.restore_state(old_state);
-    res
-}
-
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
     #[command(flatten)]
@@ -82,7 +71,7 @@ pub struct Command {
     pub single_transaction: bool,
 }
 
-async fn run_inner(
+pub async fn run(
     cmd: &Command,
     conn: &mut Connection,
     options: &Options,

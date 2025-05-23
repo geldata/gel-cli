@@ -121,13 +121,6 @@ async fn check_migration(cli: &mut Connection, text: &str, path: &Path) -> anyho
 }
 
 pub async fn edit(cli: &mut Connection, cmd: &MigrationEdit, opts: &Options) -> anyhow::Result<()> {
-    let old_state = cli.set_ignore_error_state();
-    let res = _edit(cli, cmd, opts).await;
-    cli.restore_state(old_state);
-    res
-}
-
-async fn _edit(cli: &mut Connection, cmd: &MigrationEdit, opts: &Options) -> anyhow::Result<()> {
     let ctx = Context::for_migration_config(&cmd.cfg, false, opts.skip_hooks, false).await?;
     // TODO(tailhook) do we have to make the full check of whether there are no
     // gaps and parent revisions are okay?
