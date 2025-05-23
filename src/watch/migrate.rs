@@ -6,31 +6,35 @@ use const_format::concatcp;
 use edgeql_parser::helpers::quote_string;
 use gel_tokio::Error;
 use indicatif::ProgressBar;
+use log::debug;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::branding::BRANDING_CLI_CMD;
 use crate::connect::{Connection, Connector};
 use crate::migrations::{self, dev_mode};
-use crate::print;
+use crate::{git, msg, print};
 
 use super::{Context, ExecutionOrder, Watcher};
 
 pub struct Migrator {
     ctx: Arc<Context>,
     migration_ctx: migrations::Context,
-
+    git_branch: Option<String>,
     connector: Connector,
     is_force_database_error: bool,
 }
 
 impl Migrator {
     pub async fn new(ctx: Arc<Context>) -> anyhow::Result<Self> {
+        let git_branch = git::git_current_branch().await;
+
         let connector = ctx.options.create_connector().await?;
         Ok(Migrator {
             migration_ctx: migrations::Context::for_project(
                 ctx.project.clone(),
                 ctx.options.skip_hooks,
             )?,
+            git_branch,
             ctx,
             connector,
             is_force_database_error: false,
@@ -43,6 +47,35 @@ impl Migrator {
         matcher: Arc<Watcher>,
     ) {
         loop {
+            if let Some(git_branch) = &self.git_branch {
+                let mut first_detatched = true;
+                debug!("Expecting git branch: {}", git_branch);
+                loop {
+                    let branch = git::git_current_branch().await;
+                    debug!("Current git branch: {:?}", branch);
+                    match branch {
+                        Some(current_branch) if &current_branch != git_branch => {
+                            print::error!(
+                                "Current git branch ({current_branch}) is different from the branch used to start watch mode ({git_branch}), exiting."
+                            );
+                            std::process::exit(1);
+                        }
+                        Some(..) if !first_detatched => {
+                            msg!("git repository is no longer detached, resuming watch mode");
+                            break;
+                        }
+                        Some(..) => break,
+                        None if first_detatched => {
+                            msg!("git repository HEAD is detached, pausing watch mode");
+                            first_detatched = false;
+                            continue;
+                        }
+                        None => {
+                            tokio::time::sleep(Duration::from_secs(1)).await;
+                        }
+                    }
+                }
+            }
             let res = self.migration_apply_dev_mode().await;
 
             if let Err(e) = &res {
