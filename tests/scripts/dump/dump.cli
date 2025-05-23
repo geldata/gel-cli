@@ -9,15 +9,17 @@ ignore {
     ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
 }
 
-$ mktemp -d
-%SET WORK_DIR
-*
+using tempdir;
 
-$ gel instance destroy -I dump_restore --force
-%EXIT any
-*
+for INSTANCE in "dump_restore" "dump_restore2" {
+    $ gel instance destroy -I $INSTANCE --force
+    %EXIT any
+    *
+}
 
 $ gel instance create -I dump_restore
+*
+! Instance dump_restore is up and running.
 *
 
 $ gel database create -I dump_restore dump_01
@@ -28,14 +30,16 @@ $ gel -I dump_restore --database dump_01 query "CREATE TYPE Hello { CREATE REQUI
 $ gel -I dump_restore --database dump_01 query "INSERT Hello { name := 'world' }"
 ? {"id": "%{UUID}"}
 
-$ mkdir -p $WORK_DIR/dump
-$ gel -I dump_restore --database dump_01 dump $WORK_DIR/dump/dump_01.dump
+$ mkdir dump
+
+$ gel -I dump_restore --database dump_01 dump dump/dump_01.dump
 *
 ! Starting dump for database `'dump_01'`...
 
 $ gel -I dump_restore database create restore_01
 ! OK: CREATE DATABASE
-$ gel -I dump_restore --database restore_01 restore $WORK_DIR/dump/dump_01.dump
+
+$ gel -I dump_restore --database restore_01 restore dump/dump_01.dump
 *
 ! Restore completed
 
@@ -43,7 +47,7 @@ $ gel -I dump_restore --database restore_01 query "SELECT Hello.name"
 ! "world"
 
 # Test dump --all without format
-$ gel -I dump_restore dump --all dump01-dir
+$ gel -I dump_restore dump --all "will-not-exist"
 %EXIT 1
 ! gel error: `--format=dir` is required when using `--all`
 *
@@ -60,17 +64,15 @@ $ gel -I dump_restore --database dump_02 query "INSERT Hello { name := 'world' }
 $ echo "password" | gel -I dump_restore instance reset-password --password-from-stdin
 ! Password was successfully changed and saved.
 
-$ gel -I dump_restore dump --all --format=dir $WORK_DIR/dump_all
+$ gel -I dump_restore dump --all --format=dir ./dump_all
 repeat {
     ? Starting dump for database %{GREEDYDATA}
 }
 
 # Start a new server instance for restore
-$ gel instance destroy -I dump_restore2 --force
-%EXIT any
-*
-
 $ gel instance create -I dump_restore2
+*
+! Instance dump_restore2 is up and running.
 *
 
 # Ensure that the password between the two instances matches
@@ -83,7 +85,7 @@ background {
     *
 }
 
-$ gel -I dump_restore2 restore --all $WORK_DIR/dump_all
+$ gel -I dump_restore2 restore --all ./dump_all
 repeat {
     !
     ? Restoring database from file %{GREEDYDATA}
