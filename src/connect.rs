@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::future::{Future, pending};
-use std::mem;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -28,7 +27,7 @@ use gel_protocol::server_message::RawPacket;
 use gel_protocol::server_message::TransactionState;
 use gel_protocol::value::Value;
 use gel_tokio::Config;
-use gel_tokio::raw::{self, PoolState, Response};
+use gel_tokio::raw::{self, Response};
 use gel_tokio::server_params::ServerParam;
 
 use crate::branding::{BRANDING, BRANDING_CLOUD, QUERY_TAG, REPL_QUERY_TAG};
@@ -290,24 +289,16 @@ impl Connection {
     pub fn database(&self) -> &DatabaseBranch {
         &self.config.db
     }
-    pub fn set_ignore_error_state(&mut self) -> State {
-        let new_state = make_ignore_error_state(self.inner.state_descriptor());
-        mem::replace(&mut self.state, new_state)
-    }
-    pub fn restore_state(&mut self, state: State) {
-        self.state = state;
-    }
     pub async fn get_version(&mut self) -> Result<&ver::Build, Error> {
         if self.server_version.is_some() {
             return Ok(self.server_version.as_ref().unwrap());
         }
-        let state = make_ignore_error_state(self.inner.state_descriptor());
         let resp: String = self
             .inner
             .query(
                 "SELECT sys::get_version_as_str()",
                 &(),
-                &state,
+                &State::empty(),
                 &self.annotations,
                 Capabilities::empty(),
                 IoFormat::Binary,
@@ -324,13 +315,12 @@ impl Connection {
             return Ok(name.into());
         }
 
-        let state = make_ignore_error_state(self.inner.state_descriptor());
         let resp: raw::Response<Vec<String>> = self
             .inner
             .query(
                 "SELECT sys::get_current_database()",
                 &(),
-                &state,
+                &State::empty(),
                 &self.annotations,
                 Capabilities::empty(),
                 IoFormat::Binary,
@@ -558,22 +548,4 @@ impl Connection {
         annotations.insert("tag".to_string(), tag.to_string());
         self.annotations = Arc::new(annotations);
     }
-}
-
-fn make_ignore_error_state(desc: &RawTypedesc) -> State {
-    _make_ignore_error_state(desc).unwrap_or(State::empty())
-}
-
-#[derive(gel_derive::ConfigDelta)]
-struct ErrorState {
-    force_database_error: &'static str,
-}
-
-fn _make_ignore_error_state(desc: &RawTypedesc) -> Option<State> {
-    PoolState::default()
-        .with_config(&ErrorState {
-            force_database_error: "false",
-        })
-        .encode(desc)
-        .ok()
 }
