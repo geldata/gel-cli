@@ -1,7 +1,7 @@
 use std::process::Command;
 
 use gel_cli_instance::{ProcessError, ProcessErrorType, Processes, SystemProcessRunner};
-use log::warn;
+use log::{debug, warn};
 
 /// Get the current git branch.
 ///
@@ -27,7 +27,10 @@ pub async fn git_current_branch() -> Option<String> {
         Err(ProcessError {
             kind: ProcessErrorType::CommandFailed(status, _),
             ..
-        }) if status.code() == Some(128) => None,
+        }) if status.code() == Some(128) => {
+            // 128 = Running git command a non-git repo, silently return None
+            None
+        }
         Err(e) => {
             warn!("Failed to get current git branch: {}", e);
             None
