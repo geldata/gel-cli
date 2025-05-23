@@ -3,13 +3,12 @@ use std::time::Duration;
 
 use const_format::concatcp;
 
-use edgeql_parser::helpers::quote_string;
 use gel_tokio::Error;
 use indicatif::ProgressBar;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::branding::BRANDING_CLI_CMD;
-use crate::connect::{Connection, Connector};
+use crate::connect::Connector;
 use crate::migrations::{self, dev_mode};
 use crate::print;
 
@@ -20,7 +19,6 @@ pub struct Migrator {
     migration_ctx: migrations::Context,
 
     connector: Connector,
-    is_force_database_error: bool,
 }
 
 impl Migrator {
@@ -33,7 +31,6 @@ impl Migrator {
             )?,
             ctx,
             connector,
-            is_force_database_error: false,
         })
     }
 
@@ -56,8 +53,6 @@ impl Migrator {
                 None => break,
             }
         }
-
-        self.cleanup().await;
     }
 
     async fn migration_apply_dev_mode(&mut self) -> anyhow::Result<()> {
@@ -66,42 +61,13 @@ impl Migrator {
         bar.set_message("Connecting");
         let mut cli = Box::pin(self.connector.connect()).await?;
 
-        let old_state = cli.set_ignore_error_state();
         let result = dev_mode::migrate(&mut cli, &self.migration_ctx, &bar).await;
-        cli.restore_state(old_state);
 
         bar.finish_and_clear();
-        match result {
-            Ok(()) => {
-                if self.is_force_database_error {
-                    clear_error(&mut cli).await;
-                    self.is_force_database_error = false;
-                }
-            }
-            Err(e) => {
-                eprintln!("Schema migration error: {e:#}");
-                set_error(&mut cli, e).await;
-                // TODO(tailhook) probably only print if error doesn't match
-                self.is_force_database_error = true;
-            }
+        if let Err(e) = result {
+            eprintln!("Schema migration error: {e:#}");
         }
         Ok(())
-    }
-
-    async fn cleanup(&mut self) {
-        if !self.is_force_database_error {
-            return;
-        }
-        let conn = Box::pin(self.connector.connect()).await;
-        let mut conn = match conn {
-            Ok(connection) => connection,
-            Err(e) => {
-                log::error!("Cannot clear error: {:#}", e);
-                return;
-            }
-        };
-
-        clear_error(&mut conn).await
     }
 }
 
@@ -149,29 +115,6 @@ impl From<anyhow::Error> for ErrorJson {
             }
         }
     }
-}
-
-async fn clear_error(cli: &mut Connection) {
-    let res = cli
-        .execute("CONFIGURE CURRENT DATABASE RESET force_database_error", &())
-        .await;
-    let Err(e) = res else { return };
-    log::error!("Cannot clear database error state: {:#}", e);
-}
-
-async fn set_error(cli: &mut Connection, e: anyhow::Error) {
-    let data = serde_json::to_string(&ErrorJson::from(e)).unwrap();
-    let res = cli
-        .execute(
-            &format!(
-                "CONFIGURE CURRENT DATABASE SET force_database_error := {}",
-                quote_string(&data)
-            ),
-            &(),
-        )
-        .await;
-    let Err(e) = res else { return };
-    log::error!("Cannot set database error state: {:#}", e);
 }
 
 #[derive(serde::Serialize)]
