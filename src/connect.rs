@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::future::{Future, pending};
-use std::mem;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -12,7 +11,7 @@ use gel_tokio::dsn::DatabaseBranch;
 use tokio::time::sleep;
 use tokio_stream::Stream;
 
-use gel_errors::{ClientError, NoDataError, ProtocolEncodingError};
+use gel_errors::{ClientError, NoDataError, ProtocolEncodingError, WatchError};
 use gel_errors::{Error, ErrorKind, ResultExt};
 use gel_protocol::QueryResult;
 use gel_protocol::annotations::Warning;
@@ -28,7 +27,7 @@ use gel_protocol::server_message::RawPacket;
 use gel_protocol::server_message::TransactionState;
 use gel_protocol::value::Value;
 use gel_tokio::Config;
-use gel_tokio::raw::{self, PoolState, Response};
+use gel_tokio::raw::{self, Response};
 use gel_tokio::server_params::ServerParam;
 
 use crate::branding::{BRANDING, BRANDING_CLOUD, QUERY_TAG, REPL_QUERY_TAG};
@@ -234,6 +233,19 @@ impl Connector {
     }
 }
 
+macro_rules! shield_watch_error {
+    ($self:expr, $body:expr) => {{
+        let result: Result<_, Error> = $body.await;
+        match result {
+            Err(e) if e.is::<WatchError>() => {
+                $self.clear_watch_error().await;
+                $body.await
+            }
+            result => result,
+        }
+    }};
+}
+
 impl Connection {
     pub fn from_raw(cfg: &Config, raw: raw::Connection, tag: impl ToString) -> Connection {
         let mut annotations = Annotations::new();
@@ -287,58 +299,60 @@ impl Connection {
         ConnectionError::Error(err)
     }
 
+    pub async fn clear_watch_error(&mut self) {
+        let res = self
+            ._execute("CONFIGURE CURRENT DATABASE RESET force_database_error", &())
+            .await;
+        let Err(e) = res else { return };
+        log::error!("Cannot clear database error state: {:#}", e);
+    }
+
     pub fn database(&self) -> &DatabaseBranch {
         &self.config.db
-    }
-    pub fn set_ignore_error_state(&mut self) -> State {
-        let new_state = make_ignore_error_state(self.inner.state_descriptor());
-        mem::replace(&mut self.state, new_state)
-    }
-    pub fn restore_state(&mut self, state: State) {
-        self.state = state;
     }
     pub async fn get_version(&mut self) -> Result<&ver::Build, Error> {
         if self.server_version.is_some() {
             return Ok(self.server_version.as_ref().unwrap());
         }
-        let state = make_ignore_error_state(self.inner.state_descriptor());
-        let resp: String = self
-            .inner
-            .query(
+        let resp: String = shield_watch_error!(
+            self,
+            self.inner.query(
                 "SELECT sys::get_version_as_str()",
                 &(),
-                &state,
+                &State::empty(),
                 &self.annotations,
                 Capabilities::empty(),
                 IoFormat::Binary,
                 Cardinality::AtMostOne,
             )
-            .await
-            .map(|x| x.data.into_iter().next().unwrap_or_default())
-            .context("cannot fetch database version")?;
+        )
+        .map(|x| x.data.into_iter().next().unwrap_or_default())
+        .context("cannot fetch database version")?;
         let build = resp.parse()?;
         Ok(self.server_version.insert(build))
     }
     pub async fn get_current_branch(&mut self) -> Result<Cow<'_, str>, Error> {
-        if let Some(name) = self.config.db.name() {
-            return Ok(name.into());
-        }
+        let branch = shield_watch_error!(self, async {
+            if let Some(name) = self.config.db.name() {
+                return Ok(name.into());
+            }
 
-        let state = make_ignore_error_state(self.inner.state_descriptor());
-        let resp: raw::Response<Vec<String>> = self
-            .inner
-            .query(
-                "SELECT sys::get_current_database()",
-                &(),
-                &state,
-                &self.annotations,
-                Capabilities::empty(),
-                IoFormat::Binary,
-                Cardinality::AtMostOne,
-            )
-            .await
-            .context("cannot fetch current database branch")?;
-        let branch = resp.data.into_iter().next().unwrap_or_default();
+            let resp: raw::Response<Vec<String>> = self
+                .inner
+                .query(
+                    "SELECT sys::get_current_database()",
+                    &(),
+                    &State::empty(),
+                    &self.annotations,
+                    Capabilities::empty(),
+                    IoFormat::Binary,
+                    Cardinality::AtMostOne,
+                )
+                .await
+                .context("cannot fetch current database branch")?;
+            let branch = resp.data.into_iter().next().unwrap_or_default();
+            Ok(branch)
+        })?;
         Ok(branch.into())
     }
     pub async fn query<R, A>(&mut self, query: &str, arguments: &A) -> Result<Vec<R>, Error>
@@ -346,9 +360,9 @@ impl Connection {
         A: QueryArgs,
         R: QueryResult,
     {
-        let resp = self
-            .inner
-            .query(
+        let resp = shield_watch_error!(
+            self,
+            self.inner.query(
                 query,
                 arguments,
                 &self.state,
@@ -357,7 +371,7 @@ impl Connection {
                 IoFormat::Binary,
                 Cardinality::Many,
             )
-            .await?;
+        )?;
         update_state(&mut self.state, &resp)?;
         Ok(resp.data)
     }
@@ -370,9 +384,9 @@ impl Connection {
         A: QueryArgs,
         R: QueryResult,
     {
-        let resp = self
-            .inner
-            .query(
+        let resp = shield_watch_error!(
+            self,
+            self.inner.query(
                 query,
                 arguments,
                 &self.state,
@@ -381,7 +395,7 @@ impl Connection {
                 IoFormat::Binary,
                 Cardinality::AtMostOne,
             )
-            .await?;
+        )?;
         update_state(&mut self.state, &resp)?;
         let data = resp.data.into_iter().next();
         Ok((data, resp.warnings))
@@ -399,6 +413,16 @@ impl Connection {
         res.ok_or_else(|| NoDataError::with_message("query row returned zero results"))
     }
     pub async fn execute<A>(
+        &mut self,
+        query: &str,
+        arguments: &A,
+    ) -> Result<(Bytes, Vec<Warning>), Error>
+    where
+        A: QueryArgs,
+    {
+        shield_watch_error!(self, self._execute(query, arguments))
+    }
+    async fn _execute<A>(
         &mut self,
         query: &str,
         arguments: &A,
@@ -527,9 +551,11 @@ impl Connection {
         opts: &CompilationOptions,
         query: &str,
     ) -> Result<CommandDataDescription1, Error> {
-        self.inner
-            .parse(opts, query, &self.state, &self.annotations)
-            .await
+        shield_watch_error!(
+            self,
+            self.inner
+                .parse(opts, query, &self.state, &self.annotations)
+        )
     }
     pub async fn restore(
         &mut self,
@@ -558,22 +584,4 @@ impl Connection {
         annotations.insert("tag".to_string(), tag.to_string());
         self.annotations = Arc::new(annotations);
     }
-}
-
-fn make_ignore_error_state(desc: &RawTypedesc) -> State {
-    _make_ignore_error_state(desc).unwrap_or(State::empty())
-}
-
-#[derive(gel_derive::ConfigDelta)]
-struct ErrorState {
-    force_database_error: &'static str,
-}
-
-fn _make_ignore_error_state(desc: &RawTypedesc) -> Option<State> {
-    PoolState::default()
-        .with_config(&ErrorState {
-            force_database_error: "false",
-        })
-        .encode(desc)
-        .ok()
 }

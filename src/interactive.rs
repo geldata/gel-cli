@@ -9,7 +9,7 @@ use tokio::sync::mpsc::channel;
 use tokio_stream::StreamExt;
 
 use edgeql_parser::preparser::{self, full_statement};
-use gel_errors::{ParameterTypeMismatchError, StateMismatchError};
+use gel_errors::{ParameterTypeMismatchError, StateMismatchError, WatchError};
 use gel_protocol::client_message::Cardinality;
 use gel_protocol::client_message::CompilationOptions;
 use gel_protocol::common::RawTypedesc;
@@ -304,63 +304,68 @@ async fn execute_query(
     let start = Instant::now();
     let mut input_duration = std::time::Duration::new(0, 0);
     let desc = Typedesc::nothing(cli.protocol());
-    let mut items = match cli
-        .try_execute_stream(&flags, statement, &desc, &desc, &())
-        .await
-    {
-        Ok(items) => items,
-        Err(e) if e.is::<ParameterTypeMismatchError>() => {
-            let Some(data_description) = e.get::<Description>() else {
-                return Err(e)?;
-            };
+    let mut items = loop {
+        match cli
+            .try_execute_stream(&flags, statement, &desc, &desc, &())
+            .await
+        {
+            Ok(items) => break items,
+            Err(e) if e.is::<ParameterTypeMismatchError>() => {
+                let Some(data_description) = e.get::<Description>() else {
+                    return Err(e)?;
+                };
 
-            let desc = data_description.output()?;
-            let indesc = data_description.input()?;
-            if options.debug_print_descriptors {
-                println!("Input Descr {:#?}", indesc.descriptors());
-                println!("Output Descr {:#?}", desc.descriptors());
-            }
-            if options.debug_print_codecs {
-                let incodec = indesc.build_codec()?;
-                println!("Input Codec {incodec:#?}");
-            }
+                let desc = data_description.output()?;
+                let indesc = data_description.input()?;
+                if options.debug_print_descriptors {
+                    println!("Input Descr {:#?}", indesc.descriptors());
+                    println!("Output Descr {:#?}", desc.descriptors());
+                }
+                if options.debug_print_codecs {
+                    let incodec = indesc.build_codec()?;
+                    println!("Input Codec {incodec:#?}");
+                }
 
-            let input_start = Instant::now();
-            let input = match cli
-                .ping_while(input_variables(
-                    &indesc,
-                    &mut state.prompt,
-                    state.input_language,
-                ))
-                .await
-            {
-                Ok(input) => input,
-                Err(e) => {
-                    eprintln!("{e:#}");
-                    state.last_error = Some(e);
-                    return Err(QueryError)?;
-                }
-            };
-            input_duration = input_start.elapsed();
+                let input_start = Instant::now();
+                let input = match cli
+                    .ping_while(input_variables(
+                        &indesc,
+                        &mut state.prompt,
+                        state.input_language,
+                    ))
+                    .await
+                {
+                    Ok(input) => input,
+                    Err(e) => {
+                        eprintln!("{e:#}");
+                        state.last_error = Some(e);
+                        return Err(QueryError)?;
+                    }
+                };
+                input_duration = input_start.elapsed();
 
-            let execute_res = cli
-                .try_execute_stream(&flags, statement, &indesc, &desc, &input)
-                .await;
-            match execute_res {
-                Ok(items) => items,
-                Err(e) if e.is::<StateMismatchError>() => {
-                    return Err(RetryStateError)?;
-                }
-                Err(e) => {
-                    print_query_error(&e, statement, state.verbose_errors, "<query>")?;
-                    return Err(QueryError)?;
+                let execute_res = cli
+                    .try_execute_stream(&flags, statement, &indesc, &desc, &input)
+                    .await;
+                match execute_res {
+                    Ok(items) => break items,
+                    Err(e) if e.is::<StateMismatchError>() => {
+                        return Err(RetryStateError)?;
+                    }
+                    Err(e) => {
+                        print_query_error(&e, statement, state.verbose_errors, "<query>")?;
+                        return Err(QueryError)?;
+                    }
                 }
             }
-        }
-        Err(e) if e.is::<StateMismatchError>() => return Err(RetryStateError)?,
-        Err(e) => {
-            print_query_error(&e, statement, state.verbose_errors, "<query>")?;
-            return Err(QueryError)?;
+            Err(e) if e.is::<StateMismatchError>() => return Err(RetryStateError)?,
+            Err(e) if e.is::<WatchError>() => {
+                cli.clear_watch_error().await;
+            }
+            Err(e) => {
+                print_query_error(&e, statement, state.verbose_errors, "<query>")?;
+                return Err(QueryError)?;
+            }
         }
     };
 

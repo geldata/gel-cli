@@ -47,10 +47,7 @@ pub async fn run(cmd: &Command, conn: &mut Connection, options: &Options) -> any
     if cmd.squash {
         squash::run(cmd, conn, options).await
     } else {
-        let old_state = conn.set_ignore_error_state();
-        let res = run_inner(cmd, conn, options).await;
-        conn.restore_state(old_state);
-        res
+        run_inner(cmd, conn, options).await
     }
 }
 

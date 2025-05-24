@@ -21,17 +21,6 @@ pub async fn log(
 
 pub async fn log_db(
     conn: &mut Connection,
-    common: &Options,
-    options: &MigrationLog,
-) -> Result<(), anyhow::Error> {
-    let old_state = conn.set_ignore_error_state();
-    let res = _log_db(conn, common, options).await;
-    conn.restore_state(old_state);
-    res
-}
-
-async fn _log_db(
-    conn: &mut Connection,
     _common: &Options,
     options: &MigrationLog,
 ) -> Result<(), anyhow::Error> {
