@@ -234,18 +234,16 @@ impl Connector {
 }
 
 macro_rules! shield_watch_error {
-    ($self:expr, $body:expr) => {
-        {
-            let result: Result<_, Error> = $body.await;
-            match result {
-                Err(e) if e.is::<WatchError>() => {
-                    $self.clear_watch_error().await;
-                    $body.await
-                }
-                result => result
+    ($self:expr, $body:expr) => {{
+        let result: Result<_, Error> = $body.await;
+        match result {
+            Err(e) if e.is::<WatchError>() => {
+                $self.clear_watch_error().await;
+                $body.await
             }
+            result => result,
         }
-    };
+    }};
 }
 
 impl Connection {
@@ -316,9 +314,9 @@ impl Connection {
         if self.server_version.is_some() {
             return Ok(self.server_version.as_ref().unwrap());
         }
-        let resp: String = shield_watch_error!(self, self
-            .inner
-            .query(
+        let resp: String = shield_watch_error!(
+            self,
+            self.inner.query(
                 "SELECT sys::get_version_as_str()",
                 &(),
                 &State::empty(),
@@ -326,9 +324,10 @@ impl Connection {
                 Capabilities::empty(),
                 IoFormat::Binary,
                 Cardinality::AtMostOne,
-            ))
-            .map(|x| x.data.into_iter().next().unwrap_or_default())
-            .context("cannot fetch database version")?;
+            )
+        )
+        .map(|x| x.data.into_iter().next().unwrap_or_default())
+        .context("cannot fetch database version")?;
         let build = resp.parse()?;
         Ok(self.server_version.insert(build))
     }
@@ -361,9 +360,9 @@ impl Connection {
         A: QueryArgs,
         R: QueryResult,
     {
-        let resp = shield_watch_error!(self, self
-            .inner
-            .query(
+        let resp = shield_watch_error!(
+            self,
+            self.inner.query(
                 query,
                 arguments,
                 &self.state,
@@ -371,7 +370,8 @@ impl Connection {
                 Capabilities::ALL,
                 IoFormat::Binary,
                 Cardinality::Many,
-            ))?;
+            )
+        )?;
         update_state(&mut self.state, &resp)?;
         Ok(resp.data)
     }
@@ -384,9 +384,9 @@ impl Connection {
         A: QueryArgs,
         R: QueryResult,
     {
-        let resp = shield_watch_error!(self, self
-            .inner
-            .query(
+        let resp = shield_watch_error!(
+            self,
+            self.inner.query(
                 query,
                 arguments,
                 &self.state,
@@ -394,7 +394,8 @@ impl Connection {
                 Capabilities::ALL,
                 IoFormat::Binary,
                 Cardinality::AtMostOne,
-            ))?;
+            )
+        )?;
         update_state(&mut self.state, &resp)?;
         let data = resp.data.into_iter().next();
         Ok((data, resp.warnings))
@@ -550,8 +551,10 @@ impl Connection {
         opts: &CompilationOptions,
         query: &str,
     ) -> Result<CommandDataDescription1, Error> {
-        shield_watch_error!(self, self.inner
-            .parse(opts, query, &self.state, &self.annotations)
+        shield_watch_error!(
+            self,
+            self.inner
+                .parse(opts, query, &self.state, &self.annotations)
         )
     }
     pub async fn restore(
