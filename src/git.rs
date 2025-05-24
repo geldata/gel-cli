@@ -27,7 +27,10 @@ pub async fn git_current_branch() -> Option<String> {
         Err(ProcessError {
             kind: ProcessErrorType::CommandFailed(status, _),
             ..
-        }) if status.code() == Some(128) => None,
+        }) if status.code() == Some(128) => {
+            // 128 = Running git command a non-git repo, silently return None
+            None
+        }
         Err(e) => {
             warn!("Failed to get current git branch: {}", e);
             None
