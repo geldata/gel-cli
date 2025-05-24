@@ -23,8 +23,6 @@ use crate::print::{self, AsRelativeToCurrentDir, Highlight};
 #[derive(clap::Args, Debug, Clone)]
 pub struct Command {
     /// Runs "[BRANDING_CLI_CMD] migration apply --dev-mode" on changes to schema definitions.
-    /// On migration errors `force_database_error` is set, which rejects all queries
-    /// to the database. This configuration is cleared when the error is resolved or watch is stopped.
     ///
     /// This runs in addition to to scripts in [MANIFEST_FILE_DISPLAY_NAME].
     #[arg(short = 'm', long)]
