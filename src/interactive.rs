@@ -9,7 +9,7 @@ use tokio::sync::mpsc::channel;
 use tokio_stream::StreamExt;
 
 use edgeql_parser::preparser::{self, full_statement};
-use gel_errors::{ParameterTypeMismatchError, StateMismatchError};
+use gel_errors::{ParameterTypeMismatchError, StateMismatchError, WatchError};
 use gel_protocol::client_message::Cardinality;
 use gel_protocol::client_message::CompilationOptions;
 use gel_protocol::common::RawTypedesc;
@@ -304,11 +304,11 @@ async fn execute_query(
     let start = Instant::now();
     let mut input_duration = std::time::Duration::new(0, 0);
     let desc = Typedesc::nothing(cli.protocol());
-    let mut items = match cli
+    let mut items = loop { match cli
         .try_execute_stream(&flags, statement, &desc, &desc, &())
         .await
     {
-        Ok(items) => items,
+        Ok(items) => break items,
         Err(e) if e.is::<ParameterTypeMismatchError>() => {
             let Some(data_description) = e.get::<Description>() else {
                 return Err(e)?;
@@ -347,7 +347,7 @@ async fn execute_query(
                 .try_execute_stream(&flags, statement, &indesc, &desc, &input)
                 .await;
             match execute_res {
-                Ok(items) => items,
+                Ok(items) => break items,
                 Err(e) if e.is::<StateMismatchError>() => {
                     return Err(RetryStateError)?;
                 }
@@ -358,11 +358,14 @@ async fn execute_query(
             }
         }
         Err(e) if e.is::<StateMismatchError>() => return Err(RetryStateError)?,
+        Err(e) if e.is::<WatchError>() => {
+            cli.clear_watch_error().await;
+        }
         Err(e) => {
             print_query_error(&e, statement, state.verbose_errors, "<query>")?;
             return Err(QueryError)?;
         }
-    };
+    }};
 
     print::warnings(items.warnings(), statement)?;
 

@@ -11,7 +11,7 @@ use gel_tokio::dsn::DatabaseBranch;
 use tokio::time::sleep;
 use tokio_stream::Stream;
 
-use gel_errors::{ClientError, NoDataError, ProtocolEncodingError};
+use gel_errors::{ClientError, NoDataError, ProtocolEncodingError, WatchError};
 use gel_errors::{Error, ErrorKind, ResultExt};
 use gel_protocol::QueryResult;
 use gel_protocol::annotations::Warning;
@@ -233,6 +233,21 @@ impl Connector {
     }
 }
 
+macro_rules! shield_watch_error {
+    ($self:expr, $body:expr) => {
+        {
+            let result: Result<_, Error> = $body.await;
+            match result {
+                Err(e) if e.is::<WatchError>() => {
+                    $self.clear_watch_error().await;
+                    $body.await
+                }
+                result => result
+            }
+        }
+    };
+}
+
 impl Connection {
     pub fn from_raw(cfg: &Config, raw: raw::Connection, tag: impl ToString) -> Connection {
         let mut annotations = Annotations::new();
@@ -286,6 +301,14 @@ impl Connection {
         ConnectionError::Error(err)
     }
 
+    pub async fn clear_watch_error(&mut self) {
+        let res = self
+            ._execute("CONFIGURE CURRENT DATABASE RESET force_database_error", &())
+            .await;
+        let Err(e) = res else { return };
+        log::error!("Cannot clear database error state: {:#}", e);
+    }
+
     pub fn database(&self) -> &DatabaseBranch {
         &self.config.db
     }
@@ -293,7 +316,7 @@ impl Connection {
         if self.server_version.is_some() {
             return Ok(self.server_version.as_ref().unwrap());
         }
-        let resp: String = self
+        let resp: String = shield_watch_error!(self, self
             .inner
             .query(
                 "SELECT sys::get_version_as_str()",
@@ -303,32 +326,34 @@ impl Connection {
                 Capabilities::empty(),
                 IoFormat::Binary,
                 Cardinality::AtMostOne,
-            )
-            .await
+            ))
             .map(|x| x.data.into_iter().next().unwrap_or_default())
             .context("cannot fetch database version")?;
         let build = resp.parse()?;
         Ok(self.server_version.insert(build))
     }
     pub async fn get_current_branch(&mut self) -> Result<Cow<'_, str>, Error> {
-        if let Some(name) = self.config.db.name() {
-            return Ok(name.into());
-        }
+        let branch = shield_watch_error!(self, async {
+            if let Some(name) = self.config.db.name() {
+                return Ok(name.into());
+            }
 
-        let resp: raw::Response<Vec<String>> = self
-            .inner
-            .query(
-                "SELECT sys::get_current_database()",
-                &(),
-                &State::empty(),
-                &self.annotations,
-                Capabilities::empty(),
-                IoFormat::Binary,
-                Cardinality::AtMostOne,
-            )
-            .await
-            .context("cannot fetch current database branch")?;
-        let branch = resp.data.into_iter().next().unwrap_or_default();
+            let resp: raw::Response<Vec<String>> = self
+                .inner
+                .query(
+                    "SELECT sys::get_current_database()",
+                    &(),
+                    &State::empty(),
+                    &self.annotations,
+                    Capabilities::empty(),
+                    IoFormat::Binary,
+                    Cardinality::AtMostOne,
+                )
+                .await
+                .context("cannot fetch current database branch")?;
+            let branch = resp.data.into_iter().next().unwrap_or_default();
+            Ok(branch)
+        })?;
         Ok(branch.into())
     }
     pub async fn query<R, A>(&mut self, query: &str, arguments: &A) -> Result<Vec<R>, Error>
@@ -336,7 +361,7 @@ impl Connection {
         A: QueryArgs,
         R: QueryResult,
     {
-        let resp = self
+        let resp = shield_watch_error!(self, self
             .inner
             .query(
                 query,
@@ -346,8 +371,7 @@ impl Connection {
                 Capabilities::ALL,
                 IoFormat::Binary,
                 Cardinality::Many,
-            )
-            .await?;
+            ))?;
         update_state(&mut self.state, &resp)?;
         Ok(resp.data)
     }
@@ -360,7 +384,7 @@ impl Connection {
         A: QueryArgs,
         R: QueryResult,
     {
-        let resp = self
+        let resp = shield_watch_error!(self, self
             .inner
             .query(
                 query,
@@ -370,8 +394,7 @@ impl Connection {
                 Capabilities::ALL,
                 IoFormat::Binary,
                 Cardinality::AtMostOne,
-            )
-            .await?;
+            ))?;
         update_state(&mut self.state, &resp)?;
         let data = resp.data.into_iter().next();
         Ok((data, resp.warnings))
@@ -389,6 +412,16 @@ impl Connection {
         res.ok_or_else(|| NoDataError::with_message("query row returned zero results"))
     }
     pub async fn execute<A>(
+        &mut self,
+        query: &str,
+        arguments: &A,
+    ) -> Result<(Bytes, Vec<Warning>), Error>
+    where
+        A: QueryArgs,
+    {
+        shield_watch_error!(self, self._execute(query, arguments))
+    }
+    async fn _execute<A>(
         &mut self,
         query: &str,
         arguments: &A,
@@ -517,9 +550,9 @@ impl Connection {
         opts: &CompilationOptions,
         query: &str,
     ) -> Result<CommandDataDescription1, Error> {
-        self.inner
+        shield_watch_error!(self, self.inner
             .parse(opts, query, &self.state, &self.annotations)
-            .await
+        )
     }
     pub async fn restore(
         &mut self,
