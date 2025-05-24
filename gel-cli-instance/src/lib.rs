@@ -70,7 +70,7 @@ impl From<(Command, ProcessErrorType)> for ProcessError {
     }
 }
 
-struct Processes<P: ProcessRunner> {
+pub struct Processes<P: ProcessRunner> {
     runner: P,
 }
 
