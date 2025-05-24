@@ -1,7 +1,7 @@
 use std::process::Command;
 
 use gel_cli_instance::{ProcessError, ProcessErrorType, Processes, SystemProcessRunner};
-use log::{debug, warn};
+use log::warn;
 
 /// Get the current git branch.
 ///
