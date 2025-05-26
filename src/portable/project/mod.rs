@@ -196,7 +196,7 @@ impl Handle<'_> {
                 }),
             },
             InstanceName::Cloud(name) => Ok(Handle {
-                name: name.name.clone(),
+                name: name.to_string(),
                 instance: InstanceKind::Cloud {
                     name: name.clone(),
                     cloud_client,
