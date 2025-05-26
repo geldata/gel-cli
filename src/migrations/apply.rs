@@ -192,6 +192,25 @@ impl AutoBackup {
         instance_name: Option<gel_tokio::InstanceName>,
         quiet: bool,
     ) -> anyhow::Result<Option<Self>> {
+        if cfg!(windows) {
+            eprintln!(
+                "Automatic backup is disabled because backup/restore \
+                is not yet supported on Windows"
+            );
+            return Ok(None);
+        }
+        match std::env::var("GEL_AUTO_BACKUP_MODE") {
+            Ok(val) if val.to_lowercase() == "disabled" => {
+                if !quiet {
+                    eprintln!(
+                        "Automatic backup is disabled by environment variable. \
+                        Read more at https://geldata.com/p/localdev"
+                    );
+                }
+                return Ok(None);
+            }
+            _ => (),
+        }
         match instance_name {
             Some(gel_tokio::InstanceName::Local(name)) => {
                 if let Some(InstanceInfo {
@@ -199,6 +218,14 @@ impl AutoBackup {
                     ..
                 }) = InstanceInfo::try_read(&name)?
                 {
+                    if !quiet {
+                        eprintln!(
+                            "{}",
+                            "Automatic backup is enabled. \
+                            Read more at https://geldata.com/p/localdev"
+                                .muted()
+                        );
+                    }
                     Ok(Some(AutoBackup {
                         instance_name: name,
                         install_info,
@@ -206,8 +233,8 @@ impl AutoBackup {
                 } else {
                     if !quiet {
                         eprintln!(
-                            "\"{}\" is not a local instance, skipping auto backup. \
-                    Read more at https://geldata.com/p/localdev",
+                            "\"{}\" is not a local instance, skipping automatic backup. \
+                            Read more at https://geldata.com/p/localdev",
                             name.emphasized(),
                         );
                     }
@@ -217,8 +244,8 @@ impl AutoBackup {
             Some(gel_tokio::InstanceName::Cloud(_)) => {
                 if !quiet {
                     eprintln!(
-                        "Skipping auto backup for Cloud instance. \
-                Read more at https://geldata.com/p/localdev"
+                        "Skipping automatic backup for Cloud instance. \
+                        Read more at https://geldata.com/p/localdev"
                     );
                 }
                 Ok(None)
@@ -230,13 +257,12 @@ impl AutoBackup {
     pub async fn run(&self, quiet: bool, callback: Option<ProgressCallback>) -> anyhow::Result<()> {
         if !quiet {
             if let Some(callback) = &callback {
-                callback.progress(None, "Running auto backup")
+                callback.progress(None, "Running automatic backup")
             } else {
                 eprintln!(
-                    "Automatically backing up local instance {}...",
+                    "Running automatic backup of local instance {}...",
                     self.instance_name.clone().emphasized()
                 );
-                eprintln!("{}", "Read more at https://geldata.com/p/localdev".muted());
             }
         }
         let bin_dir = self.install_info.base_path()?.join("bin");
