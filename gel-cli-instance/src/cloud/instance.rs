@@ -120,16 +120,22 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
                     },
                     server_version: b.edgedb_version,
                     backup_strategy: BackupStrategy::Full,
+                    size: None,
+                    location: None,
                 })
                 .collect())
         })
         .map(map_join_error::<_, CloudError>)
         .boxed()
     }
+
+    fn get_backup(&self, _backup_id: &BackupId) -> anyhow::Result<Backup> {
+        todo!()
+    }
 }
 
 impl<H: CloudHttp> Instance for CloudInstanceHandle<H> {
-    fn backup(&self) -> Result<Box<dyn InstanceBackup>, InstanceOpError> {
+    fn backup(&self) -> Result<Box<dyn InstanceBackup + Send>, InstanceOpError> {
         Ok(Box::new(CloudInstanceBackup {
             instance: self.clone(),
         }))

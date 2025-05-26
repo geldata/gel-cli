@@ -11,6 +11,10 @@ pub trait ProgressCallbackListener: Send + Sync + 'static {
     fn progress(&self, progress: Option<f64>, message: &str);
 }
 
+impl ProgressCallbackListener for () {
+    fn progress(&self, _progress: Option<f64>, _message: &str) {}
+}
+
 #[derive(Clone)]
 pub struct ProgressCallback {
     listener: Arc<dyn ProgressCallbackListener>,
@@ -80,6 +84,8 @@ pub struct Backup {
     pub status: String,
     pub server_version: String,
     pub backup_strategy: BackupStrategy,
+    pub size: Option<u64>,
+    pub location: Option<String>,
 }
 
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
@@ -106,4 +112,6 @@ pub trait InstanceBackup {
     ) -> Operation<()>;
     /// List backups.
     fn list_backups(&self) -> Operation<Vec<Backup>>;
+    /// Get backup details by ID.
+    fn get_backup(&self, backup_id: &BackupId) -> anyhow::Result<Backup>;
 }

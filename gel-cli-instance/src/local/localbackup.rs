@@ -38,6 +38,12 @@ impl LocalBackup {
     pub fn new(handle: LocalInstanceHandle) -> Self {
         Self { handle }
     }
+
+    fn get_backups_dir(&self) -> PathBuf {
+        let mut backups_dir = self.handle.paths.data_dir.clone();
+        backups_dir.set_extension("backups");
+        backups_dir
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -96,6 +102,21 @@ impl BackupMetadata {
         }
 
         Ok(metadata)
+    }
+
+    fn into_backup(self, id: BackupId, location: Option<String>) -> Backup {
+        Backup {
+            id,
+            created_on: self.started_at,
+            status: self
+                .completed_at
+                .map_or("in progress".to_string(), |_| "completed".to_string()),
+            backup_type: self.backup_type,
+            backup_strategy: self.backup_strategy,
+            server_version: self.server_version,
+            size: self.size,
+            location,
+        }
     }
 }
 
@@ -190,8 +211,7 @@ impl InstanceBackup for LocalBackup {
     ) -> Operation<Option<BackupId>> {
         let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
         let backup_id = Uuid::now_v7().to_string();
-        let mut backups_dir = self.handle.paths.data_dir.clone();
-        backups_dir.set_extension("backups");
+        let backups_dir = self.get_backups_dir();
         let now = SystemTime::now();
         let our_pid = std::process::id();
 
@@ -395,8 +415,7 @@ impl InstanceBackup for LocalBackup {
         callback: ProgressCallback,
     ) -> Operation<()> {
         let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
-        let mut backups_dir = self.handle.paths.data_dir.clone();
-        backups_dir.set_extension("backups");
+        let backups_dir = self.get_backups_dir();
 
         let data_dir = self.handle.paths.data_dir.clone();
 
@@ -521,8 +540,7 @@ impl InstanceBackup for LocalBackup {
     }
 
     fn list_backups(&self) -> Operation<Vec<Backup>> {
-        let mut backups_dir = self.handle.paths.data_dir.clone();
-        backups_dir.set_extension("backups");
+        let backups_dir = self.get_backups_dir();
 
         tokio::task::spawn_blocking(move || {
             let mut backups = vec![];
@@ -554,16 +572,10 @@ impl InstanceBackup for LocalBackup {
                 };
                 to_remove.pop();
 
-                let backup = Backup {
-                    id: BackupId::new(uuid.to_string()),
-                    created_on: metadata.started_at,
-                    status: metadata
-                        .completed_at
-                        .map_or("in progress".to_string(), |_| "completed".to_string()),
-                    backup_type: metadata.backup_type,
-                    backup_strategy: metadata.backup_strategy,
-                    server_version: metadata.server_version,
-                };
+                let backup = metadata.into_backup(
+                    BackupId::new(uuid.to_string()),
+                    path.to_str().map(|s| s.to_string()),
+                );
                 backups.push(backup);
             }
             for path in to_remove {
@@ -575,6 +587,13 @@ impl InstanceBackup for LocalBackup {
         })
         .map(map_join_error::<_, anyhow::Error>)
         .boxed()
+    }
+    fn get_backup(&self, backup_id: &BackupId) -> anyhow::Result<Backup> {
+        let record = BackupRecord::from_file(self.get_backups_dir(), backup_id.clone())?;
+        Ok(record.metadata.into_backup(
+            backup_id.clone(),
+            record.metadata_dir.to_str().map(|s| s.to_string()),
+        ))
     }
 }
 

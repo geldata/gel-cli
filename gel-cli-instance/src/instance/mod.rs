@@ -8,7 +8,7 @@ use tokio::task::JoinError;
 
 pub mod backup;
 
-pub type Operation<T> = Pin<Box<dyn Future<Output = Result<T, anyhow::Error>>>>;
+pub type Operation<T> = Pin<Box<dyn Future<Output = Result<T, anyhow::Error>> + Send>>;
 
 pub fn map_join_error<T, E: Into<anyhow::Error>>(
     result: Result<Result<T, E>, JoinError>,
@@ -29,11 +29,11 @@ pub enum InstanceOpError {
 pub trait Instance {
     /// Returns a backup interface for the instance, or an error if the instance
     /// does not support backups.
-    fn backup(&self) -> Result<Box<dyn backup::InstanceBackup>, InstanceOpError>;
+    fn backup(&self) -> Result<Box<dyn backup::InstanceBackup + Send>, InstanceOpError>;
 }
 
 pub struct InstanceHandle {
-    instance: Box<dyn Instance>,
+    instance: Box<dyn Instance + Send>,
 }
 
 impl std::ops::Deref for InstanceHandle {

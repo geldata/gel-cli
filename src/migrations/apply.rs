@@ -6,7 +6,7 @@ use gel_protocol::common::{
     Capabilities, Cardinality, CompilationOptions, InputLanguage, IoFormat,
 };
 use indexmap::IndexMap;
-use indicatif::ProgressBar;
+use indicatif::{HumanBytes, ProgressBar};
 use tokio::fs;
 
 use crate::async_try;
@@ -27,7 +27,9 @@ use crate::migrations::edb::{execute, execute_if_connected};
 use crate::migrations::migration::{self, MigrationFile};
 use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
+use crate::portable::local::InstanceInfo;
 use crate::print::{self, Highlight};
+use gel_cli_instance::instance::backup::RequestedBackupStrategy;
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -167,6 +169,61 @@ pub async fn run(
             );
         }
         return Ok(());
+    }
+    if let Some(gel_tokio::InstanceName::Local(name)) = options.infer_instance_name()? {
+        if let Some(InstanceInfo {
+            installation: Some(install_info),
+            ..
+        }) = InstanceInfo::try_read(&name)?
+        {
+            if !cmd.quiet {
+                eprintln!(
+                    "Automatically backing up local instance {}...",
+                    name.clone().emphasized()
+                );
+                eprintln!("{}", "Read more at https://geldata.com/p/localdev".muted());
+            }
+            let bin_dir = install_info.base_path()?.join("bin");
+
+            let instance = gel_cli_instance::instance::get_local_instance(
+                &name,
+                bin_dir,
+                install_info.version.specific().to_string(),
+            )?;
+            let backup = instance.backup()?;
+            if let Some(backup_id) = backup
+                .backup(RequestedBackupStrategy::Auto, ().into())
+                .await?
+            {
+                if !cmd.quiet {
+                    let backup = backup.get_backup(&backup_id)?;
+                    eprintln!(
+                        "Created {} backup:\n{} {}",
+                        backup.backup_strategy.to_string().to_lowercase().success(),
+                        backup
+                            .size
+                            .map(|s| HumanBytes(s).to_string().emphasized())
+                            .unwrap_or_else(|| "<unknown>".to_string().emphasized()),
+                        backup.location.unwrap_or("<unknown>".to_string()),
+                    )
+                }
+            }
+        } else {
+            if !cmd.quiet {
+                eprintln!(
+                    "\"{}\" is not a local instance, skipping auto backup. \
+                    Read more at https://geldata.com/p/localdev",
+                    name.emphasized(),
+                );
+            }
+        }
+    } else {
+        if !cmd.quiet {
+            eprintln!(
+                "Skipping auto backup for Cloud instance. \
+                Read more at https://geldata.com/p/localdev"
+            );
+        }
     }
     apply_migrations(conn, migrations, &ctx, cmd.single_transaction).await?;
     if db_migrations.is_empty() {
