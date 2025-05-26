@@ -587,7 +587,7 @@ pub async fn execute(
         instance_name: None,
         skip_hooks: options.skip_hooks,
     };
-    options.instance_name = options.infer_instance_name()?;
+    options.infer_instance_name()?;
     match cmd {
         Help => {
             print!("{HELP}");

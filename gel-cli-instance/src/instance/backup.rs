@@ -9,10 +9,12 @@ pub type Error = anyhow::Error;
 
 pub trait ProgressCallbackListener: Send + Sync + 'static {
     fn progress(&self, progress: Option<f64>, message: &str);
+    fn println(&self, msg: &str);
 }
 
 impl ProgressCallbackListener for () {
     fn progress(&self, _progress: Option<f64>, _message: &str) {}
+    fn println(&self, _msg: &str) {}
 }
 
 #[derive(Clone)]

@@ -40,6 +40,10 @@ impl ProgressCallbackListener for ProgressBar {
         self.bar
             .set_message(format!("Current operation: {}...", message));
     }
+
+    fn println(&self, msg: &str) {
+        self.bar.println(msg);
+    }
 }
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]

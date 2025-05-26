@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::future::{Future, pending};
 use std::pin::Pin;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
@@ -230,6 +231,14 @@ impl Connector {
         let mut connection = Box::pin(self.connect()).await?;
         let results = connection.query(query, &()).await?;
         Ok(results)
+    }
+
+    pub fn instance_name(&self) -> anyhow::Result<Option<gel_tokio::InstanceName>> {
+        Ok(self
+            .get()?
+            .instance_name()
+            .map(|x| gel_tokio::InstanceName::from_str(&x.to_string()))
+            .transpose()?)
     }
 }
 
