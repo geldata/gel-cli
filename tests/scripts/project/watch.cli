@@ -52,7 +52,7 @@ $ echo "module test {
 }" > dbschema/default.gel
 *
 
-$ sleep 1
+$ sleep 10
 
 $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
@@ -68,7 +68,7 @@ $ echo "module test {
 }" > dbschema/default.gel
 *
 
-$ sleep 1
+$ sleep 10
 
 $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
@@ -90,7 +90,7 @@ $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
 *
 
-$ sleep 1
+$ sleep 10
 
 $ gel migrate --dev-mode
 *
