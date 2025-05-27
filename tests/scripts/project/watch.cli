@@ -8,11 +8,17 @@ using tempdir;
 
 using new dir "watch_test";
 
+set GEL_RUN_VERSION_CHECK never;
+
 $ gel project init --instance=watch_test --non-interactive
 *
 
 $ find .
 *
+
+# Mitigate SerializationError doing migrations
+$ gel configure set auto_rebuild_query_cache false
+! OK: CONFIGURE INSTANCE
 
 background {
    $ gel watch --migrate --verbose
