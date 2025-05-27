@@ -142,6 +142,9 @@ pub async fn run(
         if let Some(last) = migrations.last() {
             if !migrations.contains_key(last_db_rev) {
                 let target_rev = target_rev.as_ref().unwrap_or(last.0);
+                if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
+                    auto_backup.run(cmd.quiet, None).await?;
+                }
                 return fixup(conn, &ctx, &migrations, &db_migrations, target_rev, cmd).await;
             }
         } else {
@@ -184,6 +187,7 @@ pub async fn run(
     Ok(())
 }
 
+#[derive(Debug, Clone)]
 pub struct AutoBackup {
     instance_name: String,
     install_info: InstallInfo,
