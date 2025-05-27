@@ -129,7 +129,7 @@ impl<H: CloudHttp> InstanceBackup for CloudInstanceBackup<H> {
         .boxed()
     }
 
-    fn get_backup(&self, _backup_id: &BackupId) -> anyhow::Result<Backup> {
+    fn get_backup(&self, _backup_id: &BackupId) -> Operation<Backup> {
         todo!()
     }
 }

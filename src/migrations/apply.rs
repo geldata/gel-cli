@@ -29,7 +29,9 @@ use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
 use crate::portable::local::{InstallInfo, InstanceInfo};
 use crate::print::{self, Highlight};
-use gel_cli_instance::instance::backup::{ProgressCallback, RequestedBackupStrategy};
+use gel_cli_instance::instance::backup::{
+    BackupStrategy, ProgressCallback, RequestedBackupStrategy,
+};
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -192,6 +194,7 @@ impl AutoBackup {
         instance_name: Option<gel_tokio::InstanceName>,
         quiet: bool,
     ) -> anyhow::Result<Option<Self>> {
+        const LOCALDEV_URL: &'static str = "https://geldata.com/p/localdev";
         if cfg!(windows) {
             eprintln!(
                 "Automatic backup is disabled because backup/restore \
@@ -204,7 +207,8 @@ impl AutoBackup {
                 if !quiet {
                     eprintln!(
                         "Automatic backup is disabled by environment variable. \
-                        Read more at https://geldata.com/p/localdev"
+                        Read more at {}",
+                        LOCALDEV_URL,
                     );
                 }
                 return Ok(None);
@@ -220,10 +224,9 @@ impl AutoBackup {
                 {
                     if !quiet {
                         eprintln!(
-                            "{}",
-                            "Automatic backup is enabled. \
-                            Read more at https://geldata.com/p/localdev"
-                                .muted()
+                            "{}{}",
+                            "Automatic backup is enabled. Read more at ".muted(),
+                            LOCALDEV_URL.muted(),
                         );
                     }
                     Ok(Some(AutoBackup {
@@ -234,8 +237,9 @@ impl AutoBackup {
                     if !quiet {
                         eprintln!(
                             "\"{}\" is not a local instance, skipping automatic backup. \
-                            Read more at https://geldata.com/p/localdev",
+                            Read more at {}",
                             name.emphasized(),
+                            LOCALDEV_URL,
                         );
                     }
                     Ok(None)
@@ -245,7 +249,8 @@ impl AutoBackup {
                 if !quiet {
                     eprintln!(
                         "Skipping automatic backup for Cloud instance. \
-                        Read more at https://geldata.com/p/localdev"
+                        Read more at {}",
+                        LOCALDEV_URL,
                     );
                 }
                 Ok(None)
@@ -281,7 +286,7 @@ impl AutoBackup {
             .await?
         {
             if !quiet {
-                let backup = backup.get_backup(&backup_id)?;
+                let backup = backup.get_backup(&backup_id).await?;
                 if let Some(callback) = &callback {
                     callback.println(&format!(
                         "Created {} backup:",
@@ -298,7 +303,10 @@ impl AutoBackup {
                 } else {
                     eprintln!(
                         "Created {} backup:\n{} {}",
-                        backup.backup_strategy.to_string().to_lowercase().success(),
+                        match backup.backup_strategy {
+                            BackupStrategy::Full => "full".warning(),
+                            s => s.to_string().success(),
+                        },
                         backup
                             .size
                             .map(|s| HumanBytes(s).to_string().emphasized())

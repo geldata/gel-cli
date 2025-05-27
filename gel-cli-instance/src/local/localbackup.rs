@@ -588,12 +588,18 @@ impl InstanceBackup for LocalBackup {
         .map(map_join_error::<_, anyhow::Error>)
         .boxed()
     }
-    fn get_backup(&self, backup_id: &BackupId) -> anyhow::Result<Backup> {
-        let record = BackupRecord::from_file(self.get_backups_dir(), backup_id.clone())?;
-        Ok(record.metadata.into_backup(
-            backup_id.clone(),
-            record.metadata_dir.to_str().map(|s| s.to_string()),
-        ))
+    fn get_backup(&self, backup_id: &BackupId) -> Operation<Backup> {
+        let backups_dir = self.get_backups_dir();
+        let backup_id = backup_id.clone();
+        tokio::task::spawn_blocking(move || {
+            let record = BackupRecord::from_file(backups_dir, backup_id.clone())?;
+            Ok(record.metadata.into_backup(
+                backup_id,
+                record.metadata_dir.to_str().map(|s| s.to_string()),
+            ))
+        })
+        .map(map_join_error::<_, anyhow::Error>)
+        .boxed()
     }
 }
 

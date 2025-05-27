@@ -115,5 +115,5 @@ pub trait InstanceBackup {
     /// List backups.
     fn list_backups(&self) -> Operation<Vec<Backup>>;
     /// Get backup details by ID.
-    fn get_backup(&self, backup_id: &BackupId) -> anyhow::Result<Backup>;
+    fn get_backup(&self, backup_id: &BackupId) -> Operation<Backup>;
 }
