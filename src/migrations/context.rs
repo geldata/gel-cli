@@ -1,8 +1,10 @@
 use std::path::{Path, PathBuf};
 
+use crate::migrations::apply::AutoBackup;
 use crate::migrations::options::MigrationConfig;
 use crate::portable::project::{self};
 
+#[derive(Debug, Clone)]
 pub struct Context {
     pub schema_dir: PathBuf,
 
@@ -10,6 +12,7 @@ pub struct Context {
     pub skip_hooks: bool,
 
     pub project: Option<project::Context>,
+    pub auto_backup: Option<AutoBackup>,
 }
 
 impl Context {
@@ -40,6 +43,7 @@ impl Context {
             quiet,
             project,
             skip_hooks,
+            auto_backup: None,
         })
     }
 
@@ -54,6 +58,7 @@ impl Context {
             quiet: false,
             skip_hooks,
             project: Some(project),
+            auto_backup: None,
         })
     }
 
@@ -66,6 +71,14 @@ impl Context {
             quiet: false,
             skip_hooks: true,
             project: None,
+            auto_backup: None,
         })
+    }
+
+    pub fn with_auto_backup(self, auto_backup: Option<AutoBackup>) -> Self {
+        Self {
+            auto_backup,
+            ..self
+        }
     }
 }

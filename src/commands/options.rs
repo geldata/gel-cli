@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use crate::connect::Connector;
 use crate::print::style::Styler;
 
@@ -13,12 +11,7 @@ pub struct Options {
 
 impl Options {
     pub fn infer_instance_name(&mut self) -> anyhow::Result<()> {
-        self.instance_name = self
-            .conn_params
-            .get()?
-            .instance_name()
-            .map(|x| gel_tokio::InstanceName::from_str(&x.to_string()))
-            .transpose()?;
+        self.instance_name = self.conn_params.instance_name()?;
         Ok(())
     }
 }

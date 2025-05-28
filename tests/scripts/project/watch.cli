@@ -48,6 +48,13 @@ $ echo "module test {
 
 $ sleep 1
 
+$ until [ "$(gel query 'select count((select schema::Migration filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode));')" = "1" ]; do \
+    echo "Waiting for schema changes to take effect..."; \
+    sleep 0.1; \
+done
+*
+
 $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
 *
@@ -63,6 +70,13 @@ $ echo "module test {
 *
 
 $ sleep 1
+
+$ until [ "$(gel query 'select count((select schema::Migration filter .generated_by =
+          schema::MigrationGeneratedBy.DevMode));')" = "2" ]; do \
+    echo "Waiting for schema changes to take effect..."; \
+    sleep 0.1; \
+done
+*
 
 $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"

@@ -2,6 +2,7 @@ use crate::connect::Connection;
 use indexmap::IndexMap;
 
 use anyhow::Context as _;
+use gel_cli_instance::instance::backup::ProgressCallbackListener;
 use gel_errors::QueryError;
 use indicatif::ProgressBar;
 use std::sync::LazyLock;
@@ -23,6 +24,25 @@ use crate::migrations::migration::{self, MigrationFile};
 use crate::migrations::timeout;
 use crate::portable::ver;
 
+struct BackupProgressBar {
+    bar: ProgressBar,
+}
+
+impl ProgressCallbackListener for BackupProgressBar {
+    fn progress(&self, progress: Option<f64>, message: &str) {
+        if let Some(progress) = progress {
+            self.bar.set_length(100);
+            self.bar.set_position(progress as u64);
+        }
+        self.bar
+            .set_message(format!("Current operation: {}...", message));
+    }
+
+    fn println(&self, msg: &str) {
+        self.bar.println(msg);
+    }
+}
+
 pub async fn migrate(cli: &mut Connection, ctx: &Context, bar: &ProgressBar) -> anyhow::Result<()> {
     if !check_client(cli).await? {
         anyhow::bail!(
@@ -38,15 +58,22 @@ pub async fn migrate(cli: &mut Connection, ctx: &Context, bar: &ProgressBar) -> 
             let migrations = migrations
                 .get_range(skip..)
                 .ok_or_else(|| bug::error("`skip` is out of range"))?;
-            if !migrations.is_empty() {
+            let ctx = if !migrations.is_empty() {
+                if let Some(auto_backup) = &ctx.auto_backup {
+                    let backup_bar = BackupProgressBar { bar: bar.clone() };
+                    auto_backup.run(false, Some(backup_bar.into())).await?;
+                }
                 bar.set_message("Applying migrations");
                 apply_migrations(cli, migrations, ctx, false).await?;
                 bar.println("Migrations applied");
-            }
+                &ctx.clone().with_auto_backup(None)
+            } else {
+                ctx
+            };
 
             bar.set_message("Calculating diff");
             log::info!("Calculating schema diff");
-            let applied_changes = migrate_to_schema(cli, ctx).await?;
+            let applied_changes = migrate_to_schema(cli, ctx, bar).await?;
             if applied_changes {
                 bar.println("Changes applied.");
             } else {
@@ -56,11 +83,18 @@ pub async fn migrate(cli: &mut Connection, ctx: &Context, bar: &ProgressBar) -> 
         Mode::Rebase => {
             bar.set_message("Calculating diff");
             log::info!("Calculating schema diff");
-            let applied_changes = migrate_to_schema(cli, ctx).await?;
+            let applied_changes = migrate_to_schema(cli, ctx, bar).await?;
+
+            if !applied_changes {
+                if let Some(auto_backup) = &ctx.auto_backup {
+                    let backup_bar = BackupProgressBar { bar: bar.clone() };
+                    auto_backup.run(false, Some(backup_bar.into())).await?;
+                }
+            }
 
             log::info!("Now rebasing on top of filesystem migrations.");
             bar.set_message("Rebasing migrations");
-            rebase_to_schema(cli, ctx, &migrations).await?;
+            rebase_to_schema(cli, ctx, &migrations, bar).await?;
             if applied_changes {
                 bar.println("Migrations applied via rebase. There are pending --dev-mode changes.")
             } else {
@@ -161,7 +195,11 @@ async fn get_db_migration(cli: &mut Connection) -> anyhow::Result<Option<String>
     Ok(res)
 }
 
-async fn migrate_to_schema(cli: &mut Connection, ctx: &Context) -> anyhow::Result<bool> {
+async fn migrate_to_schema(
+    cli: &mut Connection,
+    ctx: &Context,
+    bar: &ProgressBar,
+) -> anyhow::Result<bool> {
     use gel_protocol::server_message::TransactionState::NotInTransaction;
 
     if matches!(cli.transaction_state(), NotInTransaction) {
@@ -184,6 +222,12 @@ async fn migrate_to_schema(cli: &mut Connection, ctx: &Context) -> anyhow::Resul
                                 }
                             }
 
+                            if let Some(auto_backup) = &ctx.auto_backup {
+                                let backup_bar = BackupProgressBar { bar: bar.clone() };
+                                auto_backup.run(false, Some(backup_bar.into())).await?;
+                            }
+
+                            bar.set_message("Applying changes");
                             ddl::apply_statements(cli, &migs).await.map(|()| true)
                         }
                     },
@@ -214,6 +258,7 @@ async fn migrate_to_schema(cli: &mut Connection, ctx: &Context) -> anyhow::Resul
         if migs.is_empty() {
             Ok(false)
         } else {
+            bar.set_message("Applying changes");
             ddl::apply_statements(cli, &migs).await?;
             Ok(true)
         }
@@ -269,12 +314,13 @@ pub async fn rebase_to_schema(
     cli: &mut Connection,
     ctx: &Context,
     migrations: &IndexMap<String, MigrationFile>,
+    bar: &ProgressBar,
 ) -> anyhow::Result<()> {
     execute(cli, "START MIGRATION REWRITE", None).await?;
 
     let res = async {
         apply_migrations_inner(cli, migrations, false).await?;
-        migrate_to_schema(cli, ctx).await?;
+        migrate_to_schema(cli, ctx, bar).await?;
         Ok(())
     }
     .await;

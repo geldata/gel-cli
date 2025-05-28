@@ -6,7 +6,7 @@ use gel_protocol::common::{
     Capabilities, Cardinality, CompilationOptions, InputLanguage, IoFormat,
 };
 use indexmap::IndexMap;
-use indicatif::ProgressBar;
+use indicatif::{HumanBytes, ProgressBar};
 use tokio::fs;
 
 use crate::async_try;
@@ -27,7 +27,11 @@ use crate::migrations::edb::{execute, execute_if_connected};
 use crate::migrations::migration::{self, MigrationFile};
 use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
+use crate::portable::local::{InstallInfo, InstanceInfo};
 use crate::print::{self, Highlight};
+use gel_cli_instance::instance::backup::{
+    BackupStrategy, ProgressCallback, RequestedBackupStrategy,
+};
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -78,13 +82,15 @@ pub async fn run(
 ) -> Result<(), anyhow::Error> {
     // migrate apply needs to be able to run during gel watch.
     let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, options.skip_hooks, true).await?;
+    let instance_name = options.conn_params.instance_name()?;
     if cmd.dev_mode {
         let bar = if cmd.quiet {
             ProgressBar::hidden()
         } else {
             ProgressBar::new_spinner()
         };
-        return dev_mode::migrate(conn, &ctx, &bar).await;
+        let auto_backup = AutoBackup::init(instance_name, cmd.quiet)?;
+        return dev_mode::migrate(conn, &ctx.with_auto_backup(auto_backup), &bar).await;
     }
     let migrations = migration::read_all(&ctx, true).await?;
     let db_migrations = db_migration::read_all(conn, false, true).await?;
@@ -136,6 +142,9 @@ pub async fn run(
         if let Some(last) = migrations.last() {
             if !migrations.contains_key(last_db_rev) {
                 let target_rev = target_rev.as_ref().unwrap_or(last.0);
+                if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
+                    auto_backup.run(cmd.quiet, None).await?;
+                }
                 return fixup(conn, &ctx, &migrations, &db_migrations, target_rev, cmd).await;
             }
         } else {
@@ -168,11 +177,151 @@ pub async fn run(
         }
         return Ok(());
     }
+    if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
+        auto_backup.run(cmd.quiet, None).await?;
+    }
     apply_migrations(conn, migrations, &ctx, cmd.single_transaction).await?;
     if db_migrations.is_empty() {
         disable_ddl(conn).await?;
     }
     Ok(())
+}
+
+#[derive(Debug, Clone)]
+pub struct AutoBackup {
+    instance_name: String,
+    install_info: InstallInfo,
+}
+
+impl AutoBackup {
+    pub fn init(
+        instance_name: Option<gel_tokio::InstanceName>,
+        quiet: bool,
+    ) -> anyhow::Result<Option<Self>> {
+        const LOCALDEV_URL: &'static str = "https://geldata.com/p/localdev";
+        if cfg!(windows) {
+            eprintln!(
+                "Automatic backup is disabled because backup/restore \
+                is not yet supported on Windows"
+            );
+            return Ok(None);
+        }
+        match std::env::var("GEL_AUTO_BACKUP_MODE") {
+            Ok(val) if val.to_lowercase() == "disabled" => {
+                if !quiet {
+                    eprintln!(
+                        "Automatic backup is disabled by environment variable. \
+                        Read more at {}",
+                        LOCALDEV_URL,
+                    );
+                }
+                return Ok(None);
+            }
+            _ => (),
+        }
+        match instance_name {
+            Some(gel_tokio::InstanceName::Local(name)) => {
+                if let Some(InstanceInfo {
+                    installation: Some(install_info),
+                    ..
+                }) = InstanceInfo::try_read(&name)?
+                {
+                    if !quiet {
+                        eprintln!(
+                            "{}{}",
+                            "Automatic backup is enabled. Read more at ".muted(),
+                            LOCALDEV_URL.muted(),
+                        );
+                    }
+                    Ok(Some(AutoBackup {
+                        instance_name: name,
+                        install_info,
+                    }))
+                } else {
+                    if !quiet {
+                        eprintln!(
+                            "\"{}\" is not a local instance, skipping automatic backup. \
+                            Read more at {}",
+                            name.emphasized(),
+                            LOCALDEV_URL,
+                        );
+                    }
+                    Ok(None)
+                }
+            }
+            Some(gel_tokio::InstanceName::Cloud(_)) => {
+                if !quiet {
+                    eprintln!(
+                        "Skipping automatic backup for Cloud instance. \
+                        Read more at {}",
+                        LOCALDEV_URL,
+                    );
+                }
+                Ok(None)
+            }
+            None => Ok(None),
+        }
+    }
+
+    pub async fn run(&self, quiet: bool, callback: Option<ProgressCallback>) -> anyhow::Result<()> {
+        if !quiet {
+            if let Some(callback) = &callback {
+                callback.progress(None, "Running automatic backup")
+            } else {
+                eprintln!(
+                    "Running automatic backup of local instance {}...",
+                    self.instance_name.clone().emphasized()
+                );
+            }
+        }
+        let bin_dir = self.install_info.base_path()?.join("bin");
+
+        let instance = gel_cli_instance::instance::get_local_instance(
+            &self.instance_name,
+            bin_dir,
+            self.install_info.version.specific().to_string(),
+        )?;
+        let backup = instance.backup()?;
+        if let Some(backup_id) = backup
+            .backup(
+                RequestedBackupStrategy::Auto,
+                callback.clone().unwrap_or_else(|| ().into()),
+            )
+            .await?
+        {
+            if !quiet {
+                let backup = backup.get_backup(&backup_id).await?;
+                if let Some(callback) = &callback {
+                    callback.println(&format!(
+                        "Created {} backup:",
+                        backup.backup_strategy.to_string().to_lowercase(),
+                    ));
+                    callback.println(&format!(
+                        "{} {}",
+                        backup
+                            .size
+                            .map(|s| HumanBytes(s).to_string())
+                            .unwrap_or_else(|| "<unknown>".to_string()),
+                        backup.location.unwrap_or("<unknown>".to_string()),
+                    ));
+                } else {
+                    eprintln!(
+                        "Created {} backup:\n{} {}",
+                        match backup.backup_strategy {
+                            BackupStrategy::Full => "full".warning(),
+                            s => s.to_string().success(),
+                        },
+                        backup
+                            .size
+                            .map(|s| HumanBytes(s).to_string().emphasized())
+                            .unwrap_or_else(|| "<unknown>".to_string().emphasized()),
+                        backup.location.unwrap_or("<unknown>".to_string()),
+                    )
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Copy)]

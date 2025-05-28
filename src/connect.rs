@@ -231,6 +231,10 @@ impl Connector {
         let results = connection.query(query, &()).await?;
         Ok(results)
     }
+
+    pub fn instance_name(&self) -> anyhow::Result<Option<gel_tokio::InstanceName>> {
+        Ok(self.get()?.instance_name().map(|name| name.clone()))
+    }
 }
 
 macro_rules! shield_watch_error {
