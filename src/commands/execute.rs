@@ -132,11 +132,11 @@ pub async fn common(
         },
         Branch(_) => unreachable!(),
         Migrate(cmd) => {
-            migrations::apply::run(cmd, conn, options).await?;
+            migrations::apply::run(cmd, conn, options, false).await?;
         }
         Migration(m) => match &m.subcommand {
             MigrationCmd::Apply(cmd) => {
-                migrations::apply::run(cmd, conn, options).await?;
+                migrations::apply::run(cmd, conn, options, false).await?;
             }
             MigrationCmd::Create(cmd) => {
                 migrations::create::run(cmd, conn, options).await?;
