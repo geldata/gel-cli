@@ -81,6 +81,7 @@ pub async fn run(
     cmd: &Command,
     conn: &mut Connection,
     options: &Options,
+    skip_auto_backup: bool,
 ) -> Result<(), anyhow::Error> {
     // migrate apply needs to be able to run during gel watch.
     let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, options.skip_hooks, true).await?;
@@ -91,8 +92,12 @@ pub async fn run(
         } else {
             ProgressBar::new_spinner()
         };
-        let auto_backup = AutoBackup::init(instance_name, cmd.quiet)?;
-        return dev_mode::migrate(conn, &ctx.with_auto_backup(auto_backup), &bar).await;
+        if skip_auto_backup {
+            return dev_mode::migrate(conn, &ctx, &bar).await;
+        } else {
+            let auto_backup = AutoBackup::init(instance_name, cmd.quiet)?;
+            return dev_mode::migrate(conn, &ctx.with_auto_backup(auto_backup), &bar).await;
+        }
     }
     let migrations = migration::read_all(&ctx, true).await?;
     let db_migrations = db_migration::read_all(conn, false, true).await?;
@@ -144,8 +149,10 @@ pub async fn run(
         if let Some(last) = migrations.last() {
             if !migrations.contains_key(last_db_rev) {
                 let target_rev = target_rev.as_ref().unwrap_or(last.0);
-                if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
-                    auto_backup.run(cmd.quiet, None).await?;
+                if !skip_auto_backup {
+                    if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
+                        auto_backup.run(cmd.quiet, None).await?;
+                    }
                 }
                 return fixup(conn, &ctx, &migrations, &db_migrations, target_rev, cmd).await;
             }
@@ -179,8 +186,10 @@ pub async fn run(
         }
         return Ok(());
     }
-    if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
-        auto_backup.run(cmd.quiet, None).await?;
+    if !skip_auto_backup {
+        if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
+            auto_backup.run(cmd.quiet, None).await?;
+        }
     }
     apply_migrations(conn, migrations, &ctx, cmd.single_transaction).await?;
     if db_migrations.is_empty() {

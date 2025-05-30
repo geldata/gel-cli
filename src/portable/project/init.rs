@@ -1250,6 +1250,7 @@ async fn migrate_async(
             instance_name: Some(InstanceName::Local(inst.name.clone())),
             skip_hooks,
         },
+        true,
     )
     .await?;
     Ok(())
