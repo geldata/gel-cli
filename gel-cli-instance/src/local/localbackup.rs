@@ -191,7 +191,11 @@ impl BackupRecord {
                 }
             }
         }
-        Ok(Some(BackupId::new(latest.to_string())))
+        if latest.is_nil() {
+            Ok(None)
+        } else {
+            Ok(Some(BackupId::new(latest.to_string())))
+        }
     }
 
     async fn latest_async(
