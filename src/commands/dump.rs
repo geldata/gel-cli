@@ -74,7 +74,7 @@ impl Guard {
                 })
                 .await
                 // tokio::fs::asyncify() is private; do the same thing here
-                .map_err(|_| io::Error::new(io::ErrorKind::Other, "background task failed"))?
+                .map_err(|_| io::Error::other("background task failed"))?
                 .map_err(|e| anyhow::anyhow!(e).hint("specify --overwrite-existing to replace."))?;
             }
         }
@@ -88,7 +88,7 @@ pub async fn dump(
     options: &DumpOptions,
 ) -> Result<(), anyhow::Error> {
     let _lock = if let Some(instance) = &general.instance_name {
-        Some(LockManager::lock_read_instance_async(&instance).await?)
+        Some(LockManager::lock_read_instance_async(instance).await?)
     } else {
         None
     };

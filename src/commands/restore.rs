@@ -228,7 +228,7 @@ pub async fn restore(
     params: &RestoreCmd,
 ) -> Result<(), anyhow::Error> {
     let _lock = if let Some(instance) = &options.instance_name {
-        Some(LockManager::lock_instance_async(&instance).await?)
+        Some(LockManager::lock_instance_async(instance).await?)
     } else {
         None
     };

@@ -33,7 +33,7 @@ pub fn print_logo(allow_animation: bool, small: bool) {
         .max()
         .unwrap();
 
-    let is_light = print::TERMINAL_LUMA.map_or(false, |x| x > 0.6);
+    let is_light = print::TERMINAL_LUMA.is_some_and(|x| x > 0.6);
     let primary = if is_light {
         Color::DarkMagenta
     } else {

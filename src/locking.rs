@@ -69,9 +69,9 @@ enum LockDomain {
     Project,
 }
 
-impl Into<file_guard::Lock> for LockType {
-    fn into(self) -> file_guard::Lock {
-        match self {
+impl From<LockType> for file_guard::Lock {
+    fn from(val: LockType) -> Self {
+        match val {
             LockType::Shared => file_guard::Lock::Shared,
             LockType::Exclusive => file_guard::Lock::Exclusive,
         }
@@ -82,7 +82,7 @@ impl Drop for LockInner {
     fn drop(&mut self) {
         if let LockInner::Local(path, lock, must_exist) = self {
             CURRENT_LOCKS.lock().unwrap().remove(path);
-            if let (lock_type, Some(mut lock)) = std::mem::take(&mut *lock.lock().unwrap()) {
+            if let (lock_type, Some(mut lock)) = std::mem::take(lock).into_inner().unwrap() {
                 // For a shared lock, try to take an exclusive lock and delete the file if
                 // we can.
                 debug!("Dropping lock: {path:?}, type: {lock_type:?}");
@@ -120,6 +120,7 @@ pub struct ProjectLock {
 }
 
 impl ProjectLock {
+    #[expect(unused)]
     pub fn downgrade(&self) -> std::io::Result<()> {
         self.inner.downgrade()
     }
@@ -189,6 +190,7 @@ fn try_create_lock_inner(
 
     let lock_file = OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .open(path)?;
@@ -339,7 +341,7 @@ impl LoopState {
 }
 
 fn instance_lock_path(instance: &InstanceName) -> Option<PathBuf> {
-    let instance = instance.clone().into();
+    let instance = instance.clone();
     let InstanceName::Local(local_name) = &instance else {
         return None;
     };
@@ -348,7 +350,7 @@ fn instance_lock_path(instance: &InstanceName) -> Option<PathBuf> {
         .with_system()
         .stored_info()
         .paths()
-        .for_instance(&local_name)
+        .for_instance(local_name)
     else {
         warn!("Unable to find instance path to lock");
         return None;

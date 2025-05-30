@@ -284,7 +284,7 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
         .await?;
 
     if let InstanceName::Local(inst_name) = &cmd.instance {
-        let meta = InstanceInfo::read(&inst_name)?;
+        let meta = InstanceInfo::read(inst_name)?;
         tokio::task::spawn_blocking(move || super::control::do_start(&meta)).await??;
     }
 
