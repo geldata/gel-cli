@@ -1,7 +1,11 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::Path;
+use std::str::FromStr;
 
 use anyhow::Context as _;
+use gel_cli_instance::instance::backup::{
+    BackupStrategy, ProgressCallback, RequestedBackupStrategy,
+};
 use gel_protocol::common::{
     Capabilities, Cardinality, CompilationOptions, InputLanguage, IoFormat,
 };
@@ -28,10 +32,8 @@ use crate::migrations::migration::{self, MigrationFile};
 use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
 use crate::portable::local::{InstallInfo, InstanceInfo};
+use crate::portable::ver::Specific;
 use crate::print::{self, Highlight};
-use gel_cli_instance::instance::backup::{
-    BackupStrategy, ProgressCallback, RequestedBackupStrategy,
-};
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -226,6 +228,16 @@ impl AutoBackup {
                     ..
                 }) = InstanceInfo::try_read(&name)?
                 {
+                    if install_info.version.specific() < Specific::from_str("6.5")? {
+                        eprintln!(
+                            "Automatic backup is disabled because it is not supported \
+                            for local instances older than version 6.5. \
+                            Read more at {}",
+                            LOCALDEV_URL,
+                        );
+                        return Ok(None);
+                    }
+
                     if !quiet {
                         eprintln!(
                             "{}{}",
