@@ -84,7 +84,7 @@ pub fn current(data: &str, pos: usize) -> (usize, Current<'_>) {
             }
             offset += bytes;
         } else {
-            match preparser::full_statement(data[offset..].as_bytes(), None) {
+            match preparser::full_statement(&data.as_bytes()[offset..], None) {
                 Ok(bytes) => {
                     if offset + bytes > pos {
                         let text = &data[offset..][..bytes];

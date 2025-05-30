@@ -250,11 +250,7 @@ fn preliminary_detect() -> Option<PathBuf> {
         return None;
     }
     env::var_os("XDG_RUNTIME_DIR").or_else(|| env::var_os("DBUS_SESSION_BUS_ADDRESS"))?;
-    if let Ok(path) = which::which("systemctl") {
-        Some(path)
-    } else {
-        None
-    }
+    which::which("systemctl").ok()
 }
 
 fn _detect_systemd(instance: &str) -> Option<PathBuf> {

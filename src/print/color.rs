@@ -66,7 +66,7 @@ static THEME: std::sync::LazyLock<Option<Theme>> = std::sync::LazyLock::new(|| {
         return None;
     }
 
-    let is_term_light = TERMINAL_LUMA.map_or(false, |x| x > 0.6);
+    let is_term_light = TERMINAL_LUMA.is_some_and(|x| x > 0.6);
 
     Some(if is_term_light {
         Theme {
