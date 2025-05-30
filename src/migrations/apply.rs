@@ -209,7 +209,6 @@ impl AutoBackup {
         instance_name: Option<gel_tokio::InstanceName>,
         quiet: bool,
     ) -> anyhow::Result<Option<Self>> {
-        const LOCALDEV_URL: &'static str = "https://geldata.com/p/localdev";
         if cfg!(windows) {
             eprintln!(
                 "Automatic backup is disabled because backup/restore \
@@ -220,11 +219,7 @@ impl AutoBackup {
         match std::env::var("GEL_AUTO_BACKUP_MODE") {
             Ok(val) if val.to_lowercase() == "disabled" => {
                 if !quiet {
-                    eprintln!(
-                        "Automatic backup is disabled by environment variable. \
-                        Read more at {}",
-                        LOCALDEV_URL,
-                    );
+                    eprintln!("Automatic backup is disabled by environment variable.");
                 }
                 return Ok(None);
             }
@@ -240,19 +235,13 @@ impl AutoBackup {
                     if install_info.version.specific() < Specific::from_str("6.5")? {
                         eprintln!(
                             "Automatic backup is disabled because it is not supported \
-                            for local instances older than version 6.5. \
-                            Read more at {}",
-                            LOCALDEV_URL,
+                            for local instances older than version 6.5."
                         );
                         return Ok(None);
                     }
 
                     if !quiet {
-                        eprintln!(
-                            "{}{}",
-                            "Automatic backup is enabled. Read more at ".muted(),
-                            LOCALDEV_URL.muted(),
-                        );
+                        eprintln!("{}", "Automatic backup is enabled.".muted());
                     }
                     Ok(Some(AutoBackup {
                         instance_name: name,
@@ -261,10 +250,8 @@ impl AutoBackup {
                 } else {
                     if !quiet {
                         eprintln!(
-                            "\"{}\" is not a local instance, skipping automatic backup. \
-                            Read more at {}",
+                            "\"{}\" is not a local instance, skipping automatic backup.",
                             name.emphasized(),
-                            LOCALDEV_URL,
                         );
                     }
                     Ok(None)
@@ -272,11 +259,7 @@ impl AutoBackup {
             }
             Some(gel_tokio::InstanceName::Cloud(_)) => {
                 if !quiet {
-                    eprintln!(
-                        "Skipping automatic backup for Cloud instance. \
-                        Read more at {}",
-                        LOCALDEV_URL,
-                    );
+                    eprintln!("Skipping automatic backup for Cloud instance.");
                 }
                 Ok(None)
             }
