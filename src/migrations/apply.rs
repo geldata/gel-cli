@@ -1,7 +1,11 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::Path;
+use std::str::FromStr;
 
 use anyhow::Context as _;
+use gel_cli_instance::instance::backup::{
+    BackupStrategy, ProgressCallback, RequestedBackupStrategy,
+};
 use gel_protocol::common::{
     Capabilities, Cardinality, CompilationOptions, InputLanguage, IoFormat,
 };
@@ -28,10 +32,8 @@ use crate::migrations::migration::{self, MigrationFile};
 use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
 use crate::portable::local::{InstallInfo, InstanceInfo};
+use crate::portable::ver::Specific;
 use crate::print::{self, Highlight};
-use gel_cli_instance::instance::backup::{
-    BackupStrategy, ProgressCallback, RequestedBackupStrategy,
-};
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -79,6 +81,7 @@ pub async fn run(
     cmd: &Command,
     conn: &mut Connection,
     options: &Options,
+    skip_auto_backup: bool,
 ) -> Result<(), anyhow::Error> {
     // migrate apply needs to be able to run during gel watch.
     let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, options.skip_hooks, true).await?;
@@ -89,8 +92,12 @@ pub async fn run(
         } else {
             ProgressBar::new_spinner()
         };
-        let auto_backup = AutoBackup::init(instance_name, cmd.quiet)?;
-        return dev_mode::migrate(conn, &ctx.with_auto_backup(auto_backup), &bar).await;
+        if skip_auto_backup {
+            return dev_mode::migrate(conn, &ctx, &bar).await;
+        } else {
+            let auto_backup = AutoBackup::init(instance_name, cmd.quiet)?;
+            return dev_mode::migrate(conn, &ctx.with_auto_backup(auto_backup), &bar).await;
+        }
     }
     let migrations = migration::read_all(&ctx, true).await?;
     let db_migrations = db_migration::read_all(conn, false, true).await?;
@@ -142,8 +149,10 @@ pub async fn run(
         if let Some(last) = migrations.last() {
             if !migrations.contains_key(last_db_rev) {
                 let target_rev = target_rev.as_ref().unwrap_or(last.0);
-                if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
-                    auto_backup.run(cmd.quiet, None).await?;
+                if !skip_auto_backup {
+                    if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
+                        auto_backup.run(cmd.quiet, None).await?;
+                    }
                 }
                 return fixup(conn, &ctx, &migrations, &db_migrations, target_rev, cmd).await;
             }
@@ -177,8 +186,10 @@ pub async fn run(
         }
         return Ok(());
     }
-    if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
-        auto_backup.run(cmd.quiet, None).await?;
+    if !skip_auto_backup {
+        if let Some(auto_backup) = AutoBackup::init(instance_name, cmd.quiet)? {
+            auto_backup.run(cmd.quiet, None).await?;
+        }
     }
     apply_migrations(conn, migrations, &ctx, cmd.single_transaction).await?;
     if db_migrations.is_empty() {
@@ -198,7 +209,6 @@ impl AutoBackup {
         instance_name: Option<gel_tokio::InstanceName>,
         quiet: bool,
     ) -> anyhow::Result<Option<Self>> {
-        const LOCALDEV_URL: &'static str = "https://geldata.com/p/localdev";
         if cfg!(windows) {
             eprintln!(
                 "Automatic backup is disabled because backup/restore \
@@ -209,11 +219,7 @@ impl AutoBackup {
         match std::env::var("GEL_AUTO_BACKUP_MODE") {
             Ok(val) if val.to_lowercase() == "disabled" => {
                 if !quiet {
-                    eprintln!(
-                        "Automatic backup is disabled by environment variable. \
-                        Read more at {}",
-                        LOCALDEV_URL,
-                    );
+                    eprintln!("Automatic backup is disabled by environment variable.");
                 }
                 return Ok(None);
             }
@@ -226,12 +232,16 @@ impl AutoBackup {
                     ..
                 }) = InstanceInfo::try_read(&name)?
                 {
-                    if !quiet {
+                    if install_info.version.specific() < Specific::from_str("6.5")? {
                         eprintln!(
-                            "{}{}",
-                            "Automatic backup is enabled. Read more at ".muted(),
-                            LOCALDEV_URL.muted(),
+                            "Automatic backup is disabled because it is not supported \
+                            for local instances older than version 6.5."
                         );
+                        return Ok(None);
+                    }
+
+                    if !quiet {
+                        eprintln!("{}", "Automatic backup is enabled.".muted());
                     }
                     Ok(Some(AutoBackup {
                         instance_name: name,
@@ -240,10 +250,8 @@ impl AutoBackup {
                 } else {
                     if !quiet {
                         eprintln!(
-                            "\"{}\" is not a local instance, skipping automatic backup. \
-                            Read more at {}",
+                            "\"{}\" is not a local instance, skipping automatic backup.",
                             name.emphasized(),
-                            LOCALDEV_URL,
                         );
                     }
                     Ok(None)
@@ -251,11 +259,7 @@ impl AutoBackup {
             }
             Some(gel_tokio::InstanceName::Cloud(_)) => {
                 if !quiet {
-                    eprintln!(
-                        "Skipping automatic backup for Cloud instance. \
-                        Read more at {}",
-                        LOCALDEV_URL,
-                    );
+                    eprintln!("Skipping automatic backup for Cloud instance.");
                 }
                 Ok(None)
             }
