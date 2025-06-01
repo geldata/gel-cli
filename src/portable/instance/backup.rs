@@ -13,7 +13,7 @@ use gel_tokio::InstanceName;
 use crate::branding::BRANDING_CLI_CMD;
 use crate::cloud;
 use crate::locking::LockManager;
-use crate::options::CloudOptions;
+use crate::options::{CloudOptions, InstanceOptions};
 use crate::portable::local::InstanceInfo;
 use crate::print::msg;
 use crate::question;
@@ -51,10 +51,8 @@ pub struct ListBackups {
     #[command(flatten)]
     pub cloud_opts: CloudOptions,
 
-    /// Instance to list backups for.
-    #[arg(short = 'I', long, required = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    pub instance: InstanceName,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 
     /// Output in JSON format.
     #[arg(long)]
@@ -66,10 +64,8 @@ pub struct Backup {
     #[command(flatten)]
     pub cloud_opts: CloudOptions,
 
-    /// Instance to restore.
-    #[arg(short = 'I', long, required = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    pub instance: InstanceName,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 
     /// Do not ask questions.
     #[arg(long)]
@@ -91,10 +87,8 @@ pub struct Restore {
     #[command(flatten)]
     pub cloud_opts: CloudOptions,
 
-    /// Instance to restore.
-    #[arg(short = 'I', long, required = true)]
-    #[arg(value_hint=clap::ValueHint::Other)] // TODO complete instance name
-    pub instance: InstanceName,
+    #[command(flatten)]
+    pub instance_opts: InstanceOptions,
 
     #[command(flatten)]
     pub backup_spec: BackupSpec,
@@ -144,8 +138,9 @@ pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::
         bail!("Instance backup/restore is not yet supported on Windows");
     }
 
-    let _lock = LockManager::lock_read_instance_async(&cmd.instance).await?;
-    let instance = get_instance(opts, &cmd.instance)?.backup()?;
+    let inst_name = cmd.instance_opts.instance()?;
+    let _lock = LockManager::lock_read_instance_async(&inst_name).await?;
+    let instance = get_instance(opts, &inst_name)?.backup()?;
     let backups = instance.list_backups().await?;
 
     if cmd.json {
@@ -189,9 +184,9 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
         bail!("Instance backup/restore is not yet supported on Windows");
     }
 
-    let inst_name = cmd.instance.clone();
+    let inst_name = cmd.instance_opts.instance()?;
     let _lock = LockManager::lock_read_instance_async(&inst_name).await?;
-    let backup = get_instance(opts, &cmd.instance)?.backup()?;
+    let backup = get_instance(opts, &inst_name)?.backup()?;
 
     let prompt = format!(
         "Will create a backup for {inst_name:#}.\
@@ -206,9 +201,9 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
 
     // If local, start a task to connect to the instance to keep it alive
     // This should live in InstanceBackup code, but we can't easily connect in there yet
-    if let InstanceName::Local(_) = &cmd.instance {
+    if let InstanceName::Local(_) = &inst_name {
         let cfg = gel_tokio::Builder::new()
-            .instance(cmd.instance.clone())
+            .instance(inst_name.clone())
             .with_fs()
             .build()?;
         progress_bar.progress(Some(0.0), "Waiting for instance to be ready");
@@ -246,11 +241,11 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
         bail!("Instance backup/restore is not yet supported on Windows");
     }
 
-    let inst_name = cmd.instance.clone();
+    let inst_name = cmd.instance_opts.instance()?;
     let _lock = LockManager::lock_instance_async(&inst_name).await?;
-    let backup = get_instance(opts, &cmd.instance)?.backup()?;
+    let backup = get_instance(opts, &inst_name)?.backup()?;
 
-    let stop_warning = if let InstanceName::Local(_) = &cmd.instance {
+    let stop_warning = if let InstanceName::Local(_) = &inst_name {
         "This will stop the instance and restore all branches from the backup. Any data not backed up will be lost. After the restore operation is completed, the instance will be restarted."
     } else {
         "This will restore all branches from the backup. Any data not backed up will be lost."
@@ -265,7 +260,7 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
         return Ok(());
     }
 
-    if let InstanceName::Local(inst_name) = &cmd.instance {
+    if let InstanceName::Local(inst_name) = &inst_name {
         let inst_name = inst_name.clone();
         tokio::task::spawn_blocking(move || super::control::do_stop(&inst_name)).await??;
     }
@@ -287,7 +282,7 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
         )
         .await?;
 
-    if let InstanceName::Local(inst_name) = &cmd.instance {
+    if let InstanceName::Local(inst_name) = &inst_name {
         let meta = InstanceInfo::read(inst_name)?;
         tokio::task::spawn_blocking(move || super::control::do_start(&meta)).await??;
     }
