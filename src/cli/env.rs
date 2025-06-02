@@ -218,3 +218,9 @@ impl std::ops::Deref for BoolFlag {
         &self.0
     }
 }
+
+static IS_CI: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
+pub fn is_ci() -> bool {
+    *IS_CI.get_or_init(|| std::env::var("CI").map_or(false, |v| v == "true"))
+}
