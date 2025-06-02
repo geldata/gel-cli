@@ -528,6 +528,7 @@ fn try_project_init(opts: Option<&crate::options::Options>) -> anyhow::Result<In
             server_instance: None,
             database: None,
             non_interactive: false,
+            interactive: true,
             no_migrations: false,
             link: false,
             server_start_conf: None,

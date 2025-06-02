@@ -125,9 +125,13 @@ pub struct Command {
     #[arg(long)]
     pub no_migrations: bool,
 
-    /// Initialize in in non-interactive mode (accepting all defaults)
-    #[arg(long)]
+    /// Initialize in non-interactive mode (accepting all defaults)
+    #[arg(long, hide = true)]
     pub non_interactive: bool,
+
+    /// Initialize in interactive mode
+    #[arg(long)]
+    pub interactive: bool,
 }
 
 pub fn init_existing(
@@ -173,7 +177,7 @@ pub fn init_existing(
         inst.check_version(&ver_query);
 
         if matches!(name, InstanceName::Cloud { .. }) {
-            if cmd.non_interactive {
+            if !cmd.interactive {
                 inst.database = Some(
                     cmd.database
                         .clone()
@@ -259,7 +263,7 @@ pub fn init_existing(
             ver::print_version_hint(specific_version, &ver_query);
 
             let mut branch = DatabaseBranch::default();
-            if !cmd.non_interactive && specific_version.major >= 5 {
+            if cmd.interactive && specific_version.major >= 5 {
                 branch = ask_branch()?;
             }
 
@@ -503,7 +507,7 @@ fn link(
     let mut client = CloudClient::new(&opts.cloud_options)?;
     let name = if let Some(name) = &cmd.server_instance {
         name.clone()
-    } else if cmd.non_interactive {
+    } else if !cmd.interactive {
         anyhow::bail!(
             "Existing instance name should be specified \
                        with `--server-instance` when linking project \
@@ -515,7 +519,7 @@ fn link(
     let schema_dir = project.resolve_schema_dir()?;
     let mut inst = project::Handle::probe(&name, &project.location.root, &schema_dir, &client)?;
     if matches!(name, InstanceName::Cloud { .. }) {
-        if cmd.non_interactive {
+        if !cmd.interactive {
             inst.database = Some(
                 cmd.database
                     .clone()
@@ -551,7 +555,7 @@ fn do_link(
     }
 
     if !cmd.no_migrations {
-        migrate(inst, !cmd.non_interactive, opts.skip_hooks)?;
+        migrate(inst, cmd.interactive, opts.skip_hooks)?;
     } else {
         create_database(inst)?;
     }
@@ -607,7 +611,7 @@ fn init_new(
         );
     }
 
-    if cmd.non_interactive {
+    if !cmd.interactive {
         eprintln!("Initializing new project...");
     } else {
         let mut q = question::Confirm::new("Do you want to initialize a new project?");
@@ -645,7 +649,7 @@ fn init_new(
             project::write_schema_default(&schema_dir_path, &ctx.manifest.instance.server_version)?;
         }
         if matches!(inst_name, InstanceName::Cloud { .. }) {
-            if cmd.non_interactive {
+            if !cmd.interactive {
                 inst.database = Some(
                     cmd.database
                         .clone()
@@ -729,7 +733,7 @@ fn init_new(
             ver::print_version_hint(specific_version, &ver_query);
 
             let mut branch = DatabaseBranch::Default;
-            if !cmd.non_interactive && specific_version.major >= 5 {
+            if cmd.interactive && specific_version.major >= 5 {
                 branch = ask_branch()?;
             }
 
@@ -808,7 +812,7 @@ fn ask_name(
         }
         name
     };
-    if options.non_interactive {
+    if !options.interactive {
         let exists = match &default_name {
             InstanceName::Local(_) => instances.contains(&default_name),
             InstanceName::Cloud(name) => {
@@ -911,7 +915,7 @@ fn ask_branch() -> anyhow::Result<DatabaseBranch> {
 
 fn ask_local_version(options: &Command) -> anyhow::Result<(Query, PackageInfo)> {
     let ver_query = options.server_version.clone().unwrap_or(Query::stable());
-    if options.non_interactive || options.server_version.is_some() {
+    if !options.interactive || options.server_version.is_some() {
         let pkg = repository::get_server_package(&ver_query)?
             .with_context(|| format!("no package matching {} found", ver_query.display()))?;
         if options.server_version.is_some() {
@@ -1058,7 +1062,7 @@ fn ask_cloud_version(
     client: &CloudClient,
 ) -> anyhow::Result<(Query, ver::Specific)> {
     let ver_query = options.server_version.clone().unwrap_or(Query::stable());
-    if options.non_interactive || options.server_version.is_some() {
+    if !options.interactive || options.server_version.is_some() {
         let version = cloud::versions::get_version(&ver_query, client)?;
         return Ok((ver_query, version));
     }
