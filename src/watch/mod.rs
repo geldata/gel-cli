@@ -7,6 +7,7 @@ pub use scripts::run_script;
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use tokio::sync::mpsc::error::TryRecvError;
@@ -35,6 +36,9 @@ pub struct Command {
     /// Do not exit when the parent process exits.
     #[arg(long)]
     pub no_exit_with_parent: bool,
+
+    #[arg(long)]
+    pub extend_gel_toml: Option<PathBuf>,
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -44,6 +48,9 @@ pub async fn run(options: &Options, cmd: &Command) -> anyhow::Result<()> {
     let mut project = project::ensure_ctx_async(None).await?;
     project.downgrade_instance_lock()?;
     project.drop_project_lock();
+    if let Some(extend_gel_toml) = &cmd.extend_gel_toml {
+        project = project.read_extended(extend_gel_toml)?
+    }
 
     let ctx = Arc::new(Context {
         project,

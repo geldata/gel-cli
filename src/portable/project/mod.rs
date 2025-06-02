@@ -348,6 +348,14 @@ impl Context {
         })
     }
 
+    pub fn read_extended(self, path: &Path) -> anyhow::Result<Context> {
+        let Context { manifest, .. } = self;
+        Ok(Context {
+            manifest: manifest.read_extended(path)?,
+            ..self
+        })
+    }
+
     pub fn downgrade_instance_lock(&self) -> anyhow::Result<()> {
         if let Some(lock) = &self.instance_lock {
             Ok(lock.downgrade()?)
