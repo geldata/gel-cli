@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::portable::project;
 use crate::print::{self, Highlight};
 
@@ -14,13 +16,33 @@ pub async fn on_action_sync(
 /// Runs project hooks of the given action.
 /// Must not be called if --skip-hooks or GEL_SKIP_HOOKS is set.
 pub async fn on_action(action: &'static str, project: &project::Context) -> anyhow::Result<()> {
-    let Some(script) = get_hook(action, &project.manifest) else {
-        return Ok(());
+    let hooks = [
+        project.manifest.hooks.as_ref(),
+        project.manifest.hooks_extend.as_ref(),
+    ];
+    let scripts = hooks
+        .into_iter()
+        .flatten()
+        .flat_map(|hooks| get_hook(action, hooks));
+    let scripts: Vec<_> = if action.ends_with("after") {
+        scripts.rev().collect()
+    } else {
+        scripts.collect()
     };
+    for script in scripts {
+        run_action(action, script, &project.location.root).await?;
+    }
+    Ok(())
+}
 
+async fn run_action<'m>(
+    action: &'static str,
+    script: &'m str,
+    root_path: &'m PathBuf,
+) -> anyhow::Result<()> {
     print::msg!("{}", format!("hook {action}: {script}").muted());
 
-    let status = crate::watch::run_script(action, script, &project.location.root).await?;
+    let status = crate::watch::run_script(action, script, root_path).await?;
 
     // abort on error
     if !status.success() {
@@ -31,11 +53,7 @@ pub async fn on_action(action: &'static str, project: &project::Context) -> anyh
     Ok(())
 }
 
-fn get_hook<'m>(
-    action: &'static str,
-    manifest: &'m project::manifest::Manifest,
-) -> Option<&'m str> {
-    let hooks = manifest.hooks.as_ref()?;
+fn get_hook<'m>(action: &'static str, hooks: &'m project::manifest::Hooks) -> Option<&'m str> {
     let hook = match action {
         "project.init.before" => &hooks.project.as_ref()?.init.as_ref()?.before,
         "project.init.after" => &hooks.project.as_ref()?.init.as_ref()?.after,

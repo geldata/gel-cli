@@ -636,6 +636,7 @@ fn init_new(
             },
             project: None,
             hooks: None,
+            hooks_extend: None,
             watch: Vec::new(),
         };
         project::manifest::write(&location.manifest, &manifest)?;
@@ -701,6 +702,7 @@ fn init_new(
                 },
                 project: Default::default(),
                 hooks: None,
+                hooks_extend: None,
                 watch: Vec::new(),
             };
             project::manifest::write(&location.manifest, &manifest)?;
@@ -767,6 +769,7 @@ fn init_new(
                 },
                 project: Default::default(),
                 hooks: None,
+                hooks_extend: None,
                 watch: Vec::new(),
             };
 

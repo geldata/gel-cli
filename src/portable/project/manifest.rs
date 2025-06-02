@@ -21,10 +21,21 @@ pub struct Manifest {
     pub instance: Instance,
     pub project: Option<Project>,
     pub hooks: Option<Hooks>,
+    pub hooks_extend: Option<Hooks>,
     pub watch: Vec<WatchScript>,
 }
 
 impl Manifest {
+    pub fn read_extended(self, path: &Path) -> anyhow::Result<Manifest> {
+        let text = fs::read_to_string(path)?;
+        let toml = toml::de::Deserializer::new(&text);
+        let ExtendManifest { hooks } = serde_path_to_error::deserialize(toml)?;
+        Ok(Manifest {
+            hooks_extend: hooks,
+            ..self
+        })
+    }
+
     pub fn project(&self) -> Project {
         self.project.clone().unwrap_or_default()
     }
@@ -129,6 +140,7 @@ pub fn read(path: &Path) -> anyhow::Result<Manifest> {
                 .map(|s| PathBuf::from(s.into_inner())),
         }),
         hooks: val.hooks,
+        hooks_extend: None,
         watch: val.watch.unwrap_or_default(),
     });
 }
@@ -253,6 +265,13 @@ pub struct SrcManifest {
     pub watch: Option<Vec<WatchScript>>,
     #[serde(flatten)]
     pub extra: BTreeMap<String, toml::Value>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub struct ExtendManifest {
+    #[serde(alias = "hooks-extend")]
+    pub hooks: Option<Hooks>,
 }
 
 #[derive(serde::Deserialize)]
