@@ -135,6 +135,14 @@ define_env! {
     /// Whether we are running in a hook
     #[env(_GEL_IN_HOOK)]
     in_hook: BoolFlag,
+
+    /// Whether we are running in a CI environment
+    #[env(CI)]
+    in_ci: BoolFlag,
+
+    /// The auto backup mode
+    #[env(GEL_AUTO_BACKUP_MODE)]
+    auto_backup_mode: AutoBackupMode,
 }
 
 pub fn get_envs(names: &[&str]) -> Result<Option<(String, String)>, anyhow::Error> {
@@ -196,6 +204,22 @@ impl std::str::FromStr for InstallInDocker {
     }
 }
 
+#[derive(Debug)]
+pub enum AutoBackupMode {
+    Disabled,
+}
+
+impl std::str::FromStr for AutoBackupMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "disabled" => Ok(Self::Disabled),
+            _ => Err(format!("Invalid value: {}", s)),
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct BoolFlag(pub bool);
 
@@ -217,10 +241,4 @@ impl std::ops::Deref for BoolFlag {
     fn deref(&self) -> &Self::Target {
         &self.0
     }
-}
-
-static IS_CI: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-
-pub fn is_ci() -> bool {
-    *IS_CI.get_or_init(|| std::env::var("CI").map_or(false, |v| v == "true"))
 }

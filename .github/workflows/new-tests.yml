@@ -109,6 +109,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, large-win-x64]
       fail-fast: false
+    env:
+      CI: false
     steps:
       - uses: actions/checkout@v4
         with:

@@ -923,7 +923,7 @@ impl Options {
             anyhow::bail!("Option `-c` conflicts with specifying a subcommand");
         }
 
-        let is_ci = cli::env::is_ci();
+        let is_ci = *cli::env::Env::in_ci()?.unwrap_or_default();
         if is_ci {
             let msg = "Running in CI mode (CI=true), assuming \
                 --no-cli-update-check, GEL_AUTO_BACKUP_MODE=disabled"

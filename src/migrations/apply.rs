@@ -216,12 +216,10 @@ impl AutoBackup {
             );
             return Ok(None);
         }
-        let mut skipped = crate::cli::env::is_ci();
-        match std::env::var("GEL_AUTO_BACKUP_MODE") {
-            Ok(val) if val.to_lowercase() == "disabled" => {
-                skipped = true;
-            }
-            _ => (),
+        let mut skipped = *crate::cli::env::Env::in_ci()?.unwrap_or_default();
+        match crate::cli::env::Env::auto_backup_mode()? {
+            Some(crate::cli::env::AutoBackupMode::Disabled) => skipped = true,
+            None => (),
         }
         if skipped {
             if !quiet {
