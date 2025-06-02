@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use anyhow::Context;
 use gel_tokio::dsn::CloudCerts;
 
 macro_rules! define_env {
@@ -23,7 +24,7 @@ macro_rules! define_env {
                 #[doc = $doc]
                 pub fn $name() -> ::std::result::Result<::std::option::Option<$type>, anyhow::Error> {
                     const ENV_NAMES: &[&str] = &[$(stringify!($env_name)),+];
-                    let Some((_name, s)) = $crate::cli::env::get_envs(ENV_NAMES)? else {
+                    let Some((name, s)) = $crate::cli::env::get_envs(ENV_NAMES)? else {
                         return Ok(None);
                     };
                     $(let Some(s) = $preprocess(&s, context)? else {
@@ -40,7 +41,8 @@ macro_rules! define_env {
                             // Disable the fallback parser
                             #[cfg(all(debug_assertions, not(debug_assertions)))]
                         )?
-                        $crate::cli::env::parse::<_>(&s)?
+                        $crate::cli::env::parse::<_>(&s)
+                            .context(format!("Failed to parse environment variable: {name}"))?
                     };
 
                     $($validate(name, &value)?;)?
@@ -159,7 +161,7 @@ pub fn parse<T: std::str::FromStr>(s: &str) -> anyhow::Result<T>
 where
     T::Err: std::fmt::Display,
 {
-    T::from_str(s).map_err(|e| anyhow::anyhow!("Invalid value: {e}"))
+    T::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 #[derive(Debug)]
