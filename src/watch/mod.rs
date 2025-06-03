@@ -23,9 +23,9 @@ use crate::print::{self, AsRelativeToCurrentDir, Highlight};
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct Command {
-    /// Runs "[BRANDING_CLI_CMD] migration apply --dev-mode" on changes to schema definitions.
+    /// Runs "{BRANDING_CLI_CMD} migration apply --dev-mode" on changes to schema definitions.
     ///
-    /// This runs in addition to to scripts in [MANIFEST_FILE_DISPLAY_NAME].
+    /// This runs in addition to to scripts in {MANIFEST_FILE_DISPLAY_NAME}.
     #[arg(short = 'm', long)]
     pub migrate: bool,
 
