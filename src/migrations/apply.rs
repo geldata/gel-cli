@@ -244,7 +244,14 @@ impl AutoBackup {
                     }
 
                     if !quiet {
-                        eprintln!("{}", "Automatic backup is enabled.".muted());
+                        eprintln!(
+                            "{}",
+                            format!(
+                                "Automatic backup is enabled, see the full backup list with \
+                                \"{BRANDING_CLI_CMD} instance list-backups -I {name}\".",
+                            )
+                            .muted()
+                        );
                     }
                     Ok(Some(AutoBackup {
                         instance_name: name,

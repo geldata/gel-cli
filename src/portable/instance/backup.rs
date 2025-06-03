@@ -170,6 +170,8 @@ pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::
         }
         if !table.is_empty() {
             table.printstd();
+            println!("To restore to a certain backup point run:");
+            println!("  {BRANDING_CLI_CMD} instance restore --backup-id <ID>");
         } else {
             println!("No backups found.")
         }
