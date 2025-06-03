@@ -216,15 +216,18 @@ impl AutoBackup {
             );
             return Ok(None);
         }
-        match std::env::var("GEL_AUTO_BACKUP_MODE") {
-            Ok(val) if val.to_lowercase() == "disabled" => {
-                if !quiet {
-                    eprintln!("Automatic backup is disabled by environment variable.");
-                }
-                return Ok(None);
-            }
-            _ => (),
+        let mut skipped = *crate::cli::env::Env::in_ci()?.unwrap_or_default();
+        match crate::cli::env::Env::auto_backup_mode()? {
+            Some(crate::cli::env::AutoBackupMode::Disabled) => skipped = true,
+            None => (),
         }
+        if skipped {
+            if !quiet {
+                eprintln!("Automatic backup is disabled by environment variable.");
+            }
+            return Ok(None);
+        }
+
         match instance_name {
             Some(gel_tokio::InstanceName::Local(name)) => {
                 if let Some(InstanceInfo {

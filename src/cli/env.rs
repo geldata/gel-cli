@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use anyhow::Context;
 use gel_tokio::dsn::CloudCerts;
 
 macro_rules! define_env {
@@ -23,7 +24,7 @@ macro_rules! define_env {
                 #[doc = $doc]
                 pub fn $name() -> ::std::result::Result<::std::option::Option<$type>, anyhow::Error> {
                     const ENV_NAMES: &[&str] = &[$(stringify!($env_name)),+];
-                    let Some((_name, s)) = $crate::cli::env::get_envs(ENV_NAMES)? else {
+                    let Some((name, s)) = $crate::cli::env::get_envs(ENV_NAMES)? else {
                         return Ok(None);
                     };
                     $(let Some(s) = $preprocess(&s, context)? else {
@@ -40,7 +41,8 @@ macro_rules! define_env {
                             // Disable the fallback parser
                             #[cfg(all(debug_assertions, not(debug_assertions)))]
                         )?
-                        $crate::cli::env::parse::<_>(&s)?
+                        $crate::cli::env::parse::<_>(&s)
+                            .context(format!("Failed to parse environment variable: {name}"))?
                     };
 
                     $($validate(name, &value)?;)?
@@ -135,6 +137,14 @@ define_env! {
     /// Whether we are running in a hook
     #[env(_GEL_IN_HOOK)]
     in_hook: BoolFlag,
+
+    /// Whether we are running in a CI environment
+    #[env(CI)]
+    in_ci: BoolFlag,
+
+    /// The auto backup mode
+    #[env(GEL_AUTO_BACKUP_MODE)]
+    auto_backup_mode: AutoBackupMode,
 }
 
 pub fn get_envs(names: &[&str]) -> Result<Option<(String, String)>, anyhow::Error> {
@@ -151,7 +161,7 @@ pub fn parse<T: std::str::FromStr>(s: &str) -> anyhow::Result<T>
 where
     T::Err: std::fmt::Display,
 {
-    T::from_str(s).map_err(|e| anyhow::anyhow!("Invalid value: {e}"))
+    T::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 #[derive(Debug)]
@@ -191,6 +201,22 @@ impl std::str::FromStr for InstallInDocker {
             "forbid" => Ok(Self::Forbid),
             "allow" => Ok(Self::Allow),
             "default" => Ok(Self::Default),
+            _ => Err(format!("Invalid value: {}", s)),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum AutoBackupMode {
+    Disabled,
+}
+
+impl std::str::FromStr for AutoBackupMode {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "disabled" => Ok(Self::Disabled),
             _ => Err(format!("Invalid value: {}", s)),
         }
     }

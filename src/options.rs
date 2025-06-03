@@ -923,8 +923,17 @@ impl Options {
             anyhow::bail!("Option `-c` conflicts with specifying a subcommand");
         }
 
+        let is_ci = *cli::env::Env::in_ci()?.unwrap_or_default();
+        if is_ci {
+            let msg = "Running in CI mode (CI=true), assuming \
+                --no-cli-update-check, GEL_AUTO_BACKUP_MODE=disabled"
+                .muted();
+            eprintln!("{msg}");
+        }
+
         // TODO(pc) add option to force interactive mode not on a tty (tests)
-        let interactive = args.query.is_none() && subcommand.is_none() && stdin().is_terminal();
+        let interactive =
+            args.query.is_none() && subcommand.is_none() && !is_ci && stdin().is_terminal();
 
         if args.json {
             say_option_is_deprecated(
@@ -958,7 +967,7 @@ impl Options {
             subcommand
         };
 
-        let mut no_cli_update_check = args.no_cli_update_check;
+        let mut no_cli_update_check = args.no_cli_update_check || is_ci;
         if args.no_version_check {
             no_cli_update_check = true;
             let warning = "warning:".to_string().emphasized().warning();
