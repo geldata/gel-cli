@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use crate::branding::BRANDING_CLI_CMD;
+use crate::commands::generate;
 use crate::migrations::options::Migration;
 use crate::options::{ConnectionOptions, InstanceOptions};
 use crate::repl::{self, VectorLimit};
@@ -18,6 +19,9 @@ pub enum Common {
     Restore(Restore),
     /// Modify database configuration
     Configure(Configure),
+
+    /// Run language-specific code generators
+    Generate(generate::Command),
 
     /// Migration management subcommands
     Migration(Box<Migration>),

@@ -6,6 +6,7 @@ use crate::branch;
 use crate::branding::BRANDING;
 use crate::commands;
 use crate::commands::Options;
+use crate::commands::generate;
 use crate::commands::parser::{Common, DatabaseCmd, DescribeCmd, ListCmd};
 use crate::migrations;
 use crate::migrations::options::MigrationCmd;
@@ -83,6 +84,12 @@ pub async fn common(
         },
         Analyze(c) => {
             analyze::command(conn, c).await?;
+        }
+        // generate doesn't *really* need a connection, but we treat
+        // it as if it does so that we get the connection failed error
+        // from the CLI instead of whichever binding.
+        Generate(cmd) => {
+            generate::run(cmd, options).await?;
         }
         Pgaddr => match conn.get_server_param::<PostgresAddress>() {
             Some(addr) => {

@@ -8,6 +8,7 @@ mod dump;
 mod execute;
 mod exit;
 mod filter;
+pub mod generate;
 mod helpers;
 mod info;
 mod list;

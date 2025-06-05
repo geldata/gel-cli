@@ -1,6 +1,7 @@
 use crate::connect::Connector;
 use crate::print::style::Styler;
 
+#[derive(Debug)]
 pub struct Options {
     pub command_line: bool,
     pub styler: Option<Styler>,
