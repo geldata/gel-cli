@@ -96,7 +96,7 @@ jobs:
         uses: baptiste0928/cargo-install@91c5da15570085bcde6f4d7aed98cb82d6769fd3
         with:
           crate: clitest
-          version: '=0.1.20'
+          version: '=0.1.21'
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
