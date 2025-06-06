@@ -232,7 +232,11 @@ async fn watch_and_match(
     // TODO: watch only directories that are needed, not the whole project
 
     watcher.watch(&ctx.project.location.root, notify::RecursiveMode::Recursive)?;
-    let schema_dir = ctx.project.manifest.project().get_schema_dir();
+    let schema_dir = ctx
+        .project
+        .manifest
+        .project()
+        .resolve_schema_dir(&ctx.project.location.root)?;
     if ctx.cmd.migrate && !schema_dir.starts_with(&ctx.project.location.root) {
         watcher.watch(
             &ctx.project.manifest.project().get_schema_dir(),
