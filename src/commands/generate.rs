@@ -1,7 +1,8 @@
 use std::env;
+use std::io::Write;
 use std::process::Stdio;
 
-use tokio::io::AsyncWriteExt;
+use tempfile::NamedTempFile;
 use tokio::process;
 
 use crate::commands::options::Options;
@@ -36,12 +37,14 @@ pub fn prepare_command(cmd: &Command) -> Result<Vec<&str>, anyhow::Error> {
 pub async fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> {
     let creds = options.conn_params.get()?.as_credentials()?;
     let json = serde_json::to_string(&creds)?;
+    let mut cred_file = NamedTempFile::new()?;
+    write!(cred_file, "{}", json)?;
 
     let cmdline = prepare_command(cmd)?;
     let mut scmd = process::Command::new(cmdline[0]);
     scmd.args(&cmdline[1..])
         .args(cmd.arguments.clone())
-        .stdin(Stdio::piped())
+        .stdin(Stdio::null())
         .stdout(Stdio::inherit());
     // Strip out all gel config env vars from the environment, since
     // everything should go via our GEL_CREDENTIALS_FILE.
@@ -50,8 +53,8 @@ pub async fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> 
             scmd.env_remove(key);
         }
     }
-    // Make GEL_CREDENTIALS_FILE stdin; we'll pipe it in.
-    scmd.env("GEL_CREDENTIALS_FILE", "/dev/stdin");
+    // Make GEL_CREDENTIALS_FILE our temp credentials.json file
+    scmd.env("GEL_CREDENTIALS_FILE", cred_file.path().as_os_str());
 
     let mut child = match scmd.spawn() {
         Ok(child) => child,
@@ -59,10 +62,6 @@ pub async fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> 
             anyhow::bail!("Error executing {}: {}", cmdline.join(" "), e,)
         }
     };
-
-    let mut stdin = child.stdin.take().unwrap();
-    stdin.write_all(json.as_bytes()).await?;
-    drop(stdin);
 
     let status = child.wait().await?;
 
