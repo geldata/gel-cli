@@ -112,7 +112,6 @@ jobs:
       - name: Copy artifacts to PATH
         run: |
           cp artifacts/debug-gel-cli-${{ runner.os }}/gel* ${{ env.CARGO_HOME }}/bin/
-          cp artifacts/debug-clitest-${{ runner.os }}/clitest* ${{ env.CARGO_HOME }}/bin/
 
       - name: Setup WSL
         if: runner.os == 'Windows'
