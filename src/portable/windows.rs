@@ -15,6 +15,7 @@ use const_format::formatcp;
 use fn_error_context::context;
 use gel_tokio::InstanceName;
 use gel_tokio::dsn::CredentialsFile;
+use log::warn;
 use url::Url;
 
 use crate::async_util;
@@ -51,13 +52,45 @@ static DISTRO_URL: LazyLock<Url> = LazyLock::new(|| {
         .expect("wsl url parsed")
 });
 const CERT_UPDATE_INTERVAL: Duration = Duration::from_secs(30 * 86400);
-static IS_IN_WSL: LazyLock<bool> = LazyLock::new(|| {
+
+#[derive(Debug, PartialEq, Eq, Copy, Clone)]
+enum WslState {
+    NotWsl,
+    Wsl1,
+    Wsl2,
+}
+
+static IS_IN_WSL: LazyLock<WslState> = LazyLock::new(|| {
     if cfg!(target_os = "linux") {
-        fs::read_to_string("/proc/version")
-            .map(|s| s.contains("Microsoft"))
-            .unwrap_or(false)
+        let version = fs::read_to_string("/proc/version").unwrap_or_default();
+
+        // Hint 1: /proc/version contains "microsoft" or "Microsoft"
+        let version_contains_microsoft = version.to_lowercase().contains("microsoft");
+
+        // Hint 2: https://superuser.com/questions/1749781/how-can-i-check-if-the-environment-is-wsl-from-a-shell-script
+        // `/proc/sys/fs/binfmt_misc/WSLInterop` exists
+        let interop_exists =
+            std::fs::exists("/proc/sys/fs/binfmt_misc/WSLInterop").unwrap_or(false);
+
+        if !version_contains_microsoft && !interop_exists {
+            return WslState::NotWsl;
+        }
+
+        // https://askubuntu.com/questions/1177729/wsl-am-i-running-version-1-or-version-2
+        let cmdline = fs::read_to_string("/proc/cmdline").unwrap_or_default();
+        if cmdline == "BOOT_IMAGE=/kernel init=/init" {
+            WslState::Wsl1
+        } else if cmdline.contains(r#"initrd=\initrd.img"#) {
+            WslState::Wsl2
+        } else {
+            warn!(
+                "Unknown WSL version: /proc/cmdline={:?} /proc/version={:?}, please report this as a bug",
+                cmdline, version
+            );
+            WslState::Wsl2
+        }
     } else {
-        false
+        WslState::NotWsl
     }
 });
 
@@ -520,13 +553,30 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
                 }
             }
 
-            process::Native::new("wsl import", "wsl", "wsl")
+            let import_output = process::Native::new("wsl import", "wsl", "wsl")
                 .arg("--import")
                 .arg(CURRENT_DISTRO)
                 .arg(&distro_path)
                 .arg(&root_path)
                 .arg("--version=2")
-                .run()?;
+                .get_output()?;
+            if !import_output.status.success() {
+                // "Invalid command line argument: --version=2"
+                if utf16_contains(&import_output.stdout, "--version=2") {
+                    process::Native::new("wsl import", "wsl", "wsl")
+                        .arg("--import")
+                        .arg(CURRENT_DISTRO)
+                        .arg(&distro_path)
+                        .arg(&root_path)
+                        .run()?;
+                } else {
+                    return Err(anyhow::anyhow!(
+                        "Error importing WSL distribution: {:?} {:?}",
+                        import_output.stderr,
+                        import_output.stdout
+                    ));
+                }
+            }
 
             fs::remove_file(&download_path)?;
             fs::remove_file(&appx_path)?;
@@ -1140,7 +1190,11 @@ pub fn get_instance_info(name: &str) -> anyhow::Result<String> {
 }
 
 pub fn is_in_wsl() -> bool {
-    *IS_IN_WSL
+    *IS_IN_WSL != WslState::NotWsl
+}
+
+pub fn is_in_wsl1() -> bool {
+    *IS_IN_WSL == WslState::Wsl1
 }
 
 pub fn extension_install(cmd: &extension::ExtensionInstall) -> anyhow::Result<()> {

@@ -117,6 +117,11 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
+          echo "--------------------------------"
+          echo "wsl --version"
+          wsl --version
+          echo "--------------------------------"
+          echo
           _GEL_WSL_LINUX_BINARY=artifacts/debug-gel-cli-Linux/gel gel cli init-wsl
           echo "_GEL_WSL_SKIP_UPDATE=true" >> $GITHUB_ENV
 
