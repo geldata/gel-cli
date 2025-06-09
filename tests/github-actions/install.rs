@@ -60,8 +60,8 @@ fn github_action_install() -> anyhow::Result<()> {
         tokio::select! {
             _ = warp::serve(routes)
                 .tls()
-                .cert(gel_stream::test_keys::raw::CA_CERT)
-                .key(gel_stream::test_keys::raw::CA_KEY)
+                .cert(gel_stream::test_keys::raw::SERVER_CERT)
+                .key(gel_stream::test_keys::raw::SERVER_KEY)
                 .run(([127, 0, 0, 1], 8443))
             => {},
             res = shut_rx => {
