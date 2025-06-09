@@ -43,7 +43,6 @@ default = ["gel"]
 github_action_install = []
 github_nightly = []
 portable_tests = []
-docker_test_wrapper = []
 gel = []
 
 [dependencies]

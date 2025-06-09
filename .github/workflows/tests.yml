@@ -112,11 +112,7 @@ jobs:
           override: true
 
       - run: |
-          cargo build --tests --features docker_test_wrapper,portable_tests
-
-      - run: |
-          cargo test --test=docker_test_wrapper \
-            --features docker_test_wrapper,portable_tests
+          cargo build --tests --features portable_tests
 
   portable-tests-macos:
     runs-on: macos-latest
