@@ -879,6 +879,7 @@ impl FullStatus {
                 eprintln!("Ready in socket activation mode, not running");
             }
             Running { pid } => {
+                // This was previously splitting the output into stdout and stderr which was super unreliable,
                 if std::io::stdout().is_terminal() {
                     eprintln!("Running, pid {pid}");
                 } else {
