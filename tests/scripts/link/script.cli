@@ -18,6 +18,7 @@ ignore {
     ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
     ! [edgedb] WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
     ! [edgedb] CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
 }
 
 $ gel instance destroy -I inst1 --force
@@ -118,9 +119,6 @@ $ gel project info --instance-name --project-dir=$WORK_DIR/proj/project2
 ! project2
 
 $ cd $WORK_DIR/proj/project2 && gel query "SELECT 1"
-optional {
-    ! Connecting to Gel instance %{GREEDYDATA}...
-}
 ! 1
 
 $ gel project upgrade --force --project-dir=$WORK_DIR/proj/project2
