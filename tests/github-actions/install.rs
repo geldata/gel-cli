@@ -10,8 +10,6 @@ use warp::filters::path::path;
 mod util;
 use util::*;
 
-use crate::certs::Certs;
-
 const UNIX_INST: &str = "curl --proto '=https' --tlsv1.2 -sSf https://localhost:8443 | sh -s -- -y";
 
 trait OutputExt {
@@ -36,7 +34,6 @@ fn github_action_install() -> anyhow::Result<()> {
         .worker_threads(2)
         .enable_all()
         .build()?;
-    let certs = Certs::new()?;
     let (shut_tx, shut_rx) = oneshot::channel();
 
     let plat = if cfg!(all(target_os = "linux", target_arch = "x86_64")) {
@@ -59,13 +56,12 @@ fn github_action_install() -> anyhow::Result<()> {
             .and(warp::filters::path::end())
             .and(warp::fs::file(env!("CARGO_BIN_EXE_gel"))));
 
-    let certs_serv = certs.clone();
     let server = async {
         tokio::select! {
             _ = warp::serve(routes)
                 .tls()
-                .cert(certs_serv.nginx_cert)
-                .key(certs_serv.nginx_key)
+                .cert(gel_stream::test_keys::raw::CA_CERT)
+                .key(gel_stream::test_keys::raw::CA_KEY)
                 .run(([127, 0, 0, 1], 8443))
             => {},
             res = shut_rx => {
@@ -86,7 +82,7 @@ fn github_action_install() -> anyhow::Result<()> {
             .success();
     } else {
         let mut tmpfile = tempfile::NamedTempFile::new()?;
-        tmpfile.write_all(&certs.ca_cert)?;
+        tmpfile.write_all(&gel_stream::test_keys::raw::CA_CERT.as_bytes())?;
         Command::new("sh")
             .arg("-c")
             .arg("-e")

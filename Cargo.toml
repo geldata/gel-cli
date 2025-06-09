@@ -25,6 +25,7 @@ gel-auth = { version = "0.1" }
 gel-tokio = { version = "0.10.14", features=["admin_socket", "unstable"] }
 gel-dsn = { version = "0.2" }
 gel-jwt = { version = "0.1", features = ["gel"] }
+gel-stream = { version = "0.4" }
 
 [package]
 name = "gel-cli"
@@ -153,6 +154,8 @@ version = "*"
 features = ["static"]
 
 [dev-dependencies]
+gel-stream = { workspace = true, features = ["__test_keys"] }
+
 assert_cmd = "2.0.8"
 predicates = "3.1.2"
 pretty_assertions = "1.2.0"
