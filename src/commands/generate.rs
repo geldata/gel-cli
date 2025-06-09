@@ -118,7 +118,8 @@ pub async fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> 
     let cmdline_str = cmdline
         .into_iter()
         .map(|os| os.to_string_lossy().into_owned())
-        .collect::<Vec<_>>().join(" ");
+        .collect::<Vec<_>>()
+        .join(" ");
 
     log::debug!("running `{cmdline_str}`");
 
@@ -132,11 +133,7 @@ pub async fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> 
     let status = child.wait().await?;
 
     if !status.success() {
-        anyhow::bail!(
-            "Child process {} failed with {}",
-            cmdline_str,
-            status
-        );
+        anyhow::bail!("Child process {} failed with {}", cmdline_str, status);
     }
 
     Ok(())
