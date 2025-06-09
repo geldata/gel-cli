@@ -69,7 +69,7 @@ pub struct ConnectionOptions {
     #[arg(global = true)]
     pub credentials_file: Option<PathBuf>,
 
-    /// EdgeDB instance host
+    /// Gel instance host
     #[arg(short='H', long, help_heading=Some(CONN_OPTIONS_GROUP))]
     #[arg(value_hint=clap::ValueHint::Hostname)]
     #[arg(hide = true)]
@@ -78,14 +78,14 @@ pub struct ConnectionOptions {
           &["dsn", "credentials_file", "instance", "unix_path"])]
     pub host: Option<String>,
 
-    /// Port to connect to EdgeDB
+    /// Port to connect to Gel
     #[arg(short='P', long, help_heading=Some(CONN_OPTIONS_GROUP))]
     #[arg(hide = true)]
     #[arg(global = true)]
     #[arg(conflicts_with_all=&["dsn", "credentials_file", "instance"])]
     pub port: Option<u16>,
 
-    /// A path to a Unix socket for EdgeDB connection
+    /// A path to a Unix socket for Gel connection
     ///
     /// When the supplied path is a directory, the actual path will be
     /// computed using the `--port` and `--admin` parameters.
@@ -97,7 +97,7 @@ pub struct ConnectionOptions {
           &["dsn", "credentials_file", "instance", "host"])]
     pub unix_path: Option<PathBuf>,
 
-    /// EdgeDB user name
+    /// Gel user name
     #[arg(short='u', long, help_heading=Some(CONN_OPTIONS_GROUP))]
     #[arg(hide = true)]
     #[arg(global = true)]
@@ -208,7 +208,7 @@ pub struct ConnectionOptions {
     #[arg(global = true)]
     pub tls_server_name: Option<String>,
 
-    /// Retry up to WAIT_TIME (e.g. '30s') in case EdgeDB connection
+    /// Retry up to WAIT_TIME (e.g. '30s') in case Gel connection
     /// cannot be established.
     #[arg(
         long,
@@ -226,7 +226,7 @@ pub struct ConnectionOptions {
     #[arg(global = true)]
     pub admin: bool,
 
-    /// Fail when no response from EdgeDB for TIMEOUT (default '10s');
+    /// Fail when no response from Gel for TIMEOUT (default '10s');
     /// alternatively will retry if `--wait-until-available` is also specified.
     #[arg(
         long,
@@ -417,12 +417,12 @@ pub struct CloudOptions {
     pub cloud_profile: Option<String>,
 }
 
-/// Use the `edgedb` command-line tool to spin up local instances,
-/// manage EdgeDB projects, create and apply migrations, and more.
+/// Use the `gel` command-line tool to spin up local instances,
+/// manage Gel projects, create and apply migrations, and more.
 ///
-/// Running `edgedb` without a subcommand opens an interactive shell
+/// Running `gel` without a subcommand opens an interactive shell
 /// for the instance in your directory. If you have no existing instance,
-/// type `edgedb project init` to create one.
+/// type `gel project init` to create one.
 #[derive(clap::Parser, Debug)]
 #[command(disable_version_flag = true)]
 pub struct RawOptions {
@@ -574,7 +574,7 @@ pub struct Info {
     ])]
     /// Get specific value:
     ///
-    /// * `install-dir` -- Directory where EdgeDB CLI is installed
+    /// * `install-dir` -- Directory where Gel CLI is installed
     /// * `config-dir` -- Base configuration directory
     /// * `cache-dir` -- Base cache directory
     /// * `data-dir` -- Base data directory (except on Windows)
@@ -1014,7 +1014,7 @@ impl Options {
         if self.conn_options.password_from_stdin || self.conn_options.password {
             // Temporary set an empty password. It will be overriden by
             // `config.with_password()` but we need it here so that
-            // `edgedb://?password_env=NON_EXISTING` does not read the
+            // `gel://?password_env=NON_EXISTING` does not read the
             // environemnt variable
             builder = builder.password("");
         }

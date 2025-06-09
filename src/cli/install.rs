@@ -87,7 +87,7 @@ pub fn run(cmd: &Command, opts: Option<&crate::options::Options>) -> anyhow::Res
             if cfg!(windows) && !cmd.upgrade && !cmd.no_confirm && !cmd.no_wait_for_exit_prompt {
                 // This is needed so user can read the message if console
                 // was open just for this process
-                eprintln!("edgedb error: {e:#}");
+                eprintln!("gel error: {e:#}");
                 eprintln!("Press the Enter key to continue");
                 read_choice()?;
                 exit(1);
