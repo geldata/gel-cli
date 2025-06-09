@@ -1192,6 +1192,10 @@ pub fn is_in_wsl() -> bool {
     *IS_IN_WSL != WslState::NotWsl
 }
 
+pub fn is_in_wsl1() -> bool {
+    *IS_IN_WSL == WslState::Wsl1
+}
+
 pub fn extension_install(cmd: &extension::ExtensionInstall) -> anyhow::Result<()> {
     let wsl = try_get_wsl()?;
 

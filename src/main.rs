@@ -170,6 +170,12 @@ fn _main() -> anyhow::Result<()> {
         version_check::check(opt.no_cli_update_check)?;
     }
 
+    if portable::windows::is_in_wsl1() {
+        warn!(
+            "WSL1 is unsupported. Please back up your {BRANDING} instances, remove all WSL distros, and upgrade your WSL installation to WSL2."
+        );
+    }
+
     if opt.subcommand.is_some() {
         commands::cli::main(&opt)
     } else {
