@@ -1,0 +1,39 @@
+#!/usr/bin/env clitest --v0
+
+$ gel instance destroy -I watch_test1 --force
+%EXIT any
+*
+
+using tempdir;
+
+using new dir "watch_test1";
+
+$ gel project init --instance=watch_test1 --non-interactive
+*
+
+$ find .
+*
+
+background {
+   $ gel watch --migrate --verbose
+   %EXIT any
+   *
+}
+
+background {
+    $ gel instance logs -I watch_test1 --follow --tail 10
+    %EXIT any
+    *
+}
+
+# Give it a second to start up
+$ sleep 1
+
+$ gel instance backup -I watch_test1 --non-interactive
+*
+
+# Project is locked, so we can't manipulate branches
+$ gel instance restore -I test --latest --non-interactive
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
