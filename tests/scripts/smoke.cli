@@ -1,0 +1,145 @@
+#!/usr/bin/env clitest --v0
+
+# Smoke tests for basic CLI functionality
+# These tests cover core functionality that should work in any environment
+
+pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
+
+ignore {
+    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance %{GREEDYDATA}
+}
+
+# Clean up any existing instances
+$ gel instance destroy -I inst1 --force
+%EXIT any
+*
+
+$ gel instance destroy -I second --force
+%EXIT any
+*
+
+# Test version command
+$ gel --version
+? Gel CLI %{VERSION}
+
+# Test server version listing
+$ gel server list-versions
+*
+
+# Test instance creation
+$ gel instance create inst1 my-branch
+choice {
+    sequence {
+        ? Downloading package...
+        *
+        ? Successfully installed %{VERSION}
+    }
+    ? Version %{VERSION} is already downloaded
+}
+! Initializing Gel instance 'inst1'...
+*
+! Instance inst1 is up and running.
+! To connect to the instance run:
+!   gel -I inst1
+
+# Test instance creation with nightly
+$ gel instance create second --nightly
+choice {
+    sequence {
+        ! Downloading package...
+        *
+        ! Successfully installed %{VERSION}
+    }
+    ? Version %{VERSION} is already downloaded
+}
+! Initializing Gel instance 'second'...
+*
+! Instance second is up and running.
+! To connect to the instance run:
+!   gel -I second
+
+# Test server info
+$ gel server info --latest
+! ┌%{GREEDYDATA}
+! │ Version %{SPACE}│ %{VERSION} %{SPACE}│
+! │ Binary path %{SPACE}│ %{GREEDYDATA} %{SPACE}│
+! └%{GREEDYDATA}
+
+# Test server info with specific fields
+$ gel server info --get bin-path --latest
+? %{GREEDYDATA}edgedb-server
+
+$ gel server info --get version --latest
+? %{VERSION}
+
+# Test JSON output
+$ gel server info --json --get version --latest
+? "%{VERSION}"
+
+# Test installed versions listing
+# TODO: validate the output
+$ gel server list-versions --installed-only
+*
+
+# Test instance logs, at least one line
+$ gel instance logs --instance=inst1 --tail 10
+! %{GREEDYDATA}
+*
+
+# Test basic query execution
+$ gel --instance inst1 query "SELECT 1"
+! 1
+
+# Test branch query
+$ gel --instance inst1 query -- "select sys::get_current_branch();"
+? "my-branch"
+
+# Test instance status
+$ gel instance status --instance=inst1
+! %{NUMBER}
+
+# Test instance restart
+$ gel instance restart --instance=inst1
+*
+
+# Test instance stop
+$ gel instance stop --instance=inst1
+*
+
+# Test instance start
+$ gel instance start --instance=inst1
+*
+
+# Test instance list
+$ gel instance list
+*
+
+# Test extension management
+$ gel --instance=inst1 extension list
+*
+
+# Test instance upgrade
+$ gel instance upgrade --instance=inst1 --force
+*
+
+# Test instance upgrade to latest
+$ gel instance upgrade --instance=inst1 --to-latest --force
+*
+
+# Test instance destroy with non-interactive
+$ gel instance destroy --instance=second --non-interactive
+*
+
+# Test server uninstallation
+$ gel server uninstall --unused
+choice {
+    ! Successfully uninstalled %{NUMBER} versions.
+    ! Nothing to uninstall.
+}
+
+# Clean up remaining instance
+$ gel instance destroy --instance=inst1 --force
+*

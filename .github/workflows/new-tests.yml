@@ -135,32 +135,12 @@ jobs:
           echo "gel: $(gel --version)"
           echo "clitest: $(clitest --version)"
 
-      - name: Run backup/backup.cli test
+      - name: Run all CLI tests
         run: |
-          TERM=xterm-256color clitest tests/scripts/backup/backup.cli
-        shell: bash
-
-      - name: Run dump/dump.cli test
-        run: |
-          TERM=xterm-256color clitest tests/scripts/dump/dump.cli
-        shell: bash
-
-      - name: Run link/script.cli test
-        run: |
-          TERM=xterm-256color clitest tests/scripts/link/script.cli
-        shell: bash
-
-      - name: Run project/hooks.cli test
-        run: |
-          TERM=xterm-256color clitest tests/scripts/project/hooks.cli
-        shell: bash
-
-      - name: Run query/txn.cli test
-        run: |
-          TERM=xterm-256color clitest tests/scripts/query/txn.cli
-        shell: bash
-
-      - name: Run project/watch.cli test
-        run: |
-          TERM=xterm-256color clitest tests/scripts/project/watch.cli
+          find tests/scripts -name "*.cli" -type f | while read -r test_file; do
+            test_name=$(basename "$test_file" .cli)
+            echo "::group::Running test: $test_name"
+            TERM=xterm-256color clitest "$test_file"
+            echo "::endgroup::"
+          done
         shell: bash

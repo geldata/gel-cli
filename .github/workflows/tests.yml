@@ -123,7 +123,7 @@ jobs:
     timeout-minutes: 45
     strategy:
       matrix:
-        test: [portable_smoke, shared_client_tests]
+        test: [shared_client_tests]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -157,7 +157,7 @@ jobs:
     timeout-minutes: 45
     strategy:
       matrix:
-        test: [portable_smoke, shared_client_tests]
+        test: [shared_client_tests]
       fail-fast: false
     env:
       _GEL_WSL_DISTRO: Debian

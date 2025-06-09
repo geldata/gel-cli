@@ -879,8 +879,11 @@ impl FullStatus {
                 eprintln!("Ready in socket activation mode, not running");
             }
             Running { pid } => {
-                eprint!("Running, pid ");
-                println!("{pid}");
+                if std::io::stdout().is_terminal() {
+                    eprintln!("Running, pid {pid}");
+                } else {
+                    println!("{pid}");
+                }
             }
             Failed {
                 exit_code: Some(code),
