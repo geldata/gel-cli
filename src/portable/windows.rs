@@ -561,7 +561,8 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
                 .arg("--version=2")
                 .get_output()?;
             if !import_output.status.success() {
-                if utf16_contains(&import_output.stderr, "--version=2") {
+                // "Invalid command line argument: --version=2"
+                if utf16_contains(&import_output.stdout, "--version=2") {
                     process::Native::new("wsl import", "wsl", "wsl")
                         .arg("--import")
                         .arg(CURRENT_DISTRO)
