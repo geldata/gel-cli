@@ -2,7 +2,7 @@
 
 ignore {
     ! Newer version of gel tool exists %{GREEDYDATA}
-    ! Connecting to Gel instance %{GREEDYDATA}
+    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
 }
 
 $ gel instance destroy -I txn_test --force

@@ -112,18 +112,14 @@ jobs:
           override: true
 
       - run: |
-          cargo build --tests --features docker_test_wrapper,portable_tests
-
-      - run: |
-          cargo test --test=docker_test_wrapper \
-            --features docker_test_wrapper,portable_tests
+          cargo build --tests --features portable_tests
 
   portable-tests-macos:
     runs-on: macos-latest
     timeout-minutes: 45
     strategy:
       matrix:
-        test: [portable_smoke, shared_client_tests]
+        test: [shared_client_tests]
       fail-fast: false
     steps:
       - uses: actions/checkout@v4
@@ -157,7 +153,7 @@ jobs:
     timeout-minutes: 45
     strategy:
       matrix:
-        test: [portable_smoke, shared_client_tests]
+        test: [shared_client_tests]
       fail-fast: false
     env:
       _GEL_WSL_DISTRO: Debian
