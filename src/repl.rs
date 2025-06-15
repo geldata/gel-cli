@@ -8,7 +8,7 @@ use gel_tokio::dsn::DatabaseBranch;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 
-use gel_errors::{ClientError, ProtocolEncodingError};
+use gel_errors::{ClientError, DisabledCapabilityError, ProtocolEncodingError};
 use gel_errors::{Error, ErrorKind};
 use gel_protocol::common::{
     InputLanguage as ServerInputLanguage, IoFormat, RawTypedesc, State as EdgeqlState,
@@ -183,6 +183,14 @@ impl State {
                     &(),
                 )
                 .await
+                .map(|_| ())
+                .or_else(|e| {
+                    if e.is::<DisabledCapabilityError>() {
+                        print::warn!("Could not configure session_idle_transaction_timeout: {e}");
+                        return Ok(());
+                    }
+                    Err(e)
+                })
                 .context("cannot configure session_idle_transaction_timeout")?;
             }
         }
