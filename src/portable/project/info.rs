@@ -43,11 +43,14 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
         }
         DatabaseBranch::Default => {
             // If the project doesn't have a database, get it from the instance.
-            let config = gel_tokio::dsn::Builder::new()
-                .without_system()
-                .with_fs()
-                .with_auto_project_cwd()
-                .build()?;
+            let builder = gel_tokio::dsn::Builder::new().without_system().with_fs();
+
+            let config = if let Some(project_dir) = options.project_dir.clone() {
+                builder.with_project_dir(project_dir).build()?
+            } else {
+                builder.with_auto_project_cwd().build()?
+            };
+
             match config.db {
                 DatabaseBranch::Database(database) => {
                     data.insert("database", database);
