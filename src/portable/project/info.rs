@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use clap::ValueHint;
@@ -25,7 +25,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
         return Err(ExitCode::new(1).into());
     };
 
-    let mut data = HashMap::new();
+    let mut data = BTreeMap::new();
     match project.db() {
         DatabaseBranch::Database(database) => {
             data.insert("database", database);
@@ -37,7 +37,23 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
             data.insert("branch", ambiguous);
         }
         DatabaseBranch::Default => {
-            data.insert("branch", "(default)".to_string());
+            // If the project doesn't have a database, get it from the instance.
+            let config = gel_tokio::dsn::Builder::new().without_system().with_fs().with_auto_project_cwd().build()?;
+            match config.db {
+                DatabaseBranch::Database(database) => {
+                    data.insert("database", database);
+                }
+                DatabaseBranch::Branch(branch) => {
+                    data.insert("branch", branch);
+                }
+                DatabaseBranch::Ambiguous(ambiguous) => {
+                    data.insert("branch", ambiguous);
+                }
+                DatabaseBranch::Default => {
+                    // Nobody has a db/branch setting, so we can't determine the database
+                    data.insert("database", "(unavailable)".to_string());
+                }
+            }
         }
     }
     data.insert("instance-name", project.instance_name.to_string());
@@ -70,15 +86,16 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     } else if options.json {
         println!("{}", serde_json::to_string_pretty(&data)?);
     } else {
-        let row_mapping: Vec<(&str, &str)> = vec![
+        let mut row_mapping: Vec<(&str, &str)> = vec![
+            ("Branch", "branch"),
+            ("Database", "database"),
             ("Instance name", "instance-name"),
             ("Project root", "root"),
             (concatcp!(BRANDING_CLOUD, " profile"), "cloud-profile"),
             ("Root", "root"),
-            ("Branch", "branch"),
-            ("Database", "database"),
             ("Schema directory", "schema-dir"),
         ];
+        row_mapping.sort();
 
         let mut rows = Vec::new();
         for (friendly, internal) in row_mapping {
