@@ -70,7 +70,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     }
     data.insert("instance-name", project.instance_name.to_string());
     if let Some(parent) = project_path.parent() {
-        data.insert("root", parent.canonicalize()?.display().to_string());
+        data.insert("root", parent.display().to_string());
 
         // TODO: this should be moved to gel-dsn
         let manifest = manifest::read(&project_path)?;

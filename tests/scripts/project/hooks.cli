@@ -37,8 +37,8 @@ $ gel project info --json
 ! {
 !   "branch": "default-branch-name",
 !   "instance-name": "inst2",
-!   "root": "%{PATH}",
-!   "schema-dir": "%{PATH}/database_schema"
+!   "root": "%{GREEDYDATA}",
+!   "schema-dir": "%{GREEDYDATA}database_schema"
 ! }
 
 # Switch to a new branch
