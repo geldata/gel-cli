@@ -16,7 +16,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     let dir = options
         .project_dir
         .clone()
-        .map(ProjectDir::Search)
+        .map(ProjectDir::NoSearch)
         .unwrap_or_else(|| ProjectDir::SearchCwd);
     let result = gel_tokio::dsn::ProjectSearchResult::find(dir)?
         .and_then(|m| m.project.map(|p| (p, m.project_path)));
@@ -46,7 +46,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
             let builder = gel_tokio::dsn::Builder::new().without_system().with_fs();
 
             let config = if let Some(project_dir) = options.project_dir.clone() {
-                builder.with_project_dir(project_dir).build()?
+                builder.with_explicit_project(project_dir).build()?
             } else {
                 builder.with_auto_project_cwd().build()?
             };
