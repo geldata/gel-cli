@@ -1682,15 +1682,14 @@ dependencies = [
 
 [[package]]
 name = "gel-dsn"
-version = "0.2.13"
+version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb0c27dda7e5d5e1364552ba8912b2c247c3c63c08189987c17e7fda927280c2"
+checksum = "6ff42d62265e679b2012abc67fe85547881716e833de9b0cfded3f7cdf2e58c5"
 dependencies = [
  "base64 0.22.1",
  "crc16",
  "derive_more",
  "dirs",
- "gel-auth",
  "gel-errors",
  "gel-stream",
  "log",
@@ -1701,7 +1700,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1",
- "thiserror 2.0.12",
  "url",
  "whoami",
 ]
