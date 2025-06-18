@@ -1,89 +1,121 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 use clap::ValueHint;
 use const_format::concatcp;
+use gel_tokio::dsn::{DatabaseBranch, ProjectDir};
 
 use crate::branding::BRANDING_CLI_CMD;
 use crate::branding::BRANDING_CLOUD;
 use crate::commands::ExitCode;
-use crate::portable::project;
+use crate::portable::project::manifest;
 use crate::print::{self, Highlight, msg};
 use crate::table;
 
-use super::get_stash_path;
-
 pub fn run(options: &Command) -> anyhow::Result<()> {
-    let ctx = project::ensure_ctx(options.project_dir.as_deref())?;
-    let schema_dir = ctx.resolve_schema_dir()?;
+    let dir = options
+        .project_dir
+        .clone()
+        .map(ProjectDir::NoSearch)
+        .unwrap_or_else(|| ProjectDir::SearchCwd);
+    let result = gel_tokio::dsn::ProjectSearchResult::find(dir)?
+        .and_then(|m| m.project.map(|p| (p, m.project_path)));
 
-    let stash_dir = get_stash_path(&ctx.location.root)?;
-    if !stash_dir.exists() {
+    let Some((project, project_path)) = result else {
         msg!(
             "{} {} Run `{BRANDING_CLI_CMD} project init`.",
             print::err_marker(),
             "Project is not initialized.".emphasized()
         );
         return Err(ExitCode::new(1).into());
+    };
+
+    let mut data = BTreeMap::new();
+    match project.db() {
+        DatabaseBranch::Database(database) => {
+            data.insert("database", database);
+        }
+        DatabaseBranch::Branch(branch) => {
+            data.insert("branch", branch);
+        }
+        DatabaseBranch::Ambiguous(ambiguous) => {
+            data.insert("branch", ambiguous);
+        }
+        DatabaseBranch::Default => {
+            // If the project doesn't have a database, get it from the instance.
+            let builder = gel_tokio::dsn::Builder::new().without_system().with_fs();
+
+            let config = if let Some(project_dir) = options.project_dir.clone() {
+                builder.with_explicit_project(project_dir).build()?
+            } else {
+                builder.with_auto_project_cwd().build()?
+            };
+
+            match config.db {
+                DatabaseBranch::Database(database) => {
+                    data.insert("database", database);
+                }
+                DatabaseBranch::Branch(branch) => {
+                    data.insert("branch", branch);
+                }
+                DatabaseBranch::Ambiguous(ambiguous) => {
+                    data.insert("branch", ambiguous);
+                }
+                DatabaseBranch::Default => {
+                    // Nobody has a db/branch setting, so we can't determine the database
+                    data.insert("database", "(unavailable)".to_string());
+                }
+            }
+        }
     }
-    let instance_name = fs::read_to_string(stash_dir.join("instance-name"))?;
-    let cloud_profile_file = stash_dir.join("cloud-profile");
-    let cloud_profile = cloud_profile_file
-        .exists()
-        .then(|| fs::read_to_string(cloud_profile_file))
-        .transpose()?;
+    data.insert("instance-name", project.instance_name.to_string());
+    if let Some(parent) = project_path.parent() {
+        data.insert("root", parent.display().to_string());
+
+        // TODO: this should be moved to gel-dsn
+        let manifest = manifest::read(&project_path)?;
+        let schema_dir = parent.join(manifest.project().get_schema_dir());
+        data.insert("schema-dir", schema_dir.display().to_string());
+    }
+    if let Some(cloud_profile) = project.cloud_profile {
+        data.insert("cloud-profile", cloud_profile);
+    }
 
     let item = options
         .get
         .as_deref()
         .or(options.instance_name.then_some("instance-name"));
+
     if let Some(item) = item {
-        match item {
-            "instance-name" => {
-                if options.json {
-                    println!("{}", serde_json::to_string(&instance_name)?);
-                } else {
-                    println!("{instance_name}");
-                }
-            }
-            "cloud-profile" => {
-                if options.json {
-                    println!("{}", serde_json::to_string(&cloud_profile)?);
-                } else if let Some(profile) = cloud_profile {
-                    println!("{profile}");
-                }
-            }
-            "schema-dir" => {
-                if options.json {
-                    println!("{}", serde_json::to_string(&schema_dir)?);
-                } else {
-                    println!("{}", schema_dir.display());
-                }
-            }
-            _ => unreachable!(),
+        let data = data
+            .remove(item)
+            .unwrap_or_else(|| "(unavailable)".to_string());
+        if options.json {
+            println!("{}", serde_json::to_string(&data)?);
+        } else {
+            println!("{data}");
         }
     } else if options.json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&JsonInfo {
-                instance_name: &instance_name,
-                cloud_profile: cloud_profile.as_deref(),
-                root: &ctx.location.root,
-                schema_dir: &schema_dir,
-            })?
-        );
+        println!("{}", serde_json::to_string_pretty(&data)?);
     } else {
-        let root = ctx.location.root.display().to_string();
-        let schema_dir = schema_dir.display().to_string();
-
-        let mut rows: Vec<(&str, String)> = vec![
-            ("Instance name", instance_name),
-            ("Project root", root),
-            ("Schema dir", schema_dir),
+        let mut row_mapping: Vec<(&str, &str)> = vec![
+            ("Branch", "branch"),
+            ("Database", "database"),
+            ("Instance name", "instance-name"),
+            ("Project root", "root"),
+            (concatcp!(BRANDING_CLOUD, " profile"), "cloud-profile"),
+            ("Root", "root"),
+            ("Schema directory", "schema-dir"),
         ];
-        if let Some(profile) = cloud_profile.as_deref() {
-            rows.push((concatcp!(BRANDING_CLOUD, " profile"), profile.to_string()));
+        row_mapping.sort();
+
+        let mut rows = Vec::new();
+        for (friendly, internal) in row_mapping {
+            if let Some(value) = data.remove(internal) {
+                rows.push((friendly, value));
+            }
         }
+
         table::settings(rows.as_slice());
     }
     Ok(())
@@ -107,19 +139,12 @@ pub struct Command {
         "instance-name",
         "cloud-profile",
         "schema-dir",
+        "branch",
+        "database",
+        "root",
     ])]
     /// Get a specific value:
     ///
     /// * `instance-name` -- Name of the listance the project is linked to
     pub get: Option<String>,
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "kebab-case")]
-struct JsonInfo<'a> {
-    instance_name: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    cloud_profile: Option<&'a str>,
-    root: &'a Path,
-    schema_dir: &'a Path,
 }

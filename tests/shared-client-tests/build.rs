@@ -65,7 +65,7 @@ fn main() {
         ),
         (
             "multiple_compound_env",
-            "Multiple compound environment variables",
+            "Multiple compound options were specified while parsing environment variables",
         ),
         (
             "exclusive_options",

@@ -16,8 +16,8 @@ pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]
 
 ignore {
     ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
-    ! [edgedb] WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
-    ! [edgedb] CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
     ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
 }
 
