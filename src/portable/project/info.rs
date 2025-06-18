@@ -16,7 +16,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     let dir = options
         .project_dir
         .clone()
-        .map(ProjectDir::Exact)
+        .map(ProjectDir::Search)
         .unwrap_or_else(|| ProjectDir::SearchCwd);
     let result = gel_tokio::dsn::ProjectSearchResult::find(dir)?
         .and_then(|m| m.project.map(|p| (p, m.project_path)));
