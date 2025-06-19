@@ -1,0 +1,42 @@
+#!/usr/bin/env clitest --v0
+
+pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
+
+ignore {
+    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance %{GREEDYDATA}
+}
+
+using tempdir;
+
+$ gel instance destroy -I non_interactive_test --force
+%EXIT any
+*
+
+$ gel instance create -I non_interactive_test
+*
+
+defer {
+    $ gel instance destroy -I non_interactive_test --force
+    %EXIT any
+    *
+}
+
+set GEL_INSTANCE non_interactive_test;
+
+$ gel query "SELECT 7*8"
+! 56
+
+$ gel query "SELECT 'abc'++'def'"
+! "abcdef"
+
+$ gel query "SELECT 'xy'++'z'"
+! "xyz"
+
+$ gel query "SELECT 'AB'++'C'; SELECT 'XY'++'Z'"
+! "XYZ"
+
+$ gel query "CREATE TYPE default::Type1;"
+! OK: CREATE TYPE

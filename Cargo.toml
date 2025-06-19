@@ -177,6 +177,7 @@ nix = "0.29"
 winapi = "0.3.8"
 winreg = "0.52.0"
 wslapi = "0.1.3"
+dunce = "1.0.5"
 
 # Necessary only for unpacking the WSL image
 zip = { version = "2.5.0", default-features = false, features = ["deflate", "deflate64"] }
