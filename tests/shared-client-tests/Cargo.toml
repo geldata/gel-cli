@@ -22,3 +22,4 @@ gel-protocol = { version = "0", features = ["all-types"] }
 sha1 = "0.10.1"
 indexmap = { workspace = true }
 hex = { version = "0.4.3", features = ["serde"] }
+dunce = "1.0.4"

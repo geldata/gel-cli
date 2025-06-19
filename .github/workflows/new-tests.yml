@@ -8,6 +8,8 @@ on:
 
 env:
   CACHE_KEY: 2
+  CLITEST_VERSION: "=0.1.26"
+  RUST_VERSION: "1.85"
 
 jobs:
   build:
@@ -27,8 +29,8 @@ jobs:
         uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.85'
           targets: 'x86_64-unknown-linux-musl'
+          toolchain: '${{ env.RUST_VERSION }}'
 
       - name: Write .cargo/config.toml
         if: runner.os == 'Windows'
@@ -90,13 +92,13 @@ jobs:
         uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.85'
+          toolchain: '${{ env.RUST_VERSION }}'
 
       - name: Install clitest from crates.io
         uses: baptiste0928/cargo-install@91c5da15570085bcde6f4d7aed98cb82d6769fd3
         with:
           crate: clitest
-          version: '=0.1.21'
+          version: '${{ env.CLITEST_VERSION }}'
 
       - name: Download artifacts
         uses: actions/download-artifact@v4
@@ -140,7 +142,7 @@ jobs:
           find tests/scripts -name "*.cli" -type f | while read -r test_file; do
             test_name=$(basename "$test_file" .cli)
             echo "::group::Running test: $test_name"
-            TERM=xterm-256color clitest "$test_file"
+            TERM=xterm-256color clitest --timeout 120 "$test_file"
             echo "::endgroup::"
           done
         shell: bash

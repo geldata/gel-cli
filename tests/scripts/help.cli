@@ -1,0 +1,20 @@
+#!/usr/bin/env clitest --v0
+
+# No --host in --help
+$ gel --help
+reject {
+    ! %{GREEDYDATA}--host%{GREEDYDATA}
+}
+! Usage: gel [OPTIONS] [COMMAND]
+*
+! %{GREEDYDATA}--dsn%{GREEDYDATA}
+*
+
+# Connect has --dsn and --host
+$ TERM=dumb gel --help-connect
+! %{GREEDYDATA}Connection Options (full list):%{GREEDYDATA}
+*
+! %{GREEDYDATA}--dsn%{GREEDYDATA}
+*
+! %{GREEDYDATA}--host%{GREEDYDATA}
+*

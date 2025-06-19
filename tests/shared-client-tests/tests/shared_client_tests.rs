@@ -100,7 +100,7 @@ fn mock_project(
     files: &indexmap::IndexMap<&str, &str>,
 ) -> Vec<MockFile> {
     let path = PathBuf::from(project_path);
-    let canon = fs::canonicalize(&path).unwrap();
+    let canon = dunce::canonicalize(&path).unwrap();
     #[cfg(windows)]
     let bytes = canon.to_str().unwrap().as_bytes();
     #[cfg(unix)]

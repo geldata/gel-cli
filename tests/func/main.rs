@@ -20,8 +20,6 @@ use test_utils::server::ServerInstance;
 #[cfg(not(windows))]
 mod configure;
 #[cfg(not(windows))]
-mod instance_link;
-#[cfg(not(windows))]
 mod migrations;
 #[cfg(not(windows))]
 mod non_interactive;
@@ -30,8 +28,6 @@ mod non_interactive;
 // and also something wrong on musl libc
 #[cfg(all(target_os = "linux", not(target_env = "musl")))]
 mod interactive;
-
-mod help;
 
 pub const BRANDING_CLI_CMD: &str = if cfg!(feature = "gel") {
     "gel"
@@ -75,13 +71,6 @@ impl Config {
     pub fn path(&self) -> &Path {
         self.dir.path()
     }
-}
-
-#[cfg(not(windows))]
-#[test]
-fn simple_query() {
-    let cmd = SERVER.admin_cmd().arg("query").arg("SELECT 1+7").assert();
-    cmd.success().stdout("8\n");
 }
 
 #[cfg(not(windows))]
