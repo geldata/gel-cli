@@ -1,0 +1,56 @@
+#!/usr/bin/env clitest --v0
+
+$ gel instance destroy -I watch_test2 --force
+%EXIT any
+*
+
+using tempdir;
+
+using new dir "watch_test2";
+
+$ gel project init --instance=watch_test2 --non-interactive
+*
+
+$ find .
+*
+
+# Create a git repo for tests
+$ git init -b main
+*
+
+$ git add dbschema
+*
+
+$ git commit -m 'Empty schema'
+*
+
+$ git checkout -b user
+*
+
+$ echo "module test {
+    type User {
+        name: str;
+    }
+}" > dbschema/default.gel
+*
+
+$ git add dbschema/default.gel
+*
+
+$ git commit -m 'Add User'
+*
+
+background {
+   $ gel watch --migrate --verbose
+   %EXIT 1
+   *
+   ! gel error: Current git branch (main) is different from the branch used to start watch mode (user), exiting.
+}
+
+# Give it a second to start up
+$ sleep 1
+
+$ git checkout main
+*
+
+$ sleep 5
