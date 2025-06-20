@@ -263,8 +263,8 @@ impl Native {
     }
 
     pub fn current_dir(&mut self, path: impl AsRef<Path>) -> &mut Self {
-        // Canonicalize the path using `dunce` to ensure we get a sane path
-        // on all platforms.
+        // Canonicalize the path using `dunce` to ensure we get a sane path on
+        // all platforms. See https://github.com/rust-lang/rust/issues/42869
         match dunce::canonicalize(path.as_ref()) {
             Ok(path) => {
                 self.command.current_dir(path);
