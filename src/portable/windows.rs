@@ -596,7 +596,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
     if update_cli {
         msg!("Updating container CLI version...");
         if let Some(bin_path) = Env::_wsl_linux_binary()? {
-            let bin_path = fs::canonicalize(bin_path)?;
+            let bin_path = dunce::canonicalize(bin_path)?;
             wsl_simple_cmd(
                 wsl,
                 &distro,

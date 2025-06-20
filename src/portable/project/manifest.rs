@@ -68,7 +68,7 @@ impl Project {
             return Ok(schema_dir);
         }
 
-        fs::canonicalize(&schema_dir)
+        dunce::canonicalize(&schema_dir)
             .with_context(|| format!("failed to canonicalize dir {schema_dir:?}"))
     }
 }
