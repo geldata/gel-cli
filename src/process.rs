@@ -59,6 +59,7 @@ pub struct Native {
     marker: Cow<'static, str>,
     description: Cow<'static, str>,
     proxy: bool,
+    proxy_formatter: Box<dyn Fn(String) -> String + Send + Sync>,
     quiet: bool,
     pid_file: Option<PathBuf>,
 }
@@ -202,6 +203,7 @@ impl Native {
             quiet: false,
             stop_process: None,
             pid_file: None,
+            proxy_formatter: Box::new(|s| s.muted().to_string()),
         };
         #[cfg(unix)]
         {
@@ -411,8 +413,8 @@ impl Native {
             (child_result, _, _) = async {
                 tokio::join!(
                     child.wait(),
-                    stdout_loop(mark, out, capture_out.then_some(&mut stdout), self.quiet),
-                    stdout_loop(mark, err, capture_err.then_some(&mut stderr), self.quiet),
+                    stdout_loop(mark, out, capture_out.then_some(&mut stdout), self.quiet, &self.proxy_formatter),
+                    stdout_loop(mark, err, capture_err.then_some(&mut stderr), self.quiet, &self.proxy_formatter),
                 )
             } => child_result,
             _ = self.signal_loop_tokio(pid) => unreachable!(),
@@ -452,7 +454,7 @@ impl Native {
         let out = child.stdout.take();
         let mut res = tokio::select! {
             res = child.wait() => Err(res),
-            _ = stdout_loop(mark, out, Some(&mut stdout), self.quiet) => Ok(()),
+            _ = stdout_loop(mark, out, Some(&mut stdout), self.quiet, &self.proxy_formatter) => Ok(()),
             _ = self.signal_loop(pid, &term) => unreachable!(),
         };
 
@@ -552,8 +554,8 @@ impl Native {
             (result, _, _) = async {
                 tokio::join!(
                     self.run_and_kill(child, f),
-                    stdout_loop(&self.marker, out, None, self.quiet),
-                    stdout_loop(&self.marker, err, None, self.quiet),
+                    stdout_loop(&self.marker, out, None, self.quiet, &self.proxy_formatter),
+                    stdout_loop(&self.marker, err, None, self.quiet, &self.proxy_formatter),
                 )
             } => result,
             _ = self.signal_loop(pid, &term) => unreachable!(),
@@ -589,8 +591,8 @@ impl Native {
             (child_result, _, _) = async {
                 tokio::join!(
                     child.wait(),
-                    stdout_loop(&self.marker, out, None, self.quiet),
-                    stdout_loop(&self.marker, err, None, self.quiet),
+                    stdout_loop(&self.marker, out, None, self.quiet, &self.proxy_formatter),
+                    stdout_loop(&self.marker, err, None, self.quiet, &self.proxy_formatter),
                 )
             } => child_result,
             _ = feed_data(inp, data) => unreachable!(),
@@ -811,6 +813,13 @@ impl Native {
         self.stop_process = Some(Box::new(f));
         self
     }
+    pub fn set_proxy_formatter(
+        &mut self,
+        formatter: impl Fn(String) -> String + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.proxy_formatter = Box::new(formatter);
+        self
+    }
     /// Replace current process with this one instead off spawning
     #[cfg(unix)]
     pub fn exec_replacing_self(&self) -> anyhow::Result<std::convert::Infallible> {
@@ -857,6 +866,7 @@ async fn stdout_loop(
     pipe: Option<impl AsyncRead + Unpin>,
     capture_buffer: Option<&mut Vec<u8>>,
     quiet: bool,
+    format: &Box<dyn Fn(String) -> String + Send + Sync>,
 ) {
     match (pipe, capture_buffer) {
         (Some(mut pipe), Some(buffer)) => {
@@ -872,16 +882,16 @@ async fn stdout_loop(
             let mut lines = buf.lines();
             while let Ok(Some(line)) = lines.next_line().await {
                 let message = if cfg!(windows) {
-                    format!("[{marker}] {line}\r\n").muted()
+                    format!("[{marker}] {line}\r\n")
                 } else {
-                    format!("[{marker}] {line}\n").muted()
+                    format!("[{marker}] {line}\n")
                 };
 
                 if quiet {
                     log::debug!("{}", message);
                 } else {
                     io::stderr()
-                        .write_all(message.to_string().as_bytes())
+                        .write_all(format(message).as_bytes())
                         .await
                         .ok();
                 }
