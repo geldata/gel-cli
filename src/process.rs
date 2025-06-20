@@ -263,7 +263,17 @@ impl Native {
     }
 
     pub fn current_dir(&mut self, path: impl AsRef<Path>) -> &mut Self {
-        self.command.current_dir(path);
+        // Canonicalize the path using `dunce` to ensure we get a sane path
+        // on all platforms.
+        match dunce::canonicalize(path.as_ref()) {
+            Ok(path) => {
+                self.command.current_dir(path);
+            }
+            Err(e) => {
+                log::warn!("failed to canonicalize dir {:?}: {e:#}", path.as_ref());
+                self.command.current_dir(path.as_ref());
+            }
+        };
         self
     }
 
