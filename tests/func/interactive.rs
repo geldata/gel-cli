@@ -1,4 +1,4 @@
-use crate::{Config, SERVER, util::OutputExt};
+use crate::{Config, SERVER};
 use std::error::Error;
 
 #[test]
