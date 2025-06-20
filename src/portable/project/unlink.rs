@@ -19,7 +19,7 @@ pub fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<
     let Some(project) = project::find_project(options.project_dir.as_deref())? else {
         anyhow::bail!("`{MANIFEST_FILE_DISPLAY_NAME}` not found, unable to unlink instance.");
     };
-    let canon = fs::canonicalize(&project.root)
+    let canon = dunce::canonicalize(&project.root)
         .with_context(|| format!("failed to canonicalize dir {:?}", project.root))?;
     let stash_path = get_stash_path(&canon)?;
 
