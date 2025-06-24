@@ -126,8 +126,10 @@ jobs:
           echo
           _GEL_WSL_LINUX_BINARY=artifacts/debug-gel-cli-Linux/gel gel cli init-wsl
           echo "_GEL_WSL_SKIP_UPDATE=true" >> $GITHUB_ENV
-          # Keep WSL running for the rest of the workflow
-          bash &
+
+          # Keep WSL running for the rest of the workflow by starting
+          # an "interactive" shell
+          wsl --exec bash &
 
       # Cache the portable packages inside of WSL to save time during tests
       - name: Cache packages inside of WSL
