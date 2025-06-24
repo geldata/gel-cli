@@ -11,6 +11,18 @@ ignore {
 
 using tempdir;
 
+if TARGET_OS == "Windows" {
+    $ wsl -l -v
+    *
+}
+
+defer {
+    if TARGET_OS == "Windows" {
+        $ wsl -l -v
+        *
+    }
+}
+
 for INSTANCE in "dump_restore" "dump_restore2" {
     $ gel instance destroy -I $INSTANCE --force
     %EXIT any
