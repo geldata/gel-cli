@@ -91,7 +91,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
         with:
-          components: "cargo,rustc,rust-std"
+          components: "cargo,rustc,rust-std,rustfmt,clippy"
           toolchain: '${{ env.RUST_VERSION }}'
 
       - name: Install clitest from crates.io
@@ -126,6 +126,8 @@ jobs:
           echo
           _GEL_WSL_LINUX_BINARY=artifacts/debug-gel-cli-Linux/gel gel cli init-wsl
           echo "_GEL_WSL_SKIP_UPDATE=true" >> $GITHUB_ENV
+          # Keep WSL running for the rest of the workflow
+          bash &
 
       # Cache the portable packages inside of WSL to save time during tests
       - name: Cache packages inside of WSL
