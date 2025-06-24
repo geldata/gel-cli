@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 45
     strategy:
       matrix:
-        os: [ubuntu-22.04, ubuntu-latest, macos-latest, windows-2019]
+        os: [ubuntu-22.04, ubuntu-latest, macos-latest, windows-2025]
         # migrations tests work only on nightly
         edgedb-version: ["nightly"]
     env:
@@ -43,7 +43,7 @@ jobs:
 
       - name: Install EdgeDB
         uses: edgedb/setup-edgedb@v1
-        if: ${{ matrix.os != 'windows-2019' }}
+        if: ${{ matrix.os != 'windows-2025' }}
         with:
           server-version: ${{ matrix.edgedb-version }}
 
@@ -85,7 +85,7 @@ jobs:
 
       - name: Install EdgeDB
         uses: edgedb/setup-edgedb@v1
-        if: ${{ matrix.os != 'windows-2019' }}
+        if: ${{ matrix.os != 'windows-2025' }}
         with:
           server-version: ${{ matrix.edgedb-version }}
 
@@ -149,7 +149,7 @@ jobs:
 
   portable-tests-windows:
     needs: musl-test
-    runs-on: windows-2019
+    runs-on: windows-2025
     timeout-minutes: 45
     strategy:
       matrix:
