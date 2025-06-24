@@ -1300,7 +1300,7 @@ jobs:
 
 
   build-win-x86_64:
-    runs-on: windows-2019
+    runs-on: windows-2025
     needs: prep
 
     if: needs.prep.outputs.if_win_x86_64 == 'true'
