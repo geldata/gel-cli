@@ -1,17 +1,5 @@
 #!/usr/bin/env clitest --v0
 
-# Functional tests for project linking
-# Key:
-#   - # <comment>
-#   - $ <command>
-#   - ? <grok pattern>
-#   - ! <literal>
-#   - repeat { ... }
-#   - option { ... }
-#   - ignore { ... }
-#   - choice { ... }
-#   - unordered { ... }
-
 pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
 
 ignore {
@@ -29,11 +17,12 @@ $ gel instance destroy -I project2 --force
 %EXIT any
 *
 
-$ mktemp -d
-%SET WORK_DIR
+using tempdir;
+
+$ cp -R $INITIAL_PWD/../../proj .
 *
 
-$ cp -R ../../proj $WORK_DIR
+cd proj;
 
 $ gel --version
 ? Gel CLI %{VERSION}
@@ -72,11 +61,18 @@ optional {
 ! To connect to the instance run:
 !   gel -I inst1
 
-$ gel project info --instance-name --project-dir=$WORK_DIR/proj/project1
+
+# =================================
+# project1
+# =================================
+
+# Note: we work with project1 from `..`, so all commands are relative
+
+$ gel project info --instance-name --project-dir=./project1
 %EXIT 1
 ! gel error: Project is not initialized. Run `gel project init`.
 
-$ gel project init --link --server-instance=inst1 --non-interactive --project-dir=$WORK_DIR/proj/project1
+$ gel project init --link --server-instance=inst1 --non-interactive --project-dir=./project1
 ! Found `edgedb.toml` in %{GREEDYDATA}
 ! Linking project...
 ? WARNING: existing instance has version %{DATA}, but nightly is required by `gel.toml` \(or `edgedb.toml`\)
@@ -85,13 +81,48 @@ $ gel project init --link --server-instance=inst1 --non-interactive --project-di
 ! Project linked
 ! To connect to inst1, navigate to %{GREEDYDATA} and run `gel`
 
-$ gel project info --instance-name --project-dir=$WORK_DIR/proj/project1
+$ gel project info --instance-name --project-dir=./project1
 ! inst1
 
-$ cd $WORK_DIR/proj/project1 && gel query "SELECT 1"
+$ cd ./project1 && gel query "SELECT 1"
 ! 1
 
-$ gel project init --non-interactive --project-dir=$WORK_DIR/proj/project2
+$ gel instance list
+*
+? │ local %{GREEDYDATA} inst1 %{GREEDYDATA}
+*
+
+$ gel instance destroy --instance=inst1 --non-interactive
+%EXIT 2
+!!!
+Instance "inst1" is used by the following project:
+  %{GREEDYDATA}
+If you really want to destroy the instance, run:
+  gel instance destroy -I "inst1" --force
+!!!
+
+$ gel project unlink -D --non-interactive --project-dir=./project1
+
+$ gel instance list
+reject {
+    ! │ local %{GREEDYDATA} inst1 %{GREEDYDATA}
+}
+*
+
+$ gel instance destroy --instance=project1 --non-interactive
+%EXIT 8
+*
+! gel error: Could not find Gel instance 'project1'
+
+# =================================
+# project2
+# =================================
+
+# Note: we work with project2 in pwd
+
+cd "project2";
+
+$ gel project init --non-interactive
 ! No `gel.toml` (or `edgedb.toml`) found in %{DATA} or above
 ! Initializing new project...
 ! Checking Gel versions...
@@ -113,15 +144,15 @@ optional {
 ! Applying migrations...
 ! Everything is up to date. Revision initial
 ! Project initialized.
-! To connect to project2, navigate to %{GREEDYDATA} and run `gel`
+! To connect to project2, run `gel`
 
-$ gel project info --instance-name --project-dir=$WORK_DIR/proj/project2
+$ gel project info --instance-name
 ! project2
 
-$ cd $WORK_DIR/proj/project2 && gel query "SELECT 1"
+$ gel query "SELECT 1"
 ! 1
 
-$ gel project upgrade --force --project-dir=$WORK_DIR/proj/project2
+$ gel project upgrade --force
 ignore {
     ! [systemctl] %{GREEDYDATA}
 }
@@ -144,10 +175,7 @@ choice {
 ! Restore completed
 ? Instance project2 successfully upgraded to %{VERSION}
 
-$ cd $WORK_DIR/proj/project2 && gel query "SELECT 1"
-optional {
-    ! Connecting to Gel instance %{GREEDYDATA}...
-}
+$ gel query "SELECT 1"
 ! 1
 
 $ gel instance destroy --instance=project2 --non-interactive
@@ -159,45 +187,19 @@ If you really want to destroy the instance, run:
   gel instance destroy -I "project2" --force
 !!!
 
-$ gel instance destroy --instance=inst1 --non-interactive
-%EXIT 2
-!!!
-Instance "inst1" is used by the following project:
-  %{GREEDYDATA}
-If you really want to destroy the instance, run:
-  gel instance destroy -I "inst1" --force
-!!!
-
-$ gel instance destroy --instance=project1 --non-interactive
-%EXIT 8
-*
-! gel error: Could not find Gel instance 'project1'
-
 $ gel instance list
 *
-? │ local %{GREEDYDATA} inst1 %{GREEDYDATA}
-*
-? │ local %{GREEDYDATA} project2 %{GREEDYDATA}
+! │ local %{GREEDYDATA} project2 %{GREEDYDATA}
 *
 
 $ gel instance destroy --instance=project2 --force
 !!!
 Unlinking %{GREEDYDATA}
-Gel instance 'project2' was successfully deleted.
+Gel instance 'project2' was successfully deleted.   
 !!!
 
-$ gel instance list
-*
-? │ local %{GREEDYDATA} inst1 %{GREEDYDATA}
-*
-
-$ gel project unlink -D --non-interactive --project-dir=$WORK_DIR/proj/project1
-
-$ gel instance list
-*
-
-$ gel project init --non-interactive --project-dir=$WORK_DIR/proj/project2
-! Found `gel.toml` in %{DATA}/proj/project2
+$ gel project init --non-interactive
+! Found `gel.toml` in %{PATH}
 ! Initializing project...
 ! Checking Gel versions...
 ? ┌%{GREEDYDATA}┐
@@ -211,9 +213,9 @@ repeat {
 ! Applying migrations...
 ! Everything is up to date. Revision initial
 ! Project initialized.
-! To connect to project2, navigate to %{DATA}/proj/project2 and run `gel`
+! To connect to project2, run `gel`
 
-$ gel project upgrade --to-latest --force --project-dir=$WORK_DIR/proj/project2
+$ gel project upgrade --to-latest --force
 choice {
     sequence {
         ? Version %{VERSION} is already downloaded
@@ -259,4 +261,4 @@ $ gel instance revert --instance=project2 --no-confirm
 *
 ! Instance project2 is successfully reverted to %{VERSION}
 
-$ gel project unlink -D --non-interactive --project-dir=$WORK_DIR/proj/project2
+$ gel project unlink -D --non-interactive

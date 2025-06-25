@@ -1689,14 +1689,15 @@ dependencies = [
 
 [[package]]
 name = "gel-dsn"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ff42d62265e679b2012abc67fe85547881716e833de9b0cfded3f7cdf2e58c5"
+checksum = "8985330a0932d11ee8570574f57a8151c621bcdfcc38abca5c3a8379c7bd7a05"
 dependencies = [
  "base64 0.22.1",
  "crc16",
  "derive_more",
  "dirs",
+ "dunce",
  "gel-errors",
  "gel-stream",
  "log",
@@ -4355,6 +4356,7 @@ name = "shared-client-tests"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
+ "dunce",
  "gel-protocol",
  "hex",
  "indexmap",

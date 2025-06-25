@@ -69,7 +69,7 @@ clap = {workspace = true, features=["derive", "cargo", "deprecated", "wrap_help"
 clap_complete = "4.4.3"
 color-print = "0.3.5"
 const_format = "0.2.33"
-dunce = "1.0.3"
+dunce = "1.0.5"
 strsim = "0.11.0"
 rpassword = "7.3.1"
 colorful = "0.3.2"
@@ -177,6 +177,7 @@ nix = "0.29"
 winapi = "0.3.8"
 winreg = "0.52.0"
 wslapi = "0.1.3"
+dunce = "1.0.5"
 
 # Necessary only for unpacking the WSL image
 zip = { version = "2.5.0", default-features = false, features = ["deflate", "deflate64"] }

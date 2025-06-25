@@ -1,0 +1,13 @@
+#!/usr/bin/env clitest --v0
+
+using tempdir;
+
+$ gel instance link \
+    --non-interactive \
+    --trust-tls-cert \
+    --overwrite \
+    --quiet \
+    _this_instance_does_not_exist_
+%EXIT 1
+! gel error: no connection options are specified
+!   Hint: Remove `--non-interactive` option or specify `--host=localhost` and/or `--port=5656`. See `gel --help-connect` for details
