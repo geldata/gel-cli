@@ -30,7 +30,7 @@ gel-stream = { version = "0.4" }
 [package]
 name = "gel-cli"
 license = "MIT/Apache-2.0"
-version = "7.7.0"
+version = "7.8.0-dev"
 authors = ["Gel Data Inc. <yo@geldata.com>"]
 edition.workspace = true
 rust-version.workspace = true
