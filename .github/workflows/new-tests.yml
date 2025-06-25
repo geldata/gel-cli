@@ -127,17 +127,6 @@ jobs:
           echo
           _GEL_WSL_LINUX_BINARY=artifacts/debug-gel-cli-Linux/gel gel cli init-wsl
           echo "_GEL_WSL_SKIP_UPDATE=true" >> $GITHUB_ENV
-          echo WSL_EDGEDB_PATH=$(wslpath -w /home/edgedb/.local/share/edgedb/portable) >> $GITHUB_ENV
-
-      # Cache the portable packages inside of WSL to save time during tests
-      - name: Cache packages inside of WSL
-        if: runner.os == 'Windows'
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.WSL_EDGEDB_PATH }}
-          key: ${{ runner.os }}-wsl-cache-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-wsl-cache-
 
       - name: Set executable permissions
         if: runner.os != 'Windows'
