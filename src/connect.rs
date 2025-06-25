@@ -420,7 +420,7 @@ impl Connection {
         &mut self,
         query: &str,
         arguments: &A,
-    ) -> Result<(Bytes, Vec<Warning>), Error>
+    ) -> Result<(String, Vec<Warning>), Error>
     where
         A: QueryArgs,
     {
@@ -430,7 +430,7 @@ impl Connection {
         &mut self,
         query: &str,
         arguments: &A,
-    ) -> Result<(Bytes, Vec<Warning>), Error>
+    ) -> Result<(String, Vec<Warning>), Error>
     where
         A: QueryArgs,
     {
@@ -445,7 +445,7 @@ impl Connection {
             )
             .await?;
         update_state(&mut self.state, &resp)?;
-        Ok((resp.status_data, resp.warnings))
+        Ok((resp.status, resp.warnings))
     }
     pub async fn execute_stream<R, A>(
         &mut self,
