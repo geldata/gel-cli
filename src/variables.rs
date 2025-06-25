@@ -23,30 +23,7 @@ pub async fn input_variables(
         return Ok(Value::Tuple(Vec::new()));
     }
     match desc.root() {
-        Some(Descriptor::Tuple(tuple)) if desc.proto().is_at_most(0, 11) => {
-            let mut val = Vec::with_capacity(tuple.element_types.len());
-            for (idx, el) in tuple.element_types.iter().enumerate() {
-                val.push(
-                    input_item(&format!("{idx}"), desc.get(*el)?, desc, prompt, false)
-                        .await?
-                        .expect("no optional"),
-                );
-            }
-            Ok(Value::Tuple(val))
-        }
-        Some(Descriptor::NamedTuple(tuple)) if desc.proto().is_at_most(0, 11) => {
-            let mut fields = Vec::with_capacity(tuple.elements.len());
-            let shape = tuple.elements[..].into();
-            for el in tuple.elements.iter() {
-                fields.push(
-                    input_item(&el.name, desc.get(el.type_pos)?, desc, prompt, false)
-                        .await?
-                        .expect("no optional"),
-                );
-            }
-            Ok(Value::NamedTuple { shape, fields })
-        }
-        Some(Descriptor::ObjectShape(obj)) if desc.proto().is_at_least(0, 12) => {
+        Some(Descriptor::ObjectShape(obj)) => {
             let mut fields = Vec::with_capacity(obj.elements.len());
             let shape = obj.elements[..].into();
             for el in obj.elements.iter() {

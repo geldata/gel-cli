@@ -171,28 +171,26 @@ impl State {
     }
     pub async fn set_idle_transaction_timeout(&mut self) -> anyhow::Result<()> {
         if let Some(conn) = &mut self.connection {
-            if conn.protocol().is_at_least(0, 13) {
-                let d = self.idle_transaction_timeout;
-                log::info!("Setting session_idle_transaction_timeout to {}", d);
-                conn.execute(
-                    &format!(
-                        "CONFIGURE SESSION SET session_idle_transaction_timeout \
-                     := <std::duration>'{}us'",
-                        d.to_micros(),
-                    ),
-                    &(),
-                )
-                .await
-                .map(|_| ())
-                .or_else(|e| {
-                    if e.is::<DisabledCapabilityError>() {
-                        print::warn!("Could not configure session_idle_transaction_timeout: {e}");
-                        return Ok(());
-                    }
-                    Err(e)
-                })
-                .context("cannot configure session_idle_transaction_timeout")?;
-            }
+            let d = self.idle_transaction_timeout;
+            log::info!("Setting session_idle_transaction_timeout to {}", d);
+            conn.execute(
+                &format!(
+                    "CONFIGURE SESSION SET session_idle_transaction_timeout \
+                    := <std::duration>'{}us'",
+                    d.to_micros(),
+                ),
+                &(),
+            )
+            .await
+            .map(|_| ())
+            .or_else(|e| {
+                if e.is::<DisabledCapabilityError>() {
+                    print::warn!("Could not configure session_idle_transaction_timeout: {e}");
+                    return Ok(());
+                }
+                Err(e)
+            })
+            .context("cannot configure session_idle_transaction_timeout")?;
         }
         Ok(())
     }
