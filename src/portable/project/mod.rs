@@ -75,14 +75,18 @@ pub enum Subcommands {
 const EXT_AUTH_SCHEMA: &str = "\
     # Gel Auth is a batteries-included authentication solution\n\
     # for your app built into the Gel server.\n\
+    #\n\
     # See: https://docs.geldata.com/reference/auth\n\
+    #\n\
     #using extension auth;\n\
 ";
 
 const EXT_AI_SCHEMA: &str = "\
     # Gel AI is a set of tools designed to enable you to ship\n\
     # AI-enabled apps with practically no effort.\n\
+    #\n\
     # See: https://docs.geldata.com/reference/ai\n\
+    #\n\
     #using extension ai;\n\
 ";
 
@@ -92,10 +96,13 @@ const EXT_POSTGIS_SCHEMA: &str = "\
     # geographic and various geometric data. The scope of the Gel\n\
     # extension is to mainly adapt the types and functions used in\n\
     # this library with minimal changes.\n\
+    #\n\
     # See: https://docs.geldata.com/reference/stdlib/postgis\n\
+    #\n\
     # `ext::postgis` is not installed by default, use the command\n\
     # `gel extension` to manage its installation, then uncomment\n\
     # the line below to enable it.\n\
+    #\n\
     #using extension postgis;\n\
 ";
 
@@ -318,14 +325,17 @@ fn write_schema_default(dir: &Path, version: &Query) -> anyhow::Result<()> {
         extensions.push(EXT_POSTGIS_SCHEMA);
     }
     if !extensions.is_empty() {
-        extensions.insert(0, "\
+        extensions.insert(
+            0,
+            "\
             # This file contains Gel extensions used by the project.\n\
             # Uncomment the `using extension ...` below to enable them.\n\
-        ");
+        ",
+        );
         let ext_file = dir.join(format!("extensions.{BRANDING_SCHEMA_FILE_EXT}"));
         let tmp = tmp_file_path(&ext_file);
         fs::remove_file(&tmp).ok();
-        fs::write(&tmp, extensions.join("\n"))?;
+        fs::write(&tmp, extensions.join("\n\n"))?;
         fs::rename(&tmp, &ext_file)?;
     }
 
