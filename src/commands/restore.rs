@@ -11,11 +11,11 @@ use anyhow::Context as _;
 use async_fn_stream::TryStreamEmitter;
 use bytes::{Bytes, BytesMut};
 use fn_error_context::context;
+use futures_util::Stream;
 use futures_util::stream::StreamExt;
 use indicatif::{HumanBytes, ProgressBar};
 use tokio::fs;
 use tokio::io::{self, AsyncRead, AsyncReadExt};
-use tokio_stream::Stream;
 
 use edgeql_parser::helpers::quote_name;
 use edgeql_parser::preparser::is_empty;

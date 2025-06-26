@@ -711,8 +711,11 @@ pub async fn execute(
                     .unwrap_or_else(|| prompt.get_state_as_value())?
             };
             println!("Descriptor id: {desc_id}");
-            print::native_to_stdout(tokio_stream::iter([Ok::<_, Error>(value)]), &prompt.print)
-                .await?;
+            print::native_to_stdout(
+                futures_util::stream::iter([Ok::<_, Error>(value)]),
+                &prompt.print,
+            )
+            .await?;
             println!();
             Ok(Skip)
         }

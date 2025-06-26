@@ -6,7 +6,7 @@ use std::task;
 
 use bigdecimal::BigDecimal;
 use bytes::Bytes;
-use tokio_stream::Stream;
+use futures_util::Stream;
 
 use crate::print::native::FormatExt;
 use crate::print::style::Styler;

@@ -2,11 +2,11 @@ use std::str;
 use std::time::Instant;
 
 use anyhow::Context;
+use futures_util::StreamExt;
 use std::io::IsTerminal;
 use terminal_size::{Width, terminal_size};
 use tokio::io::{AsyncWriteExt, stdout};
 use tokio::sync::mpsc::channel;
-use tokio_stream::StreamExt;
 
 use edgeql_parser::preparser::{self, full_statement};
 use gel_errors::{ParameterTypeMismatchError, StateMismatchError, WatchError};
