@@ -72,6 +72,33 @@ pub enum Subcommands {
     Upgrade(upgrade::Command),
 }
 
+const EXT_AUTH_SCHEMA: &str = "\
+    # Gel Auth is a batteries-included authentication solution\n\
+    # for your app built into the Gel server.\n\
+    # See: https://docs.geldata.com/reference/auth\n\
+    #using extension auth;\n\
+";
+
+const EXT_AI_SCHEMA: &str = "\
+    # Gel AI is a set of tools designed to enable you to ship\n\
+    # AI-enabled apps with practically no effort.\n\
+    # See: https://docs.geldata.com/reference/ai\n\
+    #using extension ai;\n\
+";
+
+const EXT_POSTGIS_SCHEMA: &str = "\
+    # The `ext::postgis` extension exposes the functionality of the \n\
+    # PostGIS library. It is a vast library dedicated to handling\n\
+    # geographic and various geometric data. The scope of the Gel\n\
+    # extension is to mainly adapt the types and functions used in\n\
+    # this library with minimal changes.\n\
+    # See: https://docs.geldata.com/reference/stdlib/postgis\n\
+    # `ext::postgis` is not installed by default, use the command\n\
+    # `gel extension` to manage its installation, then uncomment\n\
+    # the line below to enable it.\n\
+    #using extension postgis;\n\
+";
+
 const DEFAULT_SCHEMA: &str = "\
     module default {\n\
     \n\
@@ -279,6 +306,28 @@ fn write_schema_default(dir: &Path, version: &Query) -> anyhow::Result<()> {
     fs::remove_file(&tmp).ok();
     fs::write(&tmp, DEFAULT_SCHEMA)?;
     fs::rename(&tmp, &default)?;
+
+    let mut extensions = vec![];
+    if version.has_ext_auth() {
+        extensions.push(EXT_AUTH_SCHEMA);
+    }
+    if version.has_ext_ai() {
+        extensions.push(EXT_AI_SCHEMA);
+    }
+    if version.has_ext_postgis() {
+        extensions.push(EXT_POSTGIS_SCHEMA);
+    }
+    if !extensions.is_empty() {
+        extensions.insert(0, "\
+            # This file contains Gel extensions used by the project.\n\
+            # Uncomment the `using extension ...` below to enable them.\n\
+        ");
+        let ext_file = dir.join(format!("extensions.{BRANDING_SCHEMA_FILE_EXT}"));
+        let tmp = tmp_file_path(&ext_file);
+        fs::remove_file(&tmp).ok();
+        fs::write(&tmp, extensions.join("\n"))?;
+        fs::rename(&tmp, &ext_file)?;
+    }
 
     if version.is_nonrecursive_access_policies_needed() {
         let futures = dir.join(format!("futures.{BRANDING_SCHEMA_FILE_EXT}"));
