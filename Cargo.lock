@@ -1748,9 +1748,9 @@ dependencies = [
 
 [[package]]
 name = "gel-protocol"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "859d31858e07e65076225752ef0beeb7975079d81194e87c3aea180251be5936"
+checksum = "6434824b0ba883aaef90f28057094d943247f3f57a7fd265507686490141ef01"
 dependencies = [
  "bigdecimal",
  "bitflags 2.9.0",
