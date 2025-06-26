@@ -182,7 +182,7 @@ async fn _run_query(
 
     if !items.can_contain_data() {
         let res = items.complete().await?;
-        print::completion(&res.status_data);
+        print::completion(&res.status);
         return Ok(());
     }
 

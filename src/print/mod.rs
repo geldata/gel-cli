@@ -127,8 +127,8 @@ impl Config {
     }
 }
 
-pub fn completion<B: AsRef<[u8]>>(res: B) {
-    msg!("OK: {}", String::from_utf8_lossy(res.as_ref()).emphasized());
+pub fn completion<B: AsRef<str>>(res: B) {
+    msg!("OK: {}", res.as_ref().emphasized());
 }
 
 async fn format_rows_buf<S, I, E, O>(

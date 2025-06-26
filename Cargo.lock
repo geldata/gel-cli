@@ -368,7 +368,7 @@ checksum = "06e903a20b159e944f91ec8499fe1e55651480c541ea0a584f5d967c49ad9d99"
 dependencies = [
  "arrayref",
  "arrayvec",
- "constant_time_eq",
+ "constant_time_eq 0.3.1",
 ]
 
 [[package]]
@@ -492,9 +492,9 @@ checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "chrono"
-version = "0.4.40"
+version = "0.4.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a7964611d71df112cb1730f2ee67324fcf4d0fc6606acbbe9bfe06df124637c"
+checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
 dependencies = [
  "num-traits",
 ]
@@ -699,13 +699,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c74b8349d32d297c9134b8c88677813a227df8f779daa29bfc29c183fe3dca6"
 
 [[package]]
-name = "convert_case"
-version = "0.7.1"
+name = "constant_time_eq"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bb402b8d4c85569410425650ce3eddc7d698ed96d39a73f941b08fb63082f1e7"
-dependencies = [
- "unicode-segmentation",
-]
+checksum = "3d52eff69cd5e647efe296129160853a42795992097e8af39800e1060caeea9b"
 
 [[package]]
 name = "coolor"
@@ -964,9 +961,9 @@ dependencies = [
 
 [[package]]
 name = "derive-io"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "019d0d87f83e25360def4e4bf5b814baf2c84d396b5839634141ea8d5e93da76"
+checksum = "7e4cb9ab86d9e7cabf990ac7411b91a0ccc12c7bfc4276cde686ddbb009c9368"
 dependencies = [
  "derive-io-macros",
  "tokio",
@@ -974,9 +971,9 @@ dependencies = [
 
 [[package]]
 name = "derive-io-macros"
-version = "0.3.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8dfe1b44d19b460201f62c9a4101f0f605e064398f6e9a7483db676dce36d557"
+checksum = "f2d96797c8c05c6efa4246c11dbaaf76ce283dedca9358911697f1270b18fa0c"
 dependencies = [
  "proc-macro2",
 ]
@@ -1007,7 +1004,6 @@ version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bda628edc44c4bb645fbe0f758797143e4e07926f7ebf4e9bdfbd3d2ce621df3"
 dependencies = [
- "convert_case",
  "proc-macro2",
  "quote",
  "syn 2.0.100",
@@ -1486,19 +1482,18 @@ dependencies = [
 
 [[package]]
 name = "gel-auth"
-version = "0.1.5"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3e14707bff4ae4cedc8bb9d3a4400884f5e42709f1743e9824b10547907f5a3d"
+checksum = "ac4f89ce9bbff96ca4594e09b58fde785507a81aa6c979b2794ef0a2c570f3bd"
 dependencies = [
  "base64 0.22.1",
- "constant_time_eq",
+ "constant_time_eq 0.4.2",
  "derive_more",
  "hmac",
  "md5",
- "rand 0.8.5",
+ "rand 0.9.0",
  "roaring",
  "sha2",
- "thiserror 2.0.12",
  "tracing",
  "unicode-normalization",
 ]
@@ -1664,22 +1659,20 @@ dependencies = [
 
 [[package]]
 name = "gel-db-protocol"
-version = "0.1.1"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e58b0e58b8ace253d135f20ef4d1aa7bbd3ccb8244204f3a0c1a84465cf091d6"
+checksum = "42e863db4641624ffdbc53fd3f002a621c28d2483417c919deb51045893bc199"
 dependencies = [
- "const-str",
  "derive_more",
+ "gel-protogen",
  "paste",
- "thiserror 2.0.12",
- "uuid",
 ]
 
 [[package]]
 name = "gel-derive"
-version = "0.7.2"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0eba15d91dd2840de25e5f483c8430a9e5d250e8efc8910861304c89cafae9db"
+checksum = "9154a66df92262e21e77343bb8e97942b3a4ac7153b153fefd688ba6a23f4f93"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1714,18 +1707,18 @@ dependencies = [
 
 [[package]]
 name = "gel-errors"
-version = "0.5.3"
+version = "0.5.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0df99688f2b3c2ebdec22be88fe572a9c9b6ce5244bb819a47617d8fd63d51f"
+checksum = "d5ec3314e56070c87b0d8106055b626c93e7cea5022baa72c45d81c303efafaf"
 dependencies = [
  "bytes",
 ]
 
 [[package]]
 name = "gel-jwt"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "494cedc57b6ba0a9138ad2ca08d4a682acdb0cc048ab9f764a5d027bb16310ed"
+checksum = "8377b62edee6137b25274c2dcb162ecb203a55a63cfecd38af07263ab476db9e"
 dependencies = [
  "base64 0.22.1",
  "base64ct",
@@ -1748,7 +1741,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "sha2",
- "thiserror 2.0.12",
  "tracing",
  "uuid",
  "zeroize",
@@ -1756,16 +1748,18 @@ dependencies = [
 
 [[package]]
 name = "gel-protocol"
-version = "0.8.4"
+version = "0.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "898c6279201bf032d9b59cb5a81770ed93c4beceb84f7e6ce4a213459f37fa39"
+checksum = "a8133b5ad6193dc7e9ceabaeb34651f23ac9aa3412d308f328210ce5dd928eec"
 dependencies = [
  "bigdecimal",
  "bitflags 2.9.0",
  "bytes",
  "chrono",
+ "derive_more",
  "gel-db-protocol",
  "gel-errors",
+ "gel-protogen",
  "num-bigint",
  "num-traits",
  "serde",
@@ -1775,10 +1769,35 @@ dependencies = [
 ]
 
 [[package]]
-name = "gel-stream"
-version = "0.4.3"
+name = "gel-protogen"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a97dbd29633dd0959d8784307e64f264141db2c82173de14aa79e91038a3b34"
+checksum = "1c0d9c5d727c9f6759f2a6427a1a1a8e137568b7f76e859f777562e48868c839"
+dependencies = [
+ "const-str",
+ "derive_more",
+ "gel-protogen-proc-macros",
+ "paste",
+ "type-mapper",
+ "uuid",
+]
+
+[[package]]
+name = "gel-protogen-proc-macros"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96142ced7c548c3cf42ec29ba1d0a48a74ce748b781b1610f0a7d086f136bdc9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
+
+[[package]]
+name = "gel-stream"
+version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "320a1c3087b45ecfe5eece9d40412bf2b4fe6f7254bc35a4f151b77a61fd8951"
 dependencies = [
  "derive-io",
  "derive_more",
@@ -1792,7 +1811,6 @@ dependencies = [
  "serde",
  "smallvec",
  "socket2",
- "thiserror 2.0.12",
  "tokio",
  "webpki",
  "webpki-roots",
@@ -1800,9 +1818,9 @@ dependencies = [
 
 [[package]]
 name = "gel-tokio"
-version = "0.10.15"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf8b68343538f8c93fff5cc1353b9bdd151d3bf782a71e38683a3357e3844a94"
+checksum = "791e9fe05ac93bd37cc16afa8dde36b489c7833e5d3eb3b29ef95cbf4870e535"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1820,7 +1838,6 @@ dependencies = [
  "gel-protocol",
  "gel-stream",
  "log",
- "once_cell",
  "rand 0.9.0",
  "rustls-pemfile",
  "serde",
@@ -5058,6 +5075,17 @@ dependencies = [
  "target-triple",
  "termcolor",
  "toml",
+]
+
+[[package]]
+name = "type-mapper"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bedeb0f3102bf28216523793a6303e0b5928730be796593cc5b0c36c98dbc9f"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
 ]
 
 [[package]]
