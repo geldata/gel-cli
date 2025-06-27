@@ -43,8 +43,8 @@ impl LocalBackup {
 
         if !pg_backup.has_all_executables() {
             return Err(InstanceOpError::Unsupported(
-                "older releases: missing pg_basebackup, pg_combinebackup, or pg_verifybackup"
-                    .to_string(),
+                "older releases".to_string(),
+                "missing pg_basebackup, pg_combinebackup, or pg_verifybackup".to_string(),
             ));
         }
 
@@ -52,12 +52,17 @@ impl LocalBackup {
         let pg_hba = handle.paths.data_dir.join("pg_hba.conf");
         let Ok(pg_hba_contents) = std::fs::read_to_string(&pg_hba) else {
             return Err(InstanceOpError::Unsupported(
-                "older releases: pg_hba.conf not found or unreadable".to_string(),
+                "older releases".to_string(),
+                "pg_hba.conf not found or unreadable".to_string(),
             ));
         };
         if !pg_hba_contents.contains("local replication postgres trust") {
             return Err(InstanceOpError::Unsupported(
-                "older releases: pg_hba.conf does not allow local replication connections (add `local replication postgres trust` to the file)".to_string(),
+                "older releases".to_string(),
+                format!(
+                    "pg_hba.conf does not allow local replication connections (add `local replication postgres trust` to {:?})",
+                    dunce::canonicalize(&pg_hba).unwrap_or(pg_hba)
+                ),
             ));
         }
 
