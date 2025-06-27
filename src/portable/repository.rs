@@ -720,6 +720,15 @@ impl Query {
     pub fn is_simple_scoping_needed(&self) -> bool {
         self.version.as_ref().map(|f| f.major == 6).unwrap_or(false)
     }
+    pub fn has_ext_auth(&self) -> bool {
+        self.version.as_ref().map(|f| f.major >= 4).unwrap_or(true)
+    }
+    pub fn has_ext_ai(&self) -> bool {
+        self.version.as_ref().map(|f| f.major >= 5).unwrap_or(true)
+    }
+    pub fn has_ext_postgis(&self) -> bool {
+        self.version.as_ref().map(|f| f.major >= 6).unwrap_or(false)
+    }
     pub fn cli_channel(&self) -> Option<Channel> {
         // Only one argument in CLI is allowed
         // So we skip channel if version is set, since version unambiguously
