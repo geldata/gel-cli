@@ -3,6 +3,7 @@ use std::str;
 
 use anyhow::Context;
 use bytes::BytesMut;
+use futures_util::StreamExt;
 use std::io::IsTerminal;
 use terminal_size::{Width, terminal_size};
 use tokio::fs::File as AsyncFile;
@@ -13,7 +14,6 @@ use gel_protocol::client_message::Cardinality;
 use gel_protocol::client_message::CompilationOptions;
 use gel_protocol::common::Capabilities;
 use gel_protocol::value::Value;
-use tokio_stream::StreamExt;
 
 use crate::branding::BRANDING_CLI_CMD;
 use crate::classify;

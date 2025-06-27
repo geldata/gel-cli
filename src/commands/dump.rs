@@ -7,7 +7,7 @@ use tokio::fs::{self, OpenOptions};
 use tokio::io::{self, AsyncWrite, AsyncWriteExt};
 use tokio::task;
 
-use tokio_stream::StreamExt;
+use futures_util::StreamExt;
 
 use gel_errors::{UnknownDatabaseError, UnsupportedFeatureError};
 

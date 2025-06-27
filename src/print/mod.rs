@@ -21,10 +21,10 @@ use std::io;
 use std::sync::OnceLock;
 
 use const_format::concatcp;
+use futures_util::{Stream, StreamExt};
 use snafu::{AsErrorSource, ResultExt, Snafu};
 use std::io::IsTerminal;
 use terminal_size::{Width, terminal_size};
-use tokio_stream::{Stream, StreamExt};
 
 use gel_errors::display::display_error;
 

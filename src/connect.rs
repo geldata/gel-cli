@@ -7,9 +7,9 @@ use std::time::Duration;
 
 use bytes::Bytes;
 
+use futures_util::Stream;
 use gel_tokio::dsn::DatabaseBranch;
 use tokio::time::sleep;
-use tokio_stream::Stream;
 
 use gel_errors::{ClientError, NoDataError, ProtocolEncodingError, WatchError};
 use gel_errors::{Error, ErrorKind, ResultExt};
