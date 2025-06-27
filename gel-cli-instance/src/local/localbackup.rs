@@ -48,6 +48,7 @@ impl LocalBackup {
             ));
         }
 
+        // Some 6.x releases appear to have a broken pg_hba.conf. Check for that and disable backups.
         let pg_hba = handle.paths.data_dir.join("pg_hba.conf");
         let Ok(pg_hba_contents) = std::fs::read_to_string(&pg_hba) else {
             return Err(InstanceOpError::Unsupported(
