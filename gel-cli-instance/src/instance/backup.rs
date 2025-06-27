@@ -98,7 +98,7 @@ pub enum RequestedBackupStrategy {
     Incremental,
 }
 
-pub trait InstanceBackup {
+pub trait InstanceBackup: Send + Sync {
     /// Perform a backup. Returns the backup id if available.
     fn backup(
         &self,

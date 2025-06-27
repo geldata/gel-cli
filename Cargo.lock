@@ -1525,6 +1525,7 @@ dependencies = [
  "const_format",
  "crossbeam-utils",
  "ctrlc",
+ "derive_more",
  "dirs",
  "dissimilar",
  "dunce",
