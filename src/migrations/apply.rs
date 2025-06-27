@@ -1,10 +1,11 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use gel_cli_instance::instance::backup::{
-    BackupStrategy, ProgressCallback, RequestedBackupStrategy,
+    BackupStrategy, InstanceBackup, ProgressCallback, RequestedBackupStrategy,
 };
 use gel_protocol::common::{
     Capabilities, Cardinality, CompilationOptions, InputLanguage, IoFormat,
@@ -32,9 +33,11 @@ use crate::migrations::edb::{execute, execute_if_connected};
 use crate::migrations::migration::{self, MigrationFile};
 use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
-use crate::portable::local::{InstallInfo, InstanceInfo};
+use crate::portable::local::InstanceInfo;
 use crate::portable::ver::{self, Specific};
 use crate::print::{self, Highlight};
+
+const LOCALDEV_URL: &'static str = "https://geldata.com/p/localdev";
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -217,10 +220,11 @@ pub async fn run(
     Ok(())
 }
 
-#[derive(Debug, Clone)]
+#[derive(derive_more::Debug, Clone)]
 pub struct AutoBackup {
     instance_name: String,
-    install_info: InstallInfo,
+    #[debug(skip)]
+    backup: Arc<Box<dyn InstanceBackup>>,
 }
 
 impl AutoBackup {
@@ -234,7 +238,7 @@ impl AutoBackup {
                 "Automatic backup is disabled because backup/restore \
                 is not yet supported on Windows."
             );
-            eprintln!("Read more at {}", LOCALDEV_URL);
+            eprintln!("Read more at {LOCALDEV_URL}");
             return Ok(None);
         }
         let mut skipped = *crate::cli::env::Env::in_ci()?.unwrap_or_default();
@@ -246,8 +250,7 @@ impl AutoBackup {
             if !quiet {
                 eprintln!(
                     "Automatic backup is disabled by environment variable. \
-                    Read more at {}",
-                    LOCALDEV_URL,
+                    Read more at {LOCALDEV_URL}",
                 );
             }
             return Ok(None);
@@ -265,9 +268,26 @@ impl AutoBackup {
                             "Automatic backup is disabled because it is not supported \
                             for local instances older than version 6.5."
                         );
-                        eprintln!("Read more at {}", LOCALDEV_URL);
+                        eprintln!("Read more at {LOCALDEV_URL}");
                         return Ok(None);
                     }
+
+                    let bin_dir = install_info.base_path()?.join("bin");
+                    let instance = gel_cli_instance::instance::get_local_instance(
+                        &name,
+                        bin_dir,
+                        install_info.version.specific().to_string(),
+                    )?;
+                    let backup = match instance.backup() {
+                        Ok(backup) => backup,
+                        Err(e) => {
+                            eprintln!(
+                                "Automatic backup is disabled.\n{e}\n\
+                                Read more at {LOCALDEV_URL}"
+                            );
+                            return Ok(None);
+                        }
+                    };
 
                     if !quiet {
                         eprintln!(
@@ -280,9 +300,10 @@ impl AutoBackup {
                         );
                         eprintln!("{}{}", "Read more at ".muted(), LOCALDEV_URL.muted(),);
                     }
+
                     Ok(Some(AutoBackup {
                         instance_name: name,
-                        install_info,
+                        backup: Arc::new(backup),
                     }))
                 } else {
                     if !quiet {
@@ -320,15 +341,9 @@ impl AutoBackup {
                 );
             }
         }
-        let bin_dir = self.install_info.base_path()?.join("bin");
 
-        let instance = gel_cli_instance::instance::get_local_instance(
-            &self.instance_name,
-            bin_dir,
-            self.install_info.version.specific().to_string(),
-        )?;
-        let backup = instance.backup()?;
-        if let Some(backup_id) = backup
+        if let Some(backup_id) = self
+            .backup
             .backup(
                 RequestedBackupStrategy::Auto,
                 callback.clone().unwrap_or_else(|| ().into()),
@@ -336,7 +351,7 @@ impl AutoBackup {
             .await?
         {
             if !quiet {
-                let backup = backup.get_backup(&backup_id).await?;
+                let backup = self.backup.get_backup(&backup_id).await?;
                 if let Some(callback) = &callback {
                     callback.println(&format!(
                         "Created {} backup:",

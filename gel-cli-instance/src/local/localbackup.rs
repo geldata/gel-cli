@@ -2,6 +2,7 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
     process::Command,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -16,7 +17,7 @@ use uuid::Uuid;
 use crate::{
     ProcessRunner, Processes, SystemProcessRunner,
     instance::{
-        Operation,
+        InstanceOpError, Operation,
         backup::{
             Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback,
             RequestedBackupStrategy, RestoreType,
@@ -30,13 +31,39 @@ use super::LocalInstanceHandle;
 const BACKUP_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const BACKUP_LIVENESS_INTERVAL: Duration = Duration::from_secs(60);
 
+#[derive(Clone)]
 pub struct LocalBackup {
+    pg_backup: Arc<PgBackupCommands<SystemProcessRunner>>,
     handle: LocalInstanceHandle,
 }
 
 impl LocalBackup {
-    pub fn new(handle: LocalInstanceHandle) -> Self {
-        Self { handle }
+    pub fn new(handle: LocalInstanceHandle) -> Result<Self, InstanceOpError> {
+        let pg_backup = PgBackupCommands::new(SystemProcessRunner, handle.bin_dir.clone());
+
+        if !pg_backup.has_all_executables() {
+            return Err(InstanceOpError::Unsupported(
+                "older releases: missing pg_basebackup, pg_combinebackup, or pg_verifybackup"
+                    .to_string(),
+            ));
+        }
+
+        let pg_hba = handle.paths.data_dir.join("pg_hba.conf");
+        let Ok(pg_hba_contents) = std::fs::read_to_string(&pg_hba) else {
+            return Err(InstanceOpError::Unsupported(
+                "older releases: pg_hba.conf not found or unreadable".to_string(),
+            ));
+        };
+        if !pg_hba_contents.contains("local replication postgres trust") {
+            return Err(InstanceOpError::Unsupported(
+                "older releases: pg_hba.conf does not allow local replication connections (add `local replication postgres trust` to the file)".to_string(),
+            ));
+        }
+
+        Ok(Self {
+            pg_backup: Arc::new(pg_backup),
+            handle,
+        })
     }
 
     fn get_backups_dir(&self) -> PathBuf {
@@ -213,7 +240,7 @@ impl InstanceBackup for LocalBackup {
         strategy: RequestedBackupStrategy,
         callback: ProgressCallback,
     ) -> Operation<Option<BackupId>> {
-        let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
+        let pg_backup = self.pg_backup.clone();
         let backup_id = Uuid::now_v7().to_string();
         let backups_dir = self.get_backups_dir();
         let now = SystemTime::now();
@@ -417,7 +444,7 @@ impl InstanceBackup for LocalBackup {
         restore_type: RestoreType,
         callback: ProgressCallback,
     ) -> Operation<()> {
-        let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
+        let pg_backup = self.pg_backup.clone();
         let backups_dir = self.get_backups_dir();
 
         let data_dir = self.handle.paths.data_dir.clone();
@@ -629,6 +656,16 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
             ));
         }
         Ok(path)
+    }
+
+    /// Detect all the executables we need for successful backup/restore (including incremental).
+    pub fn has_all_executables(&self) -> bool {
+        for executable in ["pg_basebackup", "pg_combinebackup", "pg_verifybackup"] {
+            if self.find_executable(executable).is_err() {
+                return false;
+            }
+        }
+        true
     }
 
     pub async fn unpack_backup(
