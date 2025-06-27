@@ -33,7 +33,7 @@ use crate::migrations::migration::{self, MigrationFile};
 use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
 use crate::portable::local::{InstallInfo, InstanceInfo};
-use crate::portable::ver::Specific;
+use crate::portable::ver::{self, Specific};
 use crate::print::{self, Highlight};
 
 #[derive(clap::Args, Clone, Debug)]
@@ -839,6 +839,16 @@ async fn disable_ddl(conn: &mut Connection) -> Result<(), anyhow::Error> {
 }
 
 async fn index_activate_concurrently(conn: &mut Connection) -> Result<(), anyhow::Error> {
+    let version = conn.get_version().await?;
+    let is_supported = version.specific()
+        >= ver::Specific {
+            major: 6,
+            minor: ver::MinorVersion::Minor(10),
+        };
+    if !is_supported {
+        return Ok(());
+    }
+
     #[derive(Queryable)]
     struct IndexShort {
         id: uuid::Uuid,
