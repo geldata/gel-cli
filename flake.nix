@@ -41,6 +41,10 @@
         }:
         let
           fenix_pkgs = fenix.packages.${system};
+          rust_toolchain = fenix_pkgs.toolchainOf {
+            channel = "1.85";
+            sha256 = "sha256-Hn2uaQzRLidAWpfmRwSRdImifGUCAb9HeAqTYFXWeQk=";
+          };
 
           common =
             [
@@ -57,15 +61,14 @@
         {
           devShells.default = pkgs.mkShell {
             buildInputs = common ++ [
-              (fenix_pkgs.combine [
-                (fenix_pkgs.fromToolchainFile {
-                  file = ./rust-toolchain.toml;
-                  sha256 = "sha256-Hn2uaQzRLidAWpfmRwSRdImifGUCAb9HeAqTYFXWeQk=";
-                })
-                (fenix_pkgs.targets.x86_64-unknown-linux-musl.fromToolchainFile {
-                  file = ./rust-toolchain.toml;
-                  sha256 = "sha256-Hn2uaQzRLidAWpfmRwSRdImifGUCAb9HeAqTYFXWeQk=";
-                })
+              (rust_toolchain.withComponents [
+                "rustc"
+                "cargo"
+                "rust-std"
+                "clippy"
+                "rustfmt"
+                "rust-src"
+                "rust-analyzer"
               ])
             ];
           };
