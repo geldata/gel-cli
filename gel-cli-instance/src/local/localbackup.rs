@@ -60,7 +60,7 @@ impl LocalBackup {
             return Err(InstanceOpError::Unsupported(
                 "older releases".to_string(),
                 format!(
-                    "pg_hba.conf does not allow local replication connections (add `local replication postgres trust` to {:?})",
+                    "pg_hba.conf does not allow local replication connections (add `local replication postgres trust` to {:?} and restart the instance)",
                     dunce::canonicalize(&pg_hba).unwrap_or(pg_hba)
                 ),
             ));
