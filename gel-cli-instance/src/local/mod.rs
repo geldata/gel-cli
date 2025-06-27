@@ -17,6 +17,6 @@ pub struct LocalInstanceHandle {
 
 impl Instance for LocalInstanceHandle {
     fn backup(&self) -> Result<Box<dyn InstanceBackup + Send>, InstanceOpError> {
-        Ok(Box::new(LocalBackup::new(self.clone())))
+        LocalBackup::new(self.clone()).map(|backup| Box::new(backup) as _)
     }
 }
