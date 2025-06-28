@@ -209,7 +209,7 @@ impl AutoBackup {
         instance_name: Option<gel_tokio::InstanceName>,
         quiet: bool,
     ) -> anyhow::Result<Option<Self>> {
-        const LOCALDEV_URL: &'static str = "https://geldata.com/p/localdev";
+        const LOCALDEV_URL: &str = "https://geldata.com/p/localdev";
         if cfg!(windows) {
             eprintln!(
                 "Automatic backup is disabled because backup/restore \

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path;
 
 use crate::portable::project;
 use crate::print::{self, Highlight};
@@ -38,7 +38,7 @@ pub async fn on_action(action: &'static str, project: &project::Context) -> anyh
 async fn run_action<'m>(
     action: &'static str,
     script: &'m str,
-    root_path: &'m PathBuf,
+    root_path: &'m path::Path,
 ) -> anyhow::Result<()> {
     print::msg!("{}", format!("hook {action}: {script}").muted());
 

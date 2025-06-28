@@ -233,7 +233,7 @@ impl Connector {
     }
 
     pub fn instance_name(&self) -> anyhow::Result<Option<gel_tokio::InstanceName>> {
-        Ok(self.get()?.instance_name().map(|name| name.clone()))
+        Ok(self.get()?.instance_name().cloned())
     }
 }
 
