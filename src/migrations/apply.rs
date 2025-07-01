@@ -840,11 +840,16 @@ async fn disable_ddl(conn: &mut Connection) -> Result<(), anyhow::Error> {
 
 async fn index_build_concurrently(conn: &mut Connection) -> Result<(), anyhow::Error> {
     let version = conn.get_version().await?;
-    let is_supported = version.specific()
-        >= ver::Specific {
-            major: 6,
-            minor: ver::MinorVersion::Minor(10),
-        };
+
+    // supported on 7.0-dev.9640 onward
+    let is_supported = if version.specific().major == 7 {
+        match version.specific().minor {
+            ver::MinorVersion::Dev(m) if m < 9641 => false,
+            _ => true,
+        }
+    } else {
+        version.specific().major > 7
+    };
     if !is_supported {
         return Ok(());
     }
