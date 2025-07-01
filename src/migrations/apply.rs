@@ -73,13 +73,13 @@ pub struct Command {
     #[arg(long)]
     pub dev_mode: bool,
 
-    /// Disable creation of concurrent indexes after applying migrations.
+    /// Disable building of concurrent indexes after applying migrations.
     ///
-    /// Indexes that set `create_concurrently` to `true` are not activated when migration is applied.
-    /// Instead, they are activated right after, unless this flag is set. Index activation will
+    /// Indexes that set `build_concurrently` to `true` are not built when migration is applied.
+    /// Instead, they are built right after, unless this flag is set. Index building will
     /// not acquire any locks that would prevent concurrent reads or writes of objects.
     #[arg(long)]
-    pub no_index_activate: bool,
+    pub no_index_build: bool,
 
     /// Runs the migration(s) in a single transaction.
     #[arg(long = "single-transaction")]
@@ -183,8 +183,8 @@ pub async fn run(
     };
     let migrations = slice(&migrations, last_db_rev, target_rev.as_ref())?;
     if migrations.is_empty() {
-        if !cmd.no_index_activate {
-            index_activate_concurrently(conn).await?;
+        if !cmd.no_index_build {
+            index_build_concurrently(conn).await?;
         }
 
         if !cmd.quiet {
@@ -207,8 +207,8 @@ pub async fn run(
     }
     apply_migrations(conn, migrations, &ctx, cmd.single_transaction).await?;
 
-    if !cmd.no_index_activate {
-        index_activate_concurrently(conn).await?;
+    if !cmd.no_index_build {
+        index_build_concurrently(conn).await?;
     }
 
     if db_migrations.is_empty() {
@@ -838,7 +838,7 @@ async fn disable_ddl(conn: &mut Connection) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-async fn index_activate_concurrently(conn: &mut Connection) -> Result<(), anyhow::Error> {
+async fn index_build_concurrently(conn: &mut Connection) -> Result<(), anyhow::Error> {
     let version = conn.get_version().await?;
     let is_supported = version.specific()
         >= ver::Specific {
@@ -862,7 +862,7 @@ async fn index_activate_concurrently(conn: &mut Connection) -> Result<(), anyhow
             select schema::Index {
               id, expr, subject_name := .<indexes[is schema::ObjectType].name
             }
-            filter .create_concurrently and not .active
+            filter .build_concurrently and not .active
             ",
             &(),
         )
@@ -870,12 +870,12 @@ async fn index_activate_concurrently(conn: &mut Connection) -> Result<(), anyhow
 
     for index in inactive_indexes {
         print::msg!(
-            "Activating index on '{}' with expr '{}'",
+            "Building index on '{}' with expr '{}'",
             index.subject_name.emphasized(),
             index.expr
         );
         conn.execute(
-            &format!("administer concurrent_index_create(\"{}\")", index.id),
+            &format!("administer concurrent_index_build(<uuid>\"{}\")", index.id),
             &(),
         )
         .await?;
