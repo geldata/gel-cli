@@ -112,18 +112,23 @@ const DEFAULT_SCHEMA: &str = "\
     }\n\
 ";
 
-const FUTURES_SCHEMA: &str = "\
+const FUTURE_NONRECURSIVE_ACCESS_POLICIES: &str = "\
     # Disable the application of access policies within access policies\n\
     # themselves. This behavior will become the default in EdgeDB 3.0.\n\
     # See: https://www.edgedb.com/docs/reference/ddl/access_policies#nonrecursive\n\
     using future nonrecursive_access_policies;\n\
 ";
 
-const SIMPLE_SCOPING_SCHEMA: &str = "\
+const FUTURE_SIMPLE_SCOPING: &str = "\
     # Use a simpler algorithm for resolving the scope of object names.\n\
     # This behavior will become the default in Gel 7.0.\n\
     # See: https://docs.geldata.com/reference/edgeql/path_resolution#new-path-scoping\n\
     using future simple_scoping;\n\
+";
+
+const FUTURE_NO_LINKFUL_COMPUTED_SPLATS: &str = "\
+    # TODO: I don't know what does this do.\n\
+    using future no_linkful_computed_splats;\n\
 ";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -339,20 +344,29 @@ fn write_schema_default(dir: &Path, version: &Query) -> anyhow::Result<()> {
         fs::rename(&tmp, &ext_file)?;
     }
 
-    if version.is_nonrecursive_access_policies_needed() {
+    let needs_futures = version.is_nonrecursive_access_policies_needed()
+        || version.is_simple_scoping_needed()
+        || version.is_no_linkful_computed_splats_needed();
+    if needs_futures {
         let futures = dir.join(format!("futures.{BRANDING_SCHEMA_FILE_EXT}"));
         let tmp = tmp_file_path(&futures);
-        fs::remove_file(&tmp).ok();
-        fs::write(&tmp, FUTURES_SCHEMA)?;
+
+        use std::io::Write;
+        let mut writer = std::io::BufWriter::new(std::fs::File::create(&tmp)?);
+        if version.is_nonrecursive_access_policies_needed() {
+            writer.write_all(FUTURE_NONRECURSIVE_ACCESS_POLICIES.as_bytes())?;
+        }
+        if version.is_simple_scoping_needed() {
+            writer.write_all(FUTURE_SIMPLE_SCOPING.as_bytes())?;
+        }
+        if version.is_no_linkful_computed_splats_needed() {
+            writer.write_all(FUTURE_NO_LINKFUL_COMPUTED_SPLATS.as_bytes())?;
+        }
+        drop(writer);
+
         fs::rename(&tmp, &futures)?;
     };
-    if version.is_simple_scoping_needed() {
-        let futures = dir.join(format!("scoping.{BRANDING_SCHEMA_FILE_EXT}"));
-        let tmp = tmp_file_path(&futures);
-        fs::remove_file(&tmp).ok();
-        fs::write(&tmp, SIMPLE_SCOPING_SCHEMA)?;
-        fs::rename(&tmp, &futures)?;
-    };
+
     Ok(())
 }
 

@@ -720,6 +720,9 @@ impl Query {
     pub fn is_simple_scoping_needed(&self) -> bool {
         self.version.as_ref().map(|f| f.major == 6).unwrap_or(false)
     }
+    pub fn is_no_linkful_computed_splats_needed(&self) -> bool {
+        self.version.as_ref().map(|f| f.major == 7).unwrap_or(false)
+    }
     pub fn has_ext_auth(&self) -> bool {
         self.version.as_ref().map(|f| f.major >= 4).unwrap_or(true)
     }
