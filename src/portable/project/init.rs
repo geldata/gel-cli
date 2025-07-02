@@ -1247,6 +1247,7 @@ async fn migrate_async(
             to_revision: None,
             dev_mode: false,
             single_transaction: false,
+            no_index_build: false,
             conn: None,
         },
         &mut conn,
