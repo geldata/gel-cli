@@ -127,7 +127,8 @@ const FUTURE_SIMPLE_SCOPING: &str = "\
 ";
 
 const FUTURE_NO_LINKFUL_COMPUTED_SPLATS: &str = "\
-    # TODO: I don't know what does this do.\n\
+    # Prevent computed properties that use links from appearing in splats.\n\
+    # This behavior will become the default in Gel 8.0.\n\
     using future no_linkful_computed_splats;\n\
 ";
 
