@@ -134,6 +134,24 @@ pub struct Command {
     pub interactive: bool,
 }
 
+#[tokio::main(flavor = "current_thread")]
+async fn sync(project: project::Location) -> anyhow::Result<project::ProjectInfo> {
+    let conn_config = gel_tokio::Builder::new()
+        .with_fs()
+        .with_explicit_project(&project.root)
+        .build()?;
+    let local_toml = project.root.join("gel.local.toml");
+    let mut conn = Connection::connect(&conn_config, QUERY_TAG).await?;
+    project::config::sync_config(&local_toml, &mut conn).await?;
+    Ok(project::ProjectInfo {
+        instance_name: conn_config
+            .instance_name
+            .expect("instance name is set")
+            .to_string(),
+        stash_dir: get_stash_path(&project.root)?,
+    })
+}
+
 pub fn init_existing(
     cmd: &Command,
     project: project::Location,
@@ -148,12 +166,12 @@ pub fn init_existing(
             .to_string_lossy(),
         project.root.display()
     );
-    msg!("Initializing project...");
-
     let stash_dir = get_stash_path(&project.root)?;
     if stash_dir.exists() {
-        // TODO(tailhook) do more checks and probably cleanup the dir
-        anyhow::bail!("Project is already initialized.");
+        msg!("Synchronizing project...");
+        return sync(project);
+    } else {
+        msg!("Initializing project...");
     }
 
     let project = project::load_ctx_at(project)?;
