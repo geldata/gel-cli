@@ -1515,6 +1515,7 @@ dependencies = [
  "blake2b_simd",
  "bytes",
  "bzip2",
+ "chrono",
  "clap",
  "clap_complete",
  "codespan-reporting",
