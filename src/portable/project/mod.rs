@@ -121,7 +121,7 @@ const FUTURE_NONRECURSIVE_ACCESS_POLICIES: &str = "\
 
 const FUTURE_SIMPLE_SCOPING: &str = "\
     # Use a simpler algorithm for resolving the scope of object names.\n\
-    # This behavior will become the default in Gel 7.0.\n\
+    # This behavior will become the default in Gel 8.0.\n\
     # See: https://docs.geldata.com/reference/edgeql/path_resolution#new-path-scoping\n\
     using future simple_scoping;\n\
 ";
