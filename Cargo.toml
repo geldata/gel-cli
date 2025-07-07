@@ -149,11 +149,6 @@ x509-parser = "0.17.0"
 async-fn-stream = "0.2.2"
 file-guard = "0.2.0"
 
-[dependencies.chrono]
-version = "0.4.23"
-features = ["std"]
-default-features = false
-
 [dependencies.bzip2]
 version = "*"
 features = ["static"]

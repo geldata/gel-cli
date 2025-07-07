@@ -1,5 +1,5 @@
 use anyhow::Context;
-use bigdecimal::ToPrimitive;
+use edgeql_parser::helpers::quote_string as ql;
 use gel_protocol::value::Value as GelValue;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -8,57 +8,9 @@ use toml::Value as TomlValue;
 
 use crate::connect::Connection;
 
-trait Chronize {
-    type Type;
-
-    fn chronize(&self) -> anyhow::Result<Self::Type>;
-}
-
-impl Chronize for toml::value::Date {
-    type Type = chrono::NaiveDate;
-
-    fn chronize(&self) -> anyhow::Result<Self::Type> {
-        chrono::NaiveDate::from_ymd_opt(self.year as i32, self.month as u32, self.day as u32)
-            .ok_or_else(|| anyhow::anyhow!("invalid date"))
-    }
-}
-
-impl Chronize for toml::value::Time {
-    type Type = chrono::NaiveTime;
-
-    fn chronize(&self) -> anyhow::Result<Self::Type> {
-        chrono::NaiveTime::from_hms_nano_opt(
-            self.hour as u32,
-            self.minute as u32,
-            self.second as u32,
-            self.nanosecond,
-        )
-        .ok_or_else(|| anyhow::anyhow!("invalid time"))
-    }
-}
-
-impl Chronize for toml::value::Offset {
-    type Type = chrono::FixedOffset;
-
-    fn chronize(&self) -> anyhow::Result<Self::Type> {
-        use toml::value::Offset::*;
-
-        chrono::FixedOffset::east_opt(match self {
-            Z => 0,
-            Custom { minutes } => (*minutes as i32) * 60,
-        })
-        .ok_or_else(|| anyhow::anyhow!("invalid offset"))
-    }
-}
-
 #[derive(Debug)]
 pub enum Value {
     Injected(String),
-    Value(GelValue),
-    Annotated {
-        typ: String,
-        value: GelValue,
-    },
     Array(Vec<Value>),
     Set(Vec<Value>),
     Nested {
@@ -75,51 +27,36 @@ impl TryFrom<TomlValue> for Value {
             TomlValue::String(value) => {
                 match value.strip_prefix("{{").and_then(|s| s.strip_suffix("}}")) {
                     Some(value) => Value::Injected(value.to_string()),
-                    None => Value::Value(value.into()),
+                    None => Value::Injected(value.into()),
                 }
             }
-            TomlValue::Integer(value) => Value::Value(value.into()),
-            TomlValue::Float(value) => Value::Value(value.into()),
-            TomlValue::Boolean(value) => Value::Value(value.into()),
-            TomlValue::Datetime(toml::value::Datetime {
-                date: Some(date),
-                time: Some(time),
-                offset: Some(offset),
-            }) => Value::Value(
-                date.chronize()?
-                    .and_time(time.chronize()?)
-                    .checked_sub_offset(offset.chronize()?)
-                    .ok_or_else(|| anyhow::anyhow!("datetime overflow"))?
-                    .and_utc()
-                    .try_into()
-                    .map(|v: gel_protocol::model::Datetime| v.into())?,
-            ),
-            TomlValue::Datetime(toml::value::Datetime {
-                date: Some(date),
-                time: Some(time),
-                offset: None,
-            }) => Value::Value(
-                date.chronize()?
-                    .and_time(time.chronize()?)
-                    .try_into()
-                    .map(|v: gel_protocol::model::LocalDatetime| v.into())?,
-            ),
+            TomlValue::Integer(value) => Value::Injected(value.to_string()),
+            TomlValue::Float(value) => Value::Injected(value.to_string()),
+            TomlValue::Boolean(value) => Value::Injected(value.to_string()),
+            TomlValue::Datetime(
+                datetimetz @ toml::value::Datetime {
+                    date: Some(_),
+                    time: Some(_),
+                    offset: Some(_),
+                },
+            ) => Value::Injected(format!("<datetime>{}", datetimetz)),
+            TomlValue::Datetime(
+                datetime @ toml::value::Datetime {
+                    date: Some(_),
+                    time: Some(_),
+                    offset: None,
+                },
+            ) => Value::Injected(format!("<cal::local_datetime>{}", datetime)),
             TomlValue::Datetime(toml::value::Datetime {
                 date: Some(date),
                 time: None,
                 offset: None,
-            }) => Value::Value(
-                date.chronize()?
-                    .try_into()
-                    .map(|v: gel_protocol::model::LocalDate| v.into())?,
-            ),
+            }) => Value::Injected(format!("<cal::local_date>{}", date)),
             TomlValue::Datetime(toml::value::Datetime {
                 date: None,
                 time: Some(time),
                 offset: None,
-            }) => Value::Value(GelValue::LocalTime(
-                gel_protocol::model::LocalTime::try_from(time.chronize()?)?,
-            )),
+            }) => Value::Injected(format!("<cal::local_time>{}", time,)),
             TomlValue::Datetime(value) => {
                 Err(anyhow::anyhow!("Invalid datetime value: {}", value))?
             }
@@ -168,11 +105,6 @@ impl Value {
                 println!("Executing query: {query}");
                 conn.execute(&query, &()).await?;
             }
-            Value::Annotated { typ, value } => {
-                let query = format!("configure current branch set {config}::{name} := <{typ}>$0;");
-                println!("Executing query: {query}\n\twith args: [{value:?}]");
-                conn.execute(&query, &(value,)).await?;
-            }
             Value::Set(values) => {
                 let mut args = HashMap::new();
                 let values = values
@@ -220,16 +152,9 @@ impl Value {
         Ok(())
     }
 
-    fn compile(self, arg_index: usize) -> (String, HashMap<String, GelValue>) {
+    fn compile(self, _arg_index: usize) -> (String, HashMap<String, GelValue>) {
         match self {
             Value::Injected(value) => (value, HashMap::new()),
-            Value::Annotated { typ, value } => {
-                let key = format!("v{arg_index}");
-                (
-                    format!("<{typ}>${key}"),
-                    [(key, value)].into_iter().collect(),
-                )
-            }
             _ => {
                 panic!("Unsupported value type to compile: {self:?}");
             }
@@ -744,43 +669,22 @@ impl Schema {
             (Primitive { typ } | Enum { typ, .. }, Toml::Table(_)) => {
                 Err(anyhow::anyhow!("expected {typ} but got table"))
             }
-            (Primitive { typ }, value) => Value::try_from(value).and_then(|value| {
-                let typ = typ.to_string();
-                match (value, typ.as_str()) {
-                    (Value::Value(GelValue::Int64(value)), "int16") => value
-                        .to_i16()
-                        .ok_or_else(|| anyhow::anyhow!("{value} is not a valid int16"))
-                        .map(Into::into)
-                        .map(|value| Value::Annotated { typ, value }.into()),
-                    (Value::Value(GelValue::Int64(value)), "int32") => value
-                        .to_i32()
-                        .ok_or_else(|| anyhow::anyhow!("{value} is not a valid int32"))
-                        .map(Into::into)
-                        .map(|value| Value::Annotated { typ, value }.into()),
-                    (Value::Value(GelValue::Float64(value)), "float32") => value
-                        .to_f32()
-                        .ok_or_else(|| anyhow::anyhow!("{value} is not a valid float32"))
-                        .map(Into::into)
-                        .map(|value| Value::Annotated { typ, value }.into()),
-                    (Value::Value(value), schema_type) if value.kind() == schema_type => {
-                        Ok(Value::Annotated { typ, value }.into())
-                    }
-                    (Value::Value(value), schema_type) => Err(anyhow::anyhow!(
-                        "expected {schema_type} but got {}",
-                        value.kind()
-                    )),
-                    (value, schema_type) => {
-                        Err(anyhow::anyhow!("expected {schema_type} but got {value:?}"))
-                    }
+            (Primitive { typ }, value) => match (typ.as_str(), value) {
+                ("str", Toml::String(value)) => Ok(Value::Injected(ql(&value)).into()),
+                ("int64", Toml::Integer(value)) => Ok(Value::Injected(value.to_string()).into()),
+                ("int32", Toml::Integer(value)) => Ok(Value::Injected(value.to_string()).into()),
+                ("int16", Toml::Integer(value)) => Ok(Value::Injected(value.to_string()).into()),
+                ("float64", Toml::Float(value)) => Ok(Value::Injected(value.to_string()).into()),
+                ("float32", Toml::Float(value)) => Ok(Value::Injected(value.to_string()).into()),
+                ("bool", Toml::Boolean(value)) => Ok(Value::Injected(value.to_string()).into()),
+                ("duration", Toml::String(value)) => {
+                    Ok(Value::Injected(format!("<duration>{}", ql(&value))).into())
                 }
-            }),
+                (_, value) => Err(anyhow::anyhow!("expected {typ} but got {value:?}")),
+            },
             (Enum { typ, choices }, Toml::String(value)) => {
                 if choices.contains(&value) {
-                    Ok(Value::Annotated {
-                        typ: typ.to_string(),
-                        value: GelValue::Enum(gel_protocol::codec::EnumValue::from(value.as_str())),
-                    }
-                    .into())
+                    Ok(Value::Injected(format!("<{}>{}", typ, ql(&value))).into())
                 } else {
                     Err(anyhow::anyhow!(
                         "expected one of {choices:?} but got {value}"
