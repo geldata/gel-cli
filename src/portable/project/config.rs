@@ -187,14 +187,13 @@ impl Value {
 }
 
 #[derive(Debug, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct LocalConfig {
-    local: Local,
+    local: Option<Local>,
 }
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Local {
-    config: TomlValue,
+    config: Option<TomlValue>,
 }
 
 #[derive(Clone, Debug)]
@@ -1020,11 +1019,16 @@ pub async fn sync_config(local_toml: &PathBuf, conn: &mut Connection) -> anyhow:
         let local_conf = tokio::fs::read_to_string(local_toml).await?;
         let toml = toml::de::Deserializer::new(&local_conf);
         let local_conf: LocalConfig = serde_path_to_error::deserialize(toml)?;
-        conn.execute("START TRANSACTION;", &()).await?;
-        default_schema()
-            .configure(conn, local_conf.local.config)
-            .await?;
-        conn.execute("COMMIT;", &()).await?;
+        if let LocalConfig {
+            local: Some(Local {
+                config: Some(config),
+            }),
+        } = local_conf
+        {
+            conn.execute("START TRANSACTION;", &()).await?;
+            default_schema().configure(conn, config).await?;
+            conn.execute("COMMIT;", &()).await?;
+        }
     }
     Ok(())
 }
