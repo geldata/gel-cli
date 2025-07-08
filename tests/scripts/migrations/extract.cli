@@ -72,12 +72,26 @@ $ gel migration extract --schema-dir=dbschema
 $ rm dbschema/migrations/00001-*.edgeql
 *
 
-$ chmod 444 dbschema/migrations
-*
+if TARGET_OS != "windows" {
+    $ chmod 444 dbschema/migrations
+    *
 
-$ gel migration extract --schema-dir=dbschema
-%EXIT 1
-! Writing: %{GREEDYDATA}
-! gel error: Cannot write %{GREEDYDATA}
-!   Caused by: failed to copy file from %{GREEDYDATA} to %{GREEDYDATA}: Permission denied (os error 13)
-*
+    $ gel migration extract --schema-dir=dbschema
+    %EXIT 1
+    ! Writing: %{GREEDYDATA}
+    ! gel error: Cannot write %{GREEDYDATA}
+    !   Caused by: failed to copy file from %{GREEDYDATA} to %{GREEDYDATA}: Permission denied (os error 13)
+    *
+}
+
+if TARGET_OS == "windows" {
+    $ attrib +r dbschema/migrations
+    *
+ 
+    $ gel migration extract --schema-dir=dbschema
+    %EXIT 1
+    ! Writing: %{GREEDYDATA}
+    ! gel error: Cannot write %{GREEDYDATA}
+    !   Caused by: failed to copy file from %{GREEDYDATA} to %{GREEDYDATA}: Permission denied (os error 13)
+    *
+}
