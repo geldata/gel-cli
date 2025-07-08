@@ -197,10 +197,40 @@ pub struct Local {
 }
 
 #[derive(Clone, Debug)]
-pub enum Property {
-    Singleton { schema: Schema, required: bool },
-    Array { schema: Schema, required: bool },
-    Multiset { schema: Schema, required: bool },
+pub enum Kind {
+    Singleton(Schema),
+    Array(Schema),
+    Multiset(Schema),
+}
+
+#[derive(Clone, Debug)]
+pub struct Property {
+    kind: Kind,
+    required: bool,
+    description: Option<String>,
+    deprecated: Option<String>,
+    examples: Vec<String>,
+}
+
+impl Property {
+    fn with_description(mut self, description: impl ToString) -> Self {
+        self.description = Some(description.to_string());
+        self
+    }
+
+    fn with_deprecated(mut self, deprecated: impl ToString) -> Self {
+        self.deprecated = Some(deprecated.to_string());
+        self
+    }
+
+    fn with_examples<I, S>(mut self, examples: I) -> Self
+    where
+        S: ToString,
+        I: IntoIterator<Item = S>,
+    {
+        self.examples = examples.into_iter().map(|s| s.to_string()).collect();
+        self
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -234,36 +264,20 @@ where
                 if k != key {
                     return (k, v);
                 }
-                match v {
-                    Property::Singleton { schema, .. } => (
-                        k,
-                        Property::Singleton {
-                            schema,
-                            required: false,
-                        },
-                    ),
-                    Property::Multiset { schema, .. } => (
-                        k,
-                        Property::Multiset {
-                            schema,
-                            required: false,
-                        },
-                    ),
-                    Property::Array { schema, .. } => (
-                        k,
-                        Property::Array {
-                            schema,
-                            required: false,
-                        },
-                    ),
-                }
+                (
+                    k,
+                    Property {
+                        required: false,
+                        ..v
+                    },
+                )
             })
             .collect()
     }
 }
 
 pub fn default_schema() -> Schema {
-    use Property::*;
+    use Kind::*;
     use Schema::*;
 
     fn primitive(typ: impl ToString) -> Schema {
@@ -284,7 +298,13 @@ pub fn default_schema() -> Schema {
     }
 
     fn singleton(schema: Schema, required: bool) -> Property {
-        Singleton { schema, required }
+        Property {
+            kind: Singleton(schema),
+            required,
+            description: None,
+            deprecated: None,
+            examples: vec![],
+        }
     }
 
     fn object<I, S>(typ: impl ToString, members: I) -> Schema
@@ -302,7 +322,13 @@ pub fn default_schema() -> Schema {
     }
 
     fn multiset(schema: Schema, required: bool) -> Property {
-        Multiset { schema, required }
+        Property {
+            kind: Multiset(schema),
+            required,
+            description: None,
+            deprecated: None,
+            examples: vec![],
+        }
     }
 
     let provider_config = vec![("name", singleton(primitive("str"), true))];
@@ -635,11 +661,9 @@ impl Schema {
     fn find_object_schema(&self, name: &str) -> Option<(&Self, bool)> {
         match self {
             Schema::Object { typ, .. } if typ == name => Some((self, false)),
-            Schema::Object { members, .. } => members.values().find_map(|prop| match prop {
-                Property::Singleton { schema, .. } => schema.find_object_schema(name),
-                Property::Multiset { schema, .. } => {
-                    schema.find_object_schema(name).map(|(s, _)| (s, true))
-                }
+            Schema::Object { members, .. } => members.values().find_map(|prop| match &prop.kind {
+                Kind::Singleton(schema) => schema.find_object_schema(name),
+                Kind::Multiset(schema) => schema.find_object_schema(name).map(|(s, _)| (s, true)),
                 _ => None,
             }),
             Schema::Union(schemas) => schemas.iter().find_map(|s| s.find_object_schema(name)),
@@ -748,7 +772,7 @@ impl Schema {
         value: toml::value::Table,
         path: &[&str],
     ) -> anyhow::Result<ValidateResult> {
-        use Property::*;
+        use Kind::*;
 
         let Schema::Object { typ, members } = self else {
             panic!("{}: expected object schema", path.join("."));
@@ -761,7 +785,10 @@ impl Schema {
             let key = key.clone();
             let sub_ctx = || sub_path.join(".");
             match members.get(&key) {
-                Some(Singleton { schema, .. }) if schema.is_scalar() => {
+                Some(Property {
+                    kind: Singleton(schema),
+                    ..
+                }) if schema.is_scalar() => {
                     values.insert(
                         key,
                         schema
@@ -770,17 +797,29 @@ impl Schema {
                             .with_context(sub_ctx)?,
                     );
                 }
-                Some(Singleton { schema, .. }) => schema
+                Some(Property {
+                    kind: Singleton(schema),
+                    ..
+                }) => schema
                     .validate(value, sub_path)?
                     .merge_object(&mut flat_config)
                     .with_context(sub_ctx)?,
-                Some(Array { schema, .. }) => {
+                Some(Property {
+                    kind: Array(schema),
+                    ..
+                }) => {
                     values.insert(key, Value::Array(schema.validate_array(value, sub_path)?));
                 }
-                Some(Multiset { schema, .. }) if schema.is_scalar() => {
+                Some(Property {
+                    kind: Multiset(schema),
+                    ..
+                }) if schema.is_scalar() => {
                     values.insert(key, Value::Set(schema.validate_array(value, sub_path)?));
                 }
-                Some(Multiset { schema, .. }) => {
+                Some(Property {
+                    kind: Multiset(schema),
+                    ..
+                }) => {
                     let TomlValue::Array(array) = value else {
                         return Err(anyhow::anyhow!("expected array for multiset"))
                             .with_context(sub_ctx);
