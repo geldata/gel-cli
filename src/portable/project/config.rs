@@ -251,6 +251,7 @@ impl Property {
     }
 }
 
+/// The schema of configuration values
 #[derive(Clone, Debug)]
 pub enum Schema {
     Primitive {
@@ -294,6 +295,7 @@ where
     }
 }
 
+/// Constructs the schema of most used config options
 pub fn default_schema() -> Schema {
     use Kind::*;
     use Schema::*;
@@ -689,6 +691,7 @@ impl Schema {
         }
     }
 
+    /// Compares the schema to the toml value and makes sure that the value is of correct type.
     pub fn validate(&self, value: TomlValue, path: &[&str]) -> anyhow::Result<ValidateResult> {
         use Schema::*;
         use TomlValue as Toml;
@@ -878,13 +881,14 @@ impl Schema {
             }
         }
         let typ = typ.into();
-        Ok(ValidateResult::make(
+        Ok(ValidateResult::new(
             Value::Nested { typ, values },
             flat_config,
         ))
     }
 
     async fn configure(&self, conn: &mut Connection, value: TomlValue) -> anyhow::Result<()> {
+        // validate
         let ValidateResult {
             result,
             flat_config: Some(mut flat_config),
@@ -892,6 +896,7 @@ impl Schema {
         else {
             return Ok(());
         };
+
         merge_flat_config(
             &mut flat_config,
             [(
@@ -939,7 +944,7 @@ impl From<Value> for ValidateResult {
 }
 
 impl ValidateResult {
-    fn make(result: Value, flat_config: HashMap<String, Value>) -> Self {
+    fn new(result: Value, flat_config: HashMap<String, Value>) -> Self {
         ValidateResult {
             result,
             flat_config: Some(flat_config),
@@ -970,13 +975,10 @@ impl ValidateResult {
     }
 }
 
-fn merge_flat_config<I>(
+fn merge_flat_config(
     flat_config: &mut HashMap<String, Value>,
-    new_flat_config: I,
-) -> anyhow::Result<()>
-where
-    I: IntoIterator<Item = (String, Value)>,
-{
+    new_flat_config: impl IntoIterator<Item = (String, Value)>,
+) -> anyhow::Result<()> {
     for (key, value) in new_flat_config {
         match flat_config.entry(key) {
             Entry::Occupied(mut entry) => match (entry.get_mut(), value) {
