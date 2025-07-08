@@ -8,6 +8,24 @@ use toml::Value as TomlValue;
 
 use crate::connect::Connection;
 
+pub async fn sync_config(local_toml: &PathBuf, conn: &mut Connection) -> anyhow::Result<()> {
+    if local_toml.exists() {
+        // read toml
+        let local_conf = tokio::fs::read_to_string(local_toml).await?;
+        let toml = toml::de::Deserializer::new(&local_conf);
+        let local_conf: LocalConfig = serde_path_to_error::deserialize(toml)?;
+
+        // configure
+        let config = local_conf.local.and_then(|l| l.config);
+        if let Some(config) = config {
+            conn.execute("START TRANSACTION;", &()).await?;
+            default_schema().configure(conn, config).await?;
+            conn.execute("COMMIT;", &()).await?;
+        }
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 pub enum Value {
     Injected(String),
@@ -1051,23 +1069,4 @@ fn merge_schemaless_value(
         }
         _ => Ok(Some(value)),
     }
-}
-
-pub async fn sync_config(local_toml: &PathBuf, conn: &mut Connection) -> anyhow::Result<()> {
-    if local_toml.exists() {
-        let local_conf = tokio::fs::read_to_string(local_toml).await?;
-        let toml = toml::de::Deserializer::new(&local_conf);
-        let local_conf: LocalConfig = serde_path_to_error::deserialize(toml)?;
-        if let LocalConfig {
-            local: Some(Local {
-                config: Some(config),
-            }),
-        } = local_conf
-        {
-            conn.execute("START TRANSACTION;", &()).await?;
-            default_schema().configure(conn, config).await?;
-            conn.execute("COMMIT;", &()).await?;
-        }
-    }
-    Ok(())
 }
