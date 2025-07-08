@@ -389,19 +389,20 @@ fn upgrade_cloud(
         _ => unreachable!(), // should be prevented by Clap
     };
 
-    let result = upgrade::upgrade_cloud(name, to_version, &client, use_dump_restore, |target_ver| {
-        let target_ver_str = target_ver.to_string();
-        let inst_name = name.to_string().emphasized();
-        if !cmd.non_interactive {
-            question::Confirm::new(format!(
-                "This will upgrade {inst_name} to version {target_ver_str}.\
+    let result =
+        upgrade::upgrade_cloud(name, to_version, &client, use_dump_restore, |target_ver| {
+            let target_ver_str = target_ver.to_string();
+            let inst_name = name.to_string().emphasized();
+            if !cmd.non_interactive {
+                question::Confirm::new(format!(
+                    "This will upgrade {inst_name} to version {target_ver_str}.\
                     \nConfirm upgrade?",
-            ))
-            .ask()
-        } else {
-            Ok(true)
-        }
-    })?;
+                ))
+                .ask()
+            } else {
+                Ok(true)
+            }
+        })?;
 
     if let upgrade::UpgradeAction::Upgraded = result.action {
         let inst_name = name.to_string().emphasized();
