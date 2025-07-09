@@ -285,43 +285,32 @@ impl Value {
 }
 
 pub const INITIAL_CONFIG: &str = r###"
-###############
-# Root config #
-###############
+##################################
+# Useful generic config settings #
+##################################
 
-#[local.config]
-# core transaction settings
-#default_transaction_isolation        = "Serializable"      # "Serializable" | "RepeatableRead"
-#default_transaction_access_mode      = "ReadWrite"         # "ReadOnly" | "ReadWrite"
-#default_transaction_deferrable       = "Deferrable"        # "Deferrable" | "NotDeferrable"
-
+[local.config]
 # timeouts
-# you can embed EdgeQL expressions with {{ … }}
-#session_idle_transaction_timeout     = "{{ <duration>'PT5M' }}"
-#query_execution_timeout              = "{{ <duration>'PT1M' }}"
+# (note:you can embed EdgeQL expressions with {{ … }})
+#session_idle_transaction_timeout     = "30 seconds"
+#query_execution_timeout              = "1 minute"
 
-# which of the above to use by default
+# which SMTP provider to use by default (see the configuration example below)
 #current_email_provider_name       = "mailtrap_sandbox"
 
 # DDL & policy flags
 #allow_dml_in_functions             = false
 #allow_bare_ddl                     = "NeverAllow"        # "AlwaysAllow" | "NeverAllow"
-#store_migration_sdl                = "NeverStore"        # "AlwaysStore" | "NeverStore"
-#apply_access_policies              = true
-#apply_access_policies_pg           = false
 #allow_user_specified_id            = false
-#simple_scoping                     = true
 #warn_old_scoping                   = false
 
 # CORS & cache
 #cors_allow_origins                  = ["http://localhost:8000", "http://127.0.0.1:8000"]
 #auto_rebuild_query_cache            = false
-#auto_rebuild_query_cache_timeout    = "{{ <duration>'PT30S' }}"
-#query_cache_mode                    = "Default"           # "InMemory" | "RegInline" | "PgFunc" | "Default"
+#auto_rebuild_query_cache_timeout    = "30 seconds"
 #http_max_connections                = 100
-#track_query_stats                   = "All"               # "None" | "All"
 
-#  Email providers
+# Email providers (SMTP)
 #[[local.config.SMTPProviderConfig]]
 #name                  = "mailtrap_sandbox"
 #sender                = "hello@example.com"
@@ -329,23 +318,22 @@ pub const INITIAL_CONFIG: &str = r###"
 #port                  = 2525
 #username              = "YOUR_USERNAME"
 #password              = "YOUR_PASSWORD"
-#timeout_per_email     = "{{ <duration>'PT5M' }}"
-#timeout_per_attempt   = "{{ <duration>'PT1M' }}"
+#timeout_per_email     = "5 minutes"
+#timeout_per_attempt   = "1 minute"
 #validate_certs        = false
 
 ##############
-# Extensions #
+#    Auth    #
 ##############
 
-#  Auth
 #[local.config."ext::auth::AuthConfig"]
 # general auth settings
 #app_name                           = "My Project"
 #logo_url                           = "https://localhost:8000/static/logo.png"
 #dark_logo_url                      = "https://localhost:8000/static/darklogo.png"
 #brand_color                        = "#0000FF"
-#auth_signing_key                   = "{{ uuid_generate_v4() }}"
-#token_time_to_live                 = "{{ <duration>'PT1H' }}"
+#auth_signing_key                   = "{{ <str>uuid_generate_v4() }}"
+#token_time_to_live                 = "1 hour"
 #allowed_redirect_urls              = ["http://localhost:8000", "http://testserver"]
 
 #[[local.config."ext::auth::EmailPasswordProviderConfig"]]
@@ -402,7 +390,7 @@ pub const INITIAL_CONFIG: &str = r###"
 #
 #[[local.config."ext::auth::MagicLinkProvider"]]
 #  # example: Magic Link
-#  token_time_to_live                = "{{ <duration>'PT15M' }}"
+#  token_time_to_live                = "15 minutes"
 
 # UI customization
 #[local.config."ext::auth::UIConfig"]
@@ -415,9 +403,14 @@ pub const INITIAL_CONFIG: &str = r###"
 #  events                           = ["IdentityCreated", "EmailVerified"]
 #  signing_secret_key               = "YOUR_WEBHOOK_SECRET"
 
-#  AI
+
+
+##############
+#     AI     #
+##############
+
 #[local.config."ext::ai::Config"]
-#indexer_naptime                    = "{{ <duration>'PT5M' }}"
+#indexer_naptime                    = "5 minutes"
 #
 # OpenAI Provider
 #[[local.config."ext::ai::OpenAIProviderConfig"]]
