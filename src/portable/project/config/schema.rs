@@ -18,6 +18,7 @@ pub enum Schema {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct Property {
     pub kind: PropertyKind,
     pub required: bool,
@@ -26,6 +27,7 @@ pub struct Property {
     pub examples: Vec<String>,
 }
 
+#[allow(dead_code)]
 impl Property {
     fn with_description(mut self, description: impl ToString) -> Self {
         self.description = Some(description.to_string());
@@ -48,6 +50,7 @@ impl Property {
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum PropertyKind {
     Singleton(Schema),
     Array(Schema),
@@ -79,7 +82,9 @@ impl Schema {
             Schema::Object { typ, .. } if typ == name => Some((self, false)),
             Schema::Object { members, .. } => members.values().find_map(|prop| match &prop.kind {
                 PropertyKind::Singleton(schema) => schema.find_object_schema(name),
-                PropertyKind::Multiset(schema) => schema.find_object_schema(name).map(|(s, _)| (s, true)),
+                PropertyKind::Multiset(schema) => {
+                    schema.find_object_schema(name).map(|(s, _)| (s, true))
+                }
                 _ => None,
             }),
             Schema::Union(schemas) => schemas.iter().find_map(|s| s.find_object_schema(name)),

@@ -38,7 +38,7 @@ pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    print::msg!("Synchronizing config...");
+    print::msg!("Applying config...");
 
     // configure
     let conn_config = gel_tokio::Builder::new()
@@ -49,6 +49,8 @@ pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
     conn.execute("START TRANSACTION;", &()).await?;
     configure(&mut conn, flat_config).await?;
     conn.execute("COMMIT;", &()).await?;
+
+    print::msg!("Done.");
 
     Ok(())
 }
@@ -65,8 +67,7 @@ async fn configure(
                 }
             }
             Value::Set(values) => {
-                let query = format!("configure current branch reset {name};");
-                print::msg!("Executing query: {query}");
+                execute_config(conn, &format!("reset {name}")).await?;
                 for value in values {
                     insert_value(conn, value).await?;
                 }
@@ -91,9 +92,7 @@ async fn set_value(
     };
     match value {
         Value::Injected(value) => {
-            let query = format!("configure current branch set {config}::{name} := {value};");
-            print::msg!("Executing query: {query}");
-            conn.execute(&query, &()).await?;
+            execute_config(conn, &format!("set {config}::{name} := {value}")).await?;
         }
         Value::Set(values) => {
             let mut args = HashMap::new();
@@ -106,14 +105,9 @@ async fn set_value(
                 })
                 .collect::<Vec<_>>()
                 .join(",\n\t");
-            let query =
-                format!("configure current branch set {config}::{name} := {{\n\t{values}\n}};");
-            print::msg!("Executing query: {query}\n\twith args: {args:?}");
-            let args = args
-                .iter()
-                .map(|(k, v)| (k.as_str(), v.clone().into()))
-                .collect::<HashMap<_, gel_protocol::value_opt::ValueOpt>>();
-            conn.execute(&query, &args).await?;
+
+            let query = format!("set {config}::{name} := {{\n\t{values}\n}}");
+            execute_config_args(conn, &query, args).await?;
         }
         Value::Array(values) => {
             let mut args = HashMap::new();
@@ -126,14 +120,9 @@ async fn set_value(
                 })
                 .collect::<Vec<_>>()
                 .join(",\n\t");
-            let query =
-                format!("configure current branch set {config}::{name} := [\n\t{values}\n];");
-            print::msg!("Executing query: {query}\n\twith args: {args:?}");
-            let args = args
-                .iter()
-                .map(|(k, v)| (k.as_str(), v.clone().into()))
-                .collect::<HashMap<_, gel_protocol::value_opt::ValueOpt>>();
-            conn.execute(&query, &args).await?;
+
+            let query = format!("set {config}::{name} := [\n\t{values}\n]");
+            execute_config_args(conn, &query, args).await?;
         }
         _ => {
             anyhow::bail!("Unsupported value type for setting: {value:?}");
@@ -156,12 +145,34 @@ async fn insert_value(conn: &mut Connection, value: Value) -> anyhow::Result<()>
         })
         .collect::<Vec<_>>()
         .join(",\n\t");
-    let query = format!("configure current branch insert {typ} {{\n\t{values}\n}};");
-    print::msg!("Executing query: {query}");
-    let args = args
+
+    execute_config_args(conn, &format!("insert {typ} {{\n\t{values}\n}}"), args).await
+}
+
+async fn execute_config(conn: &mut Connection, query: &str) -> anyhow::Result<()> {
+    let query = format!("configure current branch {query};");
+    print::msg!("> {query}");
+    conn.execute(&query, &()).await?;
+    Ok(())
+}
+
+async fn execute_config_args(
+    conn: &mut Connection,
+    query: &str,
+    args: HashMap<String, gel_protocol::value::Value>,
+) -> anyhow::Result<()> {
+    let query = format!("configure current branch {query};");
+
+    print::msg!("> {query}");
+    if !args.is_empty() {
+        print::msg!("\t with args: {args:?}");
+    }
+
+    let args: HashMap<&str, gel_protocol::value_opt::ValueOpt> = args
         .iter()
         .map(|(k, v)| (k.as_str(), v.clone().into()))
-        .collect::<HashMap<_, gel_protocol::value_opt::ValueOpt>>();
+        .collect();
+
     conn.execute(&query, &args).await?;
     Ok(())
 }
