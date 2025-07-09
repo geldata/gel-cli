@@ -57,12 +57,13 @@ pub fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<
 
     let project_loc = project::find_project(options.project_dir.as_deref())?;
 
-    if let Some(project_loc) = project_loc {
+    let project_loc = if let Some(project_loc) = project_loc {
         if options.link {
-            link(options, project_loc, opts)?;
+            link(options, project_loc.clone(), opts)?;
         } else {
-            init_existing(options, project_loc, opts)?;
+            init_existing(options, project_loc.clone(), opts)?;
         }
+        project_loc
     } else {
         if options.link {
             anyhow::bail!(
@@ -81,9 +82,14 @@ pub fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<
                 PROJECT_FILES[1]
             });
             let location = project::Location { root, manifest };
-            init_new(options, location, opts)?;
+            init_new(options, location.clone(), opts)?;
+
+            location
         }
     };
+
+    project::config::apply_local(&project_loc.root)?;
+
     Ok(())
 }
 
@@ -134,29 +140,11 @@ pub struct Command {
     pub interactive: bool,
 }
 
-#[tokio::main(flavor = "current_thread")]
-async fn sync(project: project::Location) -> anyhow::Result<project::ProjectInfo> {
-    let conn_config = gel_tokio::Builder::new()
-        .with_fs()
-        .with_explicit_project(&project.root)
-        .build()?;
-    let local_toml = project.root.join("gel.local.toml");
-    let mut conn = Connection::connect(&conn_config, QUERY_TAG).await?;
-    project::config::sync_config(&local_toml, &mut conn).await?;
-    Ok(project::ProjectInfo {
-        instance_name: conn_config
-            .instance_name
-            .expect("instance name is set")
-            .to_string(),
-        stash_dir: get_stash_path(&project.root)?,
-    })
-}
-
 pub fn init_existing(
     cmd: &Command,
     project: project::Location,
     opts: &crate::options::Options,
-) -> anyhow::Result<project::ProjectInfo> {
+) -> anyhow::Result<()> {
     msg!(
         "Found `{}` in {}",
         project
@@ -168,11 +156,9 @@ pub fn init_existing(
     );
     let stash_dir = get_stash_path(&project.root)?;
     if stash_dir.exists() {
-        msg!("Synchronizing project...");
-        return sync(project);
-    } else {
-        msg!("Initializing project...");
+        return Ok(());
     }
+    msg!("Initializing project...");
 
     let project = project::load_ctx_at(project)?;
     let schema_dir = project
@@ -341,7 +327,7 @@ fn do_init(
     database: DatabaseBranch,
     cmd: &Command,
     opts: &crate::options::Options,
-) -> anyhow::Result<project::ProjectInfo> {
+) -> anyhow::Result<()> {
     let port = allocate_port(name)?;
     let paths = Paths::get(name)?;
     let inst_name = InstanceName::Local(name.to_owned());
@@ -440,10 +426,7 @@ fn do_init(
         create_database(&handle)?;
     }
     print_initialized(name, &cmd.project_dir);
-    Ok(project::ProjectInfo {
-        instance_name: name.into(),
-        stash_dir: stash_dir.into(),
-    })
+    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -456,7 +439,7 @@ fn do_cloud_init(
     cmd: &Command,
     opts: &crate::options::Options,
     client: &CloudClient,
-) -> anyhow::Result<project::ProjectInfo> {
+) -> anyhow::Result<()> {
     let request = CloudInstanceCreate {
         name: name.name.clone(),
         version: version.to_string(),
@@ -492,17 +475,14 @@ fn do_cloud_init(
         create_database(&handle)?;
     }
     print_initialized(&full_name, &cmd.project_dir);
-    Ok(project::ProjectInfo {
-        instance_name: full_name,
-        stash_dir: stash_dir.into(),
-    })
+    Ok(())
 }
 
 fn link(
     cmd: &Command,
     project: project::Location,
     opts: &crate::options::Options,
-) -> anyhow::Result<project::ProjectInfo> {
+) -> anyhow::Result<()> {
     msg!(
         "Found `{}` in {}",
         project
@@ -559,7 +539,7 @@ fn do_link(
     cmd: &Command,
     stash_dir: &Path,
     opts: &crate::options::Options,
-) -> anyhow::Result<project::ProjectInfo> {
+) -> anyhow::Result<()> {
     let mut stash = project::StashDir::new(&inst.project_dir, &inst.name);
     if let project::InstanceKind::Cloud { cloud_client, .. } = inst.instance {
         let profile = cloud_client.profile.as_deref().unwrap_or("default");
@@ -589,10 +569,7 @@ fn do_link(
         eprintln!("To connect to {}, run `{BRANDING_CLI_CMD}`", inst.name);
     }
 
-    Ok(project::ProjectInfo {
-        instance_name: inst.name.clone(),
-        stash_dir: stash_dir.into(),
-    })
+    Ok(())
 }
 
 fn directory_to_name(path: &Path, default: InstanceName) -> InstanceName {
@@ -613,7 +590,7 @@ fn init_new(
     cmd: &Command,
     location: project::Location,
     opts: &crate::options::Options,
-) -> anyhow::Result<project::ProjectInfo> {
+) -> anyhow::Result<()> {
     eprintln!(
         "No {MANIFEST_FILE_DISPLAY_NAME} found in `{}` or above",
         location.root.display()

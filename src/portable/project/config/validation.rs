@@ -5,7 +5,7 @@ use std::collections::hash_map::Entry;
 use toml::Value as TomlValue;
 
 use super::Value;
-use super::schema::{PropertyKind, Property, Schema};
+use super::schema::{Property, PropertyKind, Schema};
 
 pub fn validate(value: TomlValue, schema: &Schema) -> anyhow::Result<HashMap<String, Value>> {
     let result = schema.validate(value, &[])?;

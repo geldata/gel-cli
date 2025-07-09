@@ -3,13 +3,22 @@ mod validation;
 
 use gel_protocol::value::Value as GelValue;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path;
 use toml::Value as TomlValue;
 
+use crate::branding::{BRANDING_CLI_CMD, QUERY_TAG};
 use crate::connect::Connection;
+use crate::print;
 
-pub async fn sync_config(local_toml: &PathBuf, conn: &mut Connection) -> anyhow::Result<()> {
-    if !local_toml.exists() {
+#[tokio::main(flavor = "current_thread")]
+pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
+    let local_toml = project_root.join("gel.local.toml");
+
+    if !tokio::fs::try_exists(&local_toml).await? {
+        print::msg!(
+            "Edit gel.local.toml and re-run `{BRANDING_CLI_CMD} init` to apply configuration."
+        );
+        tokio::fs::write(&local_toml, INITIAL_CONFIG).await?;
         return Ok(());
     }
 
@@ -25,10 +34,20 @@ pub async fn sync_config(local_toml: &PathBuf, conn: &mut Connection) -> anyhow:
     // validate
     let schema = schema::default_schema();
     let flat_config = validation::validate(config, &schema)?;
+    if flat_config.is_empty() {
+        return Ok(());
+    }
+
+    print::msg!("Synchronizing config...");
 
     // configure
+    let conn_config = gel_tokio::Builder::new()
+        .with_fs()
+        .with_explicit_project(project_root)
+        .build()?;
+    let mut conn = Connection::connect(&conn_config, QUERY_TAG).await?;
     conn.execute("START TRANSACTION;", &()).await?;
-    configure(conn, flat_config).await?;
+    configure(&mut conn, flat_config).await?;
     conn.execute("COMMIT;", &()).await?;
 
     Ok(())
@@ -47,7 +66,7 @@ async fn configure(
             }
             Value::Set(values) => {
                 let query = format!("configure current branch reset {name};");
-                println!("Executing query: {query}");
+                print::msg!("Executing query: {query}");
                 for value in values {
                     insert_value(conn, value).await?;
                 }
@@ -73,7 +92,7 @@ async fn set_value(
     match value {
         Value::Injected(value) => {
             let query = format!("configure current branch set {config}::{name} := {value};");
-            println!("Executing query: {query}");
+            print::msg!("Executing query: {query}");
             conn.execute(&query, &()).await?;
         }
         Value::Set(values) => {
@@ -89,7 +108,7 @@ async fn set_value(
                 .join(",\n\t");
             let query =
                 format!("configure current branch set {config}::{name} := {{\n\t{values}\n}};");
-            println!("Executing query: {query}\n\twith args: {args:?}");
+            print::msg!("Executing query: {query}\n\twith args: {args:?}");
             let args = args
                 .iter()
                 .map(|(k, v)| (k.as_str(), v.clone().into()))
@@ -109,7 +128,7 @@ async fn set_value(
                 .join(",\n\t");
             let query =
                 format!("configure current branch set {config}::{name} := [\n\t{values}\n];");
-            println!("Executing query: {query}\n\twith args: {args:?}");
+            print::msg!("Executing query: {query}\n\twith args: {args:?}");
             let args = args
                 .iter()
                 .map(|(k, v)| (k.as_str(), v.clone().into()))
@@ -138,7 +157,7 @@ async fn insert_value(conn: &mut Connection, value: Value) -> anyhow::Result<()>
         .collect::<Vec<_>>()
         .join(",\n\t");
     let query = format!("configure current branch insert {typ} {{\n\t{values}\n}};");
-    println!("Executing query: {query}");
+    print::msg!("Executing query: {query}");
     let args = args
         .iter()
         .map(|(k, v)| (k.as_str(), v.clone().into()))
@@ -253,3 +272,171 @@ impl Value {
         }
     }
 }
+
+pub const INITIAL_CONFIG: &str = r###"
+###############
+# Root config #
+###############
+
+#[local.config]
+# core transaction settings
+#default_transaction_isolation        = "Serializable"      # "Serializable" | "RepeatableRead"
+#default_transaction_access_mode      = "ReadWrite"         # "ReadOnly" | "ReadWrite"
+#default_transaction_deferrable       = "Deferrable"        # "Deferrable" | "NotDeferrable"
+
+# timeouts
+# you can embed EdgeQL expressions with {{ … }}
+#session_idle_transaction_timeout     = "{{ <duration>'PT5M' }}"
+#query_execution_timeout              = "{{ <duration>'PT1M' }}"
+
+# which of the above to use by default
+#current_email_provider_name       = "mailtrap_sandbox"
+
+# DDL & policy flags
+#allow_dml_in_functions             = false
+#allow_bare_ddl                     = "NeverAllow"        # "AlwaysAllow" | "NeverAllow"
+#store_migration_sdl                = "NeverStore"        # "AlwaysStore" | "NeverStore"
+#apply_access_policies              = true
+#apply_access_policies_pg           = false
+#allow_user_specified_id            = false
+#simple_scoping                     = true
+#warn_old_scoping                   = false
+
+# CORS & cache
+#cors_allow_origins                  = ["http://localhost:8000", "http://127.0.0.1:8000"]
+#auto_rebuild_query_cache            = false
+#auto_rebuild_query_cache_timeout    = "{{ <duration>'PT30S' }}"
+#query_cache_mode                    = "Default"           # "InMemory" | "RegInline" | "PgFunc" | "Default"
+#http_max_connections                = 100
+#track_query_stats                   = "All"               # "None" | "All"
+
+#  Email providers
+#[[local.config.SMTPProviderConfig]]
+#name                  = "mailtrap_sandbox"
+#sender                = "hello@example.com"
+#host                  = "sandbox.smtp.mailtrap.io"
+#port                  = 2525
+#username              = "YOUR_USERNAME"
+#password              = "YOUR_PASSWORD"
+#timeout_per_email     = "{{ <duration>'PT5M' }}"
+#timeout_per_attempt   = "{{ <duration>'PT1M' }}"
+#validate_certs        = false
+
+##############
+# Extensions #
+##############
+
+#  Auth
+#[local.config."ext::auth::AuthConfig"]
+# general auth settings
+#app_name                           = "My Project"
+#logo_url                           = "https://localhost:8000/static/logo.png"
+#dark_logo_url                      = "https://localhost:8000/static/darklogo.png"
+#brand_color                        = "#0000FF"
+#auth_signing_key                   = "{{ uuid_generate_v4() }}"
+#token_time_to_live                 = "{{ <duration>'PT1H' }}"
+#allowed_redirect_urls              = ["http://localhost:8000", "http://testserver"]
+
+#[[local.config."ext::auth::EmailPasswordProviderConfig"]]
+#  # example: Email+Password
+#  require_verification              = false
+#
+# Apple OAuth Provider
+#[[local.config."ext::auth::AppleOAuthProvider"]]
+#  # example: Apple OAuth
+#  client_id                         = "YOUR_APPLE_CLIENT_ID"
+#  secret                            = "YOUR_APPLE_SECRET"
+#  additional_scope                  = "email name"
+
+# Azure OAuth Provider
+#[[local.config."ext::auth::AzureOAuthProvider"]]
+#  # example: Azure OAuth
+#  client_id                         = "YOUR_AZURE_CLIENT_ID"
+#  secret                            = "YOUR_AZURE_SECRET"
+#  additional_scope                  = "openid profile email"
+
+# Discord OAuth Provider
+#[[local.config."ext::auth::DiscordOAuthProvider"]]
+#  # example: Discord OAuth
+#  client_id                         = "YOUR_DISCORD_CLIENT_ID"
+#  secret                            = "YOUR_DISCORD_SECRET"
+#  additional_scope                  = "identify email"
+
+# Slack OAuth Provider
+#[[local.config."ext::auth::SlackOAuthProvider"]]
+#  # example: Slack OAuth
+#  client_id                         = "YOUR_SLACK_CLIENT_ID"
+#  secret                            = "YOUR_SLACK_SECRET"
+#  additional_scope                  = "identity.basic identity.email"
+
+# GitHub OAuth Provider
+#[[local.config."ext::auth::GitHubOAuthProvider"]]
+#  # example: GitHub OAuth
+#  client_id                         = "YOUR_GITHUB_CLIENT_ID"
+#  secret                            = "YOUR_GITHUB_SECRET"
+#  additional_scope                  = "read:user user:email"
+
+# Google OAuth Provider
+#[[local.config."ext::auth::GoogleOAuthProvider"]]
+#  # example: Google OAuth
+#  client_id                         = "YOUR_GOOGLE_CLIENT_ID"
+#  secret                            = "YOUR_GOOGLE_SECRET"
+#  additional_scope                  = "openid email profile"
+
+# WebAuthn Provider
+#[[local.config."ext::auth::WebAuthnProvider"]]
+#  # example: WebAuthn
+#  relying_party_origin              = "https://example.com"
+#  require_verification              = true
+#
+#[[local.config."ext::auth::MagicLinkProvider"]]
+#  # example: Magic Link
+#  token_time_to_live                = "{{ <duration>'PT15M' }}"
+
+# UI customization
+#[local.config."ext::auth::UIConfig"]
+#redirect_to                        = "http://localhost:8000/auth/callback"
+#redirect_to_on_signup              = "http://localhost:8000/auth/callback?isSignUp=true"
+
+# Webhooks (ext::auth::WebhookConfig)
+#[[local.config."ext::auth::WebhookConfig"]]
+#  url                              = "https://example.com/webhook"
+#  events                           = ["IdentityCreated", "EmailVerified"]
+#  signing_secret_key               = "YOUR_WEBHOOK_SECRET"
+
+#  AI
+#[local.config."ext::ai::Config"]
+#indexer_naptime                    = "{{ <duration>'PT5M' }}"
+#
+# OpenAI Provider
+#[[local.config."ext::ai::OpenAIProviderConfig"]]
+#  api_url                          = "https://api.openai.com/v1"
+#  secret                           = "YOUR_API_KEY"
+#  client_id                        = "optional_client_id"
+#
+# Anthropic Provider
+#[[local.config."ext::ai::AnthropicProviderConfig"]]
+#  api_url                          = "https://api.anthropic.com/v1"
+#  secret                           = "YOUR_API_KEY"
+#  client_id                        = "optional_client_id"
+#
+# Mistral Provider
+#[[local.config."ext::ai::MistralProviderConfig"]]
+#  api_url                          = "https://api.mistral.ai/v1"
+#  secret                           = "YOUR_API_KEY"
+#  client_id                        = "optional_client_id"
+#
+# Ollama Provider
+#[[local.config."ext::ai::OllamaProviderConfig"]]
+#  api_url                          = "http://localhost:11434/api"
+#  client_id                        = "optional_client_id"
+#
+# Example custom provider: Google Gemini via OpenAI-compatible API
+#[[local.config."ext::ai::CustomProviderConfig"]]
+#  api_url     = "https://generativelanguage.googleapis.com/v1beta/openai"
+#  secret      = "YOUR_GEMINI_API_KEY"
+#  client_id   = "YOUR_GEMINI_CLIENT_ID"
+#  api_style   = "OpenAI"            # "OpenAI" | "Anthropic" | "Ollama"
+#  name        = "google_gemini"
+#  display_name = "Google Gemini"
+"###;
