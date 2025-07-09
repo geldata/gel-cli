@@ -90,6 +90,16 @@ pub struct Command {
     #[arg(long)]
     pub force: bool,
 
+    /// Force dump-restore upgrade method for Cloud instances.
+    #[arg(long)]
+    #[arg(conflicts_with = "force_in_place")]
+    pub force_dump_restore: bool,
+
+    /// Force in-place upgrade method for Cloud instances.
+    #[arg(long)]
+    #[arg(conflicts_with = "force_dump_restore")]
+    pub force_in_place: bool,
+
     /// Do not ask questions, assume user wants to upgrade instance
     #[arg(long)]
     pub non_interactive: bool,
@@ -312,6 +322,7 @@ fn upgrade_local(
                     verbose: false,
                     force: cmd.force,
                     force_dump_restore: cmd.force,
+                    force_in_place: false,
                     non_interactive: true,
                     cloud_opts: opts.cloud_options.clone(),
                 },
@@ -371,19 +382,27 @@ fn upgrade_cloud(
     let client = cloud::client::CloudClient::new(&opts.cloud_options)?;
     client.ensure_authenticated()?;
 
-    let result = upgrade::upgrade_cloud(name, to_version, &client, cmd.force, |target_ver| {
-        let target_ver_str = target_ver.to_string();
-        let inst_name = name.to_string().emphasized();
-        if !cmd.non_interactive {
-            question::Confirm::new(format!(
-                "This will upgrade {inst_name} to version {target_ver_str}.\
+    let use_dump_restore = match (cmd.force_dump_restore, cmd.force_in_place) {
+        (true, false) => Some(true),
+        (false, true) => Some(false),
+        (false, false) => None,
+        _ => unreachable!(), // should be prevented by Clap
+    };
+
+    let result =
+        upgrade::upgrade_cloud(name, to_version, &client, use_dump_restore, |target_ver| {
+            let target_ver_str = target_ver.to_string();
+            let inst_name = name.to_string().emphasized();
+            if !cmd.non_interactive {
+                question::Confirm::new(format!(
+                    "This will upgrade {inst_name} to version {target_ver_str}.\
                     \nConfirm upgrade?",
-            ))
-            .ask()
-        } else {
-            Ok(true)
-        }
-    })?;
+                ))
+                .ask()
+            } else {
+                Ok(true)
+            }
+        })?;
 
     if let upgrade::UpgradeAction::Upgraded = result.action {
         let inst_name = name.to_string().emphasized();
