@@ -71,6 +71,9 @@
                 "rust-analyzer"
               ])
             ];
+            shellHook = ''
+              export PATH="/home/aljaz/EdgeDB/edgedb-cli/target/debug:$PATH"
+            '';
           };
         };
     };

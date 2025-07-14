@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path;
 use toml::Value as TomlValue;
 
-use crate::branding::{BRANDING_CLI_CMD, QUERY_TAG};
+use crate::branding::QUERY_TAG;
 use crate::connect::Connection;
 use crate::print;
 
@@ -16,7 +16,7 @@ pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
 
     if !tokio::fs::try_exists(&local_toml).await? {
         print::msg!(
-            "Edit gel.local.toml and re-run `{BRANDING_CLI_CMD} init` to apply configuration."
+            "Writing gel.local.toml for config (it should be executed from source control)"
         );
         tokio::fs::write(&local_toml, INITIAL_CONFIG).await?;
         return Ok(());
