@@ -176,6 +176,7 @@ pub fn default_schema() -> Schema {
         }
     }
 
+    // auth
     let provider_config = vec![("name", singleton(primitive("str"), true))];
     let oauth_provider_config = provider_config
         .clone()
@@ -283,23 +284,28 @@ pub fn default_schema() -> Schema {
             ("brand_color".into(), singleton(primitive("str"), false)),
         ],
     );
-    let webhook_event = enumeration(
-        "ext::auth::WebhookEvent",
-        [
-            "IdentityCreated",
-            "IdentityAuthenticated",
-            "EmailFactorCreated",
-            "EmailVerified",
-            "EmailVerificationRequested",
-            "PasswordResetRequested",
-            "MagicLinkRequested",
-        ],
-    );
     let webhook_config = object(
         "ext::auth::WebhookConfig",
         [
             ("url", singleton(primitive("str"), true)),
-            ("events", multiset(webhook_event, true)),
+            (
+                "events",
+                multiset(
+                    enumeration(
+                        "ext::auth::WebhookEvent",
+                        [
+                            "IdentityCreated",
+                            "IdentityAuthenticated",
+                            "EmailFactorCreated",
+                            "EmailVerified",
+                            "EmailVerificationRequested",
+                            "PasswordResetRequested",
+                            "MagicLinkRequested",
+                        ],
+                    ),
+                    true,
+                ),
+            ),
             (
                 "signing_secret_key".into(),
                 singleton(primitive("str"), false),
@@ -324,17 +330,24 @@ pub fn default_schema() -> Schema {
             ("allowed_redirect_urls", multiset(primitive("str"), false)),
         ],
     );
-    let provider_api_style = enumeration(
-        "ext::ai::ProviderAPIStyle",
-        ["OpenAI", "Anthropic", "Ollama"],
-    );
+
+    // AI
     let provider_config = vec![
         ("name", singleton(primitive("str"), true)),
         ("display_name", singleton(primitive("str"), true)),
         ("api_url", singleton(primitive("str"), true)),
         ("client_id", singleton(primitive("str"), false)),
         ("secret", singleton(primitive("str"), true)),
-        ("api_style", singleton(provider_api_style, true)),
+        (
+            "api_style",
+            singleton(
+                enumeration(
+                    "ext::ai::ProviderAPIStyle",
+                    ["OpenAI", "Anthropic", "Ollama"],
+                ),
+                true,
+            ),
+        ),
     ];
     let vendor_provider_config = provider_config
         .clone()
@@ -342,100 +355,119 @@ pub fn default_schema() -> Schema {
         .optional("display_name")
         .optional("api_url")
         .optional("api_style");
-    let ai_providers = vec![
-        object(
-            "ext::ai::CustomProviderConfig",
-            provider_config
-                .clone()
-                .optional("display_name")
-                .optional("api_style"),
-        ),
-        object(
-            "ext::ai::OpenAIProviderConfig",
-            vendor_provider_config.clone(),
-        ),
-        object(
-            "ext::ai::MistralProviderConfig",
-            vendor_provider_config.clone(),
-        ),
-        object(
-            "ext::ai::AnthropicProviderConfig",
-            vendor_provider_config.clone(),
-        ),
-        object(
-            "ext::ai::OllamaProviderConfig",
-            vendor_provider_config.clone().optional("secret"),
-        ),
-    ];
     let ai = object(
         "ext::ai::Config",
         [
             ("indexer_naptime", singleton(primitive("duration"), false)),
-            ("providers", multiset(Union(ai_providers), false)),
+            (
+                "providers",
+                multiset(
+                    Union(vec![
+                        object(
+                            "ext::ai::CustomProviderConfig",
+                            provider_config
+                                .clone()
+                                .optional("display_name")
+                                .optional("api_style"),
+                        ),
+                        object(
+                            "ext::ai::OpenAIProviderConfig",
+                            vendor_provider_config.clone(),
+                        ),
+                        object(
+                            "ext::ai::MistralProviderConfig",
+                            vendor_provider_config.clone(),
+                        ),
+                        object(
+                            "ext::ai::AnthropicProviderConfig",
+                            vendor_provider_config.clone(),
+                        ),
+                        object(
+                            "ext::ai::OllamaProviderConfig",
+                            vendor_provider_config.clone().optional("secret"),
+                        ),
+                    ]),
+                    false,
+                ),
+            ),
         ],
     );
-    let extensions = object(
-        "cfg::ExtensionConfig",
-        [
-            ("auth", singleton(auth, false)),
-            ("ai", singleton(ai, false)),
-        ],
-    );
-    let transaction_isolation = enumeration(
-        "sys::TransactionIsolation",
-        ["Serializable", "RepeatableRead"],
-    );
-    let transaction_access_mode =
-        enumeration("sys::TransactionAccessMode", ["ReadOnly", "ReadWrite"]);
-    let transaction_deferrability = enumeration(
-        "sys::TransactionDeferrability",
-        ["Deferrable", "NotDeferrable"],
-    );
+
+    // email provider
     let email_provider_config = vec![("name", singleton(primitive("str"), true))];
-    let smtp_security = enumeration(
-        "cfg::SMTPSecurity",
-        ["PlainText", "TLS", "STARTTLS", "STARTTLSOrPlainText"],
+
+    let smtp_provider_config = object(
+        "cfg::SMTPProviderConfig",
+        email_provider_config.clone().into_iter().chain([
+            ("sender".into(), singleton(primitive("str"), false)),
+            ("host".into(), singleton(primitive("str"), false)),
+            ("port".into(), singleton(primitive("int32"), false)),
+            ("username".into(), singleton(primitive("str"), false)),
+            ("password".into(), singleton(primitive("str"), false)),
+            (
+                "security".into(),
+                singleton(
+                    enumeration(
+                        "cfg::SMTPSecurity",
+                        ["PlainText", "TLS", "STARTTLS", "STARTTLSOrPlainText"],
+                    ),
+                    false,
+                ),
+            ),
+            ("validate_certs".into(), singleton(primitive("bool"), false)),
+            (
+                "timeout_per_email".into(),
+                singleton(primitive("duration"), false),
+            ),
+            (
+                "timeout_per_attempt".into(),
+                singleton(primitive("duration"), false),
+            ),
+        ]),
     );
-    let smtp_provider_config = email_provider_config.clone().into_iter().chain([
-        ("sender".into(), singleton(primitive("str"), false)),
-        ("host".into(), singleton(primitive("str"), false)),
-        ("port".into(), singleton(primitive("int32"), false)),
-        ("username".into(), singleton(primitive("str"), false)),
-        ("password".into(), singleton(primitive("str"), false)),
-        ("security".into(), singleton(smtp_security, false)),
-        ("validate_certs".into(), singleton(primitive("bool"), false)),
-        (
-            "timeout_per_email".into(),
-            singleton(primitive("duration"), false),
-        ),
-        (
-            "timeout_per_attempt".into(),
-            singleton(primitive("duration"), false),
-        ),
-    ]);
-    let email_providers = vec![object("cfg::SMTPProviderConfig", smtp_provider_config)];
-    let allow_bare_ddl = enumeration("cfg::AllowBareDDL", ["AlwaysAllow", "NeverAllow"]);
-    let store_migration_sdl = enumeration("cfg::StoreMigrationSDL", ["AlwaysStore", "NeverStore"]);
-    let query_cache_mode = enumeration(
-        "cfg::QueryCacheMode",
-        ["InMemory", "RegInline", "PgFunc", "Default"],
-    );
-    let query_stats_option = enumeration("cfg::QueryStatsOption", ["None", "All"]);
+
     object(
         "cfg::Config",
         [
-            ("extensions", singleton(extensions, false)),
+            (
+                "extensions",
+                singleton(
+                    object(
+                        "cfg::ExtensionConfig",
+                        [
+                            ("auth", singleton(auth, false)),
+                            ("ai", singleton(ai, false)),
+                        ],
+                    ),
+                    false,
+                ),
+            ),
             (
                 "default_transaction_isolation",
-                singleton(transaction_isolation, false),
+                singleton(
+                    enumeration(
+                        "sys::TransactionIsolation",
+                        ["Serializable", "RepeatableRead"],
+                    ),
+                    false,
+                ),
             ),
             (
                 "default_transaction_access_mode",
-                singleton(transaction_access_mode, false),
+                singleton(
+                    enumeration("sys::TransactionAccessMode", ["ReadOnly", "ReadWrite"]),
+                    false,
+                ),
             ),
             (
                 "default_transaction_deferrable",
-                singleton(transaction_deferrability, false),
+                singleton(
+                    enumeration(
+                        "sys::TransactionDeferrability",
+                        ["Deferrable", "NotDeferrable"],
+                    ),
+                    false,
+                ),
             ),
             (
                 "session_idle_transaction_timeout",
@@ -445,7 +477,10 @@ pub fn default_schema() -> Schema {
                 "query_execution_timeout",
                 singleton(primitive("duration"), false),
             ),
-            ("email_providers", multiset(Union(email_providers), false)),
+            (
+                "email_providers",
+                multiset(Union(vec![smtp_provider_config]), false),
+            ),
             (
                 "current_email_provider_name",
                 singleton(primitive("str"), false),
@@ -454,8 +489,20 @@ pub fn default_schema() -> Schema {
                 "allow_dml_in_functions",
                 singleton(primitive("bool"), false),
             ),
-            ("allow_bare_ddl", singleton(allow_bare_ddl, false)),
-            ("store_migration_sdl", singleton(store_migration_sdl, false)),
+            (
+                "allow_bare_ddl",
+                singleton(
+                    enumeration("cfg::AllowBareDDL", ["AlwaysAllow", "NeverAllow"]),
+                    false,
+                ),
+            ),
+            (
+                "store_migration_sdl",
+                singleton(
+                    enumeration("cfg::StoreMigrationSDL", ["AlwaysStore", "NeverStore"]),
+                    false,
+                ),
+            ),
             ("apply_access_policies", singleton(primitive("bool"), false)),
             (
                 "apply_access_policies_pg",
@@ -476,9 +523,21 @@ pub fn default_schema() -> Schema {
                 "auto_rebuild_query_cache_timeout",
                 singleton(primitive("duration"), false),
             ),
-            ("query_cache_mode", singleton(query_cache_mode, false)),
+            (
+                "query_cache_mode",
+                singleton(
+                    enumeration(
+                        "cfg::QueryCacheMode",
+                        ["InMemory", "RegInline", "PgFunc", "Default"],
+                    ),
+                    false,
+                ),
+            ),
             ("http_max_connections", singleton(primitive("int64"), false)),
-            ("track_query_stats", singleton(query_stats_option, false)),
+            (
+                "track_query_stats",
+                singleton(enumeration("cfg::QueryStatsOption", ["None", "All"]), false),
+            ),
         ],
     )
 }
