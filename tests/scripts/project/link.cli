@@ -217,6 +217,7 @@ repeat {
 ! Project initialized.
 ! To connect to project2, run `gel`
 ! Applying config...
+! Done.
 
 $ gel project upgrade --to-latest --force
 choice {
