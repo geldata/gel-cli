@@ -296,7 +296,7 @@ pub fn default_schema() -> Schema {
         ],
     );
     let webhook_config = object(
-        "ext::ai::WebhookConfig",
+        "ext::auth::WebhookConfig",
         [
             ("url", singleton(primitive("str"), true)),
             ("events", multiset(webhook_event, true)),

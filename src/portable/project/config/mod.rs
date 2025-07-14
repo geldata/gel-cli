@@ -285,162 +285,167 @@ impl Value {
 }
 
 pub const INITIAL_CONFIG: &str = r###"
-##################################
-# Useful generic config settings #
-##################################
+## ==== [ Instance configuration ] ====
+
+## This file is applied with `gel init`.
+## Generally, it should not be checked into source control.
+## It can contain any configuration setting supported by your instance.
+## Below is a list of most common and useful settings, commented-out.
+## (note: you can embed EdgeQL expressions with {{ … }})
+
+## ---- [ Generic config settings ] ----
 
 [local.config]
-# timeouts
-# (note:you can embed EdgeQL expressions with {{ … }})
-#session_idle_transaction_timeout     = "30 seconds"
-#query_execution_timeout              = "1 minute"
 
-# which SMTP provider to use by default (see the configuration example below)
-#current_email_provider_name       = "mailtrap_sandbox"
+## timeouts
+# session_idle_transaction_timeout     = "30 seconds"
+# query_execution_timeout              = "1 minute"
 
-# DDL & policy flags
-#allow_dml_in_functions             = false
-#allow_bare_ddl                     = "NeverAllow"        # "AlwaysAllow" | "NeverAllow"
-#allow_user_specified_id            = false
-#warn_old_scoping                   = false
+## which SMTP provider to use by default (see the configuration example below)
+# current_email_provider_name       = "mailtrap_sandbox"
 
-# CORS & cache
-#cors_allow_origins                  = ["http://localhost:8000", "http://127.0.0.1:8000"]
-#auto_rebuild_query_cache            = false
-#auto_rebuild_query_cache_timeout    = "30 seconds"
-#http_max_connections                = 100
+## DDL & policy flags
+# allow_dml_in_functions             = false
+# allow_bare_ddl                     = "NeverAllow"        # "AlwaysAllow" | "NeverAllow"
+# allow_user_specified_id            = false
+# warn_old_scoping                   = false
 
-# Email providers (SMTP)
-#[[local.config.SMTPProviderConfig]]
-#name                  = "mailtrap_sandbox"
-#sender                = "hello@example.com"
-#host                  = "sandbox.smtp.mailtrap.io"
-#port                  = 2525
-#username              = "YOUR_USERNAME"
-#password              = "YOUR_PASSWORD"
-#timeout_per_email     = "5 minutes"
-#timeout_per_attempt   = "1 minute"
-#validate_certs        = false
+## CORS & cache
+# cors_allow_origins                  = ["http://localhost:8000", "http://127.0.0.1:8000"]
+# auto_rebuild_query_cache            = false
+# auto_rebuild_query_cache_timeout    = "30 seconds"
+# http_max_connections                = 100
 
-##############
-#    Auth    #
-##############
-
-#[local.config."ext::auth::AuthConfig"]
-# general auth settings
-#app_name                           = "My Project"
-#logo_url                           = "https://localhost:8000/static/logo.png"
-#dark_logo_url                      = "https://localhost:8000/static/darklogo.png"
-#brand_color                        = "#0000FF"
-#auth_signing_key                   = "{{ <str>uuid_generate_v4() }}"
-#token_time_to_live                 = "1 hour"
-#allowed_redirect_urls              = ["http://localhost:8000", "http://testserver"]
-
-#[[local.config."ext::auth::EmailPasswordProviderConfig"]]
-#  # example: Email+Password
-#  require_verification              = false
-#
-# Apple OAuth Provider
-#[[local.config."ext::auth::AppleOAuthProvider"]]
-#  # example: Apple OAuth
-#  client_id                         = "YOUR_APPLE_CLIENT_ID"
-#  secret                            = "YOUR_APPLE_SECRET"
-#  additional_scope                  = "email name"
-
-# Azure OAuth Provider
-#[[local.config."ext::auth::AzureOAuthProvider"]]
-#  # example: Azure OAuth
-#  client_id                         = "YOUR_AZURE_CLIENT_ID"
-#  secret                            = "YOUR_AZURE_SECRET"
-#  additional_scope                  = "openid profile email"
-
-# Discord OAuth Provider
-#[[local.config."ext::auth::DiscordOAuthProvider"]]
-#  # example: Discord OAuth
-#  client_id                         = "YOUR_DISCORD_CLIENT_ID"
-#  secret                            = "YOUR_DISCORD_SECRET"
-#  additional_scope                  = "identify email"
-
-# Slack OAuth Provider
-#[[local.config."ext::auth::SlackOAuthProvider"]]
-#  # example: Slack OAuth
-#  client_id                         = "YOUR_SLACK_CLIENT_ID"
-#  secret                            = "YOUR_SLACK_SECRET"
-#  additional_scope                  = "identity.basic identity.email"
-
-# GitHub OAuth Provider
-#[[local.config."ext::auth::GitHubOAuthProvider"]]
-#  # example: GitHub OAuth
-#  client_id                         = "YOUR_GITHUB_CLIENT_ID"
-#  secret                            = "YOUR_GITHUB_SECRET"
-#  additional_scope                  = "read:user user:email"
-
-# Google OAuth Provider
-#[[local.config."ext::auth::GoogleOAuthProvider"]]
-#  # example: Google OAuth
-#  client_id                         = "YOUR_GOOGLE_CLIENT_ID"
-#  secret                            = "YOUR_GOOGLE_SECRET"
-#  additional_scope                  = "openid email profile"
-
-# WebAuthn Provider
-#[[local.config."ext::auth::WebAuthnProvider"]]
-#  # example: WebAuthn
-#  relying_party_origin              = "https://example.com"
-#  require_verification              = true
-#
-#[[local.config."ext::auth::MagicLinkProvider"]]
-#  # example: Magic Link
-#  token_time_to_live                = "15 minutes"
-
-# UI customization
-#[local.config."ext::auth::UIConfig"]
-#redirect_to                        = "http://localhost:8000/auth/callback"
-#redirect_to_on_signup              = "http://localhost:8000/auth/callback?isSignUp=true"
-
-# Webhooks (ext::auth::WebhookConfig)
-#[[local.config."ext::auth::WebhookConfig"]]
-#  url                              = "https://example.com/webhook"
-#  events                           = ["IdentityCreated", "EmailVerified"]
-#  signing_secret_key               = "YOUR_WEBHOOK_SECRET"
+## Email providers (SMTP)
+# [[local.config."cfg::SMTPProviderConfig"]]
+# name                  = "mailtrap_sandbox"
+# sender                = "hello@example.com"
+# host                  = "sandbox.smtp.mailtrap.io"
+# port                  = 2525
+# username              = "YOUR_USERNAME"
+# password              = "YOUR_PASSWORD"
+# timeout_per_email     = "5 minutes"
+# timeout_per_attempt   = "1 minute"
+# validate_certs        = false
 
 
+## ---- [ Auth ] ----
 
-##############
-#     AI     #
-##############
+## To use these options, you must first enable `auth` extension in your schema.
+## 1. Add `using extension auth;` to default.gel,
+## 2. Run `gel migration create`
+## 3. Run `gel migration apply`
 
-#[local.config."ext::ai::Config"]
-#indexer_naptime                    = "5 minutes"
-#
-# OpenAI Provider
-#[[local.config."ext::ai::OpenAIProviderConfig"]]
-#  api_url                          = "https://api.openai.com/v1"
-#  secret                           = "YOUR_API_KEY"
-#  client_id                        = "optional_client_id"
-#
-# Anthropic Provider
-#[[local.config."ext::ai::AnthropicProviderConfig"]]
-#  api_url                          = "https://api.anthropic.com/v1"
-#  secret                           = "YOUR_API_KEY"
-#  client_id                        = "optional_client_id"
-#
-# Mistral Provider
-#[[local.config."ext::ai::MistralProviderConfig"]]
-#  api_url                          = "https://api.mistral.ai/v1"
-#  secret                           = "YOUR_API_KEY"
-#  client_id                        = "optional_client_id"
-#
-# Ollama Provider
-#[[local.config."ext::ai::OllamaProviderConfig"]]
-#  api_url                          = "http://localhost:11434/api"
-#  client_id                        = "optional_client_id"
-#
-# Example custom provider: Google Gemini via OpenAI-compatible API
-#[[local.config."ext::ai::CustomProviderConfig"]]
-#  api_url     = "https://generativelanguage.googleapis.com/v1beta/openai"
-#  secret      = "YOUR_GEMINI_API_KEY"
-#  client_id   = "YOUR_GEMINI_CLIENT_ID"
-#  api_style   = "OpenAI"            # "OpenAI" | "Anthropic" | "Ollama"
-#  name        = "google_gemini"
-#  display_name = "Google Gemini"
+## general auth settings
+# [local.config."ext::auth::AuthConfig"]
+# app_name                           = "My Project"
+# logo_url                           = "https://localhost:8000/static/logo.png"
+# dark_logo_url                      = "https://localhost:8000/static/darklogo.png"
+# brand_color                        = "#0000FF"
+# auth_signing_key                   = "__GENERATED_UUID__"
+# token_time_to_live                 = "1 hour"
+# allowed_redirect_urls              = ["http://localhost:8000", "http://testserver"]
+
+## Email & Password Auth Provider
+# [[local.config."ext::auth::EmailPasswordProviderConfig"]]
+# require_verification              = false
+
+## Apple OAuth Provider
+# [[local.config."ext::auth::AppleOAuthProvider"]]
+# client_id                         = "YOUR_APPLE_CLIENT_ID"
+# secret                            = "YOUR_APPLE_SECRET"
+# additional_scope                  = "email name"
+
+## Azure OAuth Provider
+# [[local.config."ext::auth::AzureOAuthProvider"]]
+# client_id                         = "YOUR_AZURE_CLIENT_ID"
+# secret                            = "YOUR_AZURE_SECRET"
+# additional_scope                  = "openid profile email"
+
+## Discord OAuth Provider
+# [[local.config."ext::auth::DiscordOAuthProvider"]]
+# client_id                         = "YOUR_DISCORD_CLIENT_ID"
+# secret                            = "YOUR_DISCORD_SECRET"
+# additional_scope                  = "identify email"
+
+## Slack OAuth Provider
+# [[local.config."ext::auth::SlackOAuthProvider"]]
+# client_id                         = "YOUR_SLACK_CLIENT_ID"
+# secret                            = "YOUR_SLACK_SECRET"
+# additional_scope                  = "identity.basic identity.email"
+
+## GitHub OAuth Provider
+# [[local.config."ext::auth::GitHubOAuthProvider"]]
+# client_id                         = "YOUR_GITHUB_CLIENT_ID"
+# secret                            = "YOUR_GITHUB_SECRET"
+# additional_scope                  = "read:user user:email"
+
+## Google OAuth Provider
+# [[local.config."ext::auth::GoogleOAuthProvider"]]
+# client_id                         = "YOUR_GOOGLE_CLIENT_ID"
+# secret                            = "YOUR_GOOGLE_SECRET"
+# additional_scope                  = "openid email profile"
+
+## WebAuthn Provider
+# [[local.config."ext::auth::WebAuthnProviderConfig"]]
+# relying_party_origin              = "https://example.com"
+# require_verification              = true
+
+## Magic Link Provider
+# [[local.config."ext::auth::MagicLinkProviderConfig"]]
+# token_time_to_live                = "15 minutes"
+
+## UI customization
+# [local.config."ext::auth::UIConfig"]
+# redirect_to                        = "http://localhost:8000/auth/callback"
+# redirect_to_on_signup              = "http://localhost:8000/auth/callback?isSignUp=true"
+
+## Webhooks (ext::auth::WebhookConfig)
+# [[local.config."ext::auth::WebhookConfig"]]
+# url                              = "https://example.com/webhook"
+# events                           = ["IdentityCreated", "EmailVerified"]
+# signing_secret_key               = "YOUR_WEBHOOK_SECRET"
+
+
+## ---- [ AI ] ----
+
+## To use these options, you must first enable `ai` extension in your schema.
+## 1. Add `using extension ai;` to default.gel,
+## 2. Run `gel migration create`
+## 3. Run `gel migration apply`
+
+# [local.config."ext::ai::Config"]
+# indexer_naptime                    = "5 minutes"
+
+## OpenAI Provider
+# [[local.config."ext::ai::OpenAIProviderConfig"]]
+# api_url                          = "https://api.openai.com/v1"
+# secret                           = "YOUR_API_KEY"
+# client_id                        = "optional_client_id"
+
+## Anthropic Provider
+# [[local.config."ext::ai::AnthropicProviderConfig"]]
+# api_url                          = "https://api.anthropic.com/v1"
+# secret                           = "YOUR_API_KEY"
+# client_id                        = "optional_client_id"
+
+## Mistral Provider
+# [[local.config."ext::ai::MistralProviderConfig"]]
+# api_url                          = "https://api.mistral.ai/v1"
+# secret                           = "YOUR_API_KEY"
+# client_id                        = "optional_client_id"
+
+## Ollama Provider
+# [[local.config."ext::ai::OllamaProviderConfig"]]
+# api_url                          = "http://localhost:11434/api"
+# client_id                        = "optional_client_id"
+
+## Example custom provider: Google Gemini via OpenAI-compatible API
+# [[local.config."ext::ai::CustomProviderConfig"]]
+# api_url     = "https://generativelanguage.googleapis.com/v1beta/openai"
+# secret      = "YOUR_GEMINI_API_KEY"
+# client_id   = "YOUR_GEMINI_CLIENT_ID"
+# api_style   = "OpenAI"            # "OpenAI" | "Anthropic" | "Ollama"
+# name        = "google_gemini"
+# display_name = "Google Gemini"
 "###;
