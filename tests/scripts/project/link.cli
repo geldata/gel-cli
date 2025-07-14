@@ -216,7 +216,7 @@ repeat {
 ! Everything is up to date. Revision initial
 ! Project initialized.
 ! To connect to project2, run `gel`
-! Writing gel.local.toml for config (it should be executed from source control)
+! Applying config...
 
 $ gel project upgrade --to-latest --force
 choice {
