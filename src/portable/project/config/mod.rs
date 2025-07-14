@@ -2,6 +2,7 @@ mod schema;
 mod validation;
 
 use gel_protocol::value::Value as GelValue;
+use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::path;
 use toml::Value as TomlValue;
@@ -57,7 +58,7 @@ pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
 
 async fn configure(
     conn: &mut Connection,
-    flat_config: HashMap<String, Value>,
+    flat_config: IndexMap<String, Value>,
 ) -> anyhow::Result<()> {
     for (name, value) in flat_config {
         match value {
@@ -67,7 +68,7 @@ async fn configure(
                 }
             }
             Value::Set(values) => {
-                execute_config(conn, &format!("reset {name}")).await?;
+                execute_configure(conn, &format!("reset {name}")).await?;
                 for value in values {
                     insert_value(conn, value).await?;
                 }
@@ -92,7 +93,7 @@ async fn set_value(
     };
     match value {
         Value::Injected(value) => {
-            execute_config(conn, &format!("set {config}::{name} := {value}")).await?;
+            execute_configure(conn, &(format!("set {config}::{name} := {value}"))).await?;
         }
         Value::Set(values) => {
             let mut args = HashMap::new();
@@ -107,7 +108,7 @@ async fn set_value(
                 .join(",\n\t");
 
             let query = format!("set {config}::{name} := {{\n\t{values}\n}}");
-            execute_config_args(conn, &query, args).await?;
+            execute_configure_args(conn, &query, args).await?;
         }
         Value::Array(values) => {
             let mut args = HashMap::new();
@@ -122,7 +123,7 @@ async fn set_value(
                 .join(",\n\t");
 
             let query = format!("set {config}::{name} := [\n\t{values}\n]");
-            execute_config_args(conn, &query, args).await?;
+            execute_configure_args(conn, &query, args).await?;
         }
         _ => {
             anyhow::bail!("Unsupported value type for setting: {value:?}");
@@ -146,17 +147,17 @@ async fn insert_value(conn: &mut Connection, value: Value) -> anyhow::Result<()>
         .collect::<Vec<_>>()
         .join(",\n\t");
 
-    execute_config_args(conn, &format!("insert {typ} {{\n\t{values}\n}}"), args).await
+    execute_configure_args(conn, &format!("insert {typ} {{\n\t{values}\n}}"), args).await
 }
 
-async fn execute_config(conn: &mut Connection, query: &str) -> anyhow::Result<()> {
+async fn execute_configure(conn: &mut Connection, query: &str) -> anyhow::Result<()> {
     let query = format!("configure current branch {query};");
     print::msg!("> {query}");
     conn.execute(&query, &()).await?;
     Ok(())
 }
 
-async fn execute_config_args(
+async fn execute_configure_args(
     conn: &mut Connection,
     query: &str,
     args: HashMap<String, gel_protocol::value::Value>,
@@ -195,7 +196,7 @@ pub enum Value {
     Set(Vec<Value>),
     Nested {
         typ: String,
-        values: HashMap<String, Value>,
+        values: IndexMap<String, Value>,
     },
 }
 

@@ -1,18 +1,21 @@
 use anyhow::Context;
 use edgeql_parser::helpers::quote_string as ql;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry;
+use indexmap::IndexMap;
+use indexmap::map::Entry;
 use toml::Value as TomlValue;
 
 use super::Value;
 use super::schema::{Property, PropertyKind, Schema};
 
-pub fn validate(value: TomlValue, schema: &Schema) -> anyhow::Result<HashMap<String, Value>> {
+pub fn validate(value: TomlValue, schema: &Schema) -> anyhow::Result<IndexMap<String, Value>> {
     let result = schema.validate(value, &[])?;
 
     let Some(mut flat_config) = result.flat_config else {
         return Ok(Default::default());
     };
+
+    dbg!(&result.result);
+    dbg!(&flat_config);
 
     merge_flat_config(
         &mut flat_config,
@@ -24,6 +27,7 @@ pub fn validate(value: TomlValue, schema: &Schema) -> anyhow::Result<HashMap<Str
             result.result,
         )],
     )?;
+    dbg!(&flat_config);
     Ok(flat_config)
 }
 
@@ -109,7 +113,7 @@ impl Schema {
         &self,
         array: toml::value::Array,
         path: &[&str],
-        flat_config: &mut HashMap<String, Value>,
+        flat_config: &mut IndexMap<String, Value>,
     ) -> anyhow::Result<Vec<Value>> {
         array
             .into_iter()
@@ -135,8 +139,8 @@ impl Schema {
         let Schema::Object { typ, members } = self else {
             panic!("{}: expected object schema", path.join("."));
         };
-        let mut flat_config = HashMap::new();
-        let mut values = HashMap::new();
+        let mut flat_config = IndexMap::new();
+        let mut values = IndexMap::new();
 
         for (key, value) in value {
             let sub_path = &[path, &[&key]].concat();
@@ -227,7 +231,7 @@ impl Schema {
 
 pub struct ValidateResult {
     result: Value,
-    flat_config: Option<HashMap<String, Value>>,
+    flat_config: Option<IndexMap<String, Value>>,
 }
 
 impl From<Value> for ValidateResult {
@@ -240,7 +244,7 @@ impl From<Value> for ValidateResult {
 }
 
 impl ValidateResult {
-    fn new(result: Value, flat_config: HashMap<String, Value>) -> Self {
+    fn new(result: Value, flat_config: IndexMap<String, Value>) -> Self {
         ValidateResult {
             result,
             flat_config: Some(flat_config),
@@ -254,14 +258,14 @@ impl ValidateResult {
         Ok(self.result)
     }
 
-    pub fn merge_into(self, flat_config: &mut HashMap<String, Value>) -> anyhow::Result<Value> {
+    pub fn merge_into(self, flat_config: &mut IndexMap<String, Value>) -> anyhow::Result<Value> {
         if let Some(new_flat_config) = self.flat_config {
             merge_flat_config(flat_config, new_flat_config)?;
         }
         Ok(self.result)
     }
 
-    pub fn merge_object(self, flat_config: &mut HashMap<String, Value>) -> anyhow::Result<()> {
+    pub fn merge_object(self, flat_config: &mut IndexMap<String, Value>) -> anyhow::Result<()> {
         let value = self.merge_into(flat_config)?;
         if let Value::Nested { typ, .. } = &value {
             merge_flat_config(flat_config, [(typ.clone(), value)])
@@ -272,7 +276,7 @@ impl ValidateResult {
 }
 
 fn merge_flat_config(
-    flat_config: &mut HashMap<String, Value>,
+    flat_config: &mut IndexMap<String, Value>,
     new_flat_config: impl IntoIterator<Item = (String, Value)>,
 ) -> anyhow::Result<()> {
     for (key, value) in new_flat_config {
@@ -322,14 +326,14 @@ fn merge_flat_config(
 }
 
 fn merge_flat_objects<I>(
-    flat_config: &mut HashMap<String, Value>,
+    flat_config: &mut IndexMap<String, Value>,
     path: &[&str],
     objects: I,
 ) -> anyhow::Result<()>
 where
     I: IntoIterator<Item = Value>,
 {
-    let mut values = HashMap::new();
+    let mut values = IndexMap::new();
     for (i, value) in objects.into_iter().enumerate() {
         let i = i.to_string();
         let sub_path = &[path, &[&i]].concat();
@@ -351,7 +355,7 @@ where
 
 fn merge_schemaless_value(
     value: TomlValue,
-    flat_config: &mut HashMap<String, Value>,
+    flat_config: &mut IndexMap<String, Value>,
     path: &[&str],
 ) -> anyhow::Result<Option<Value>> {
     let value = Value::try_from(value)?;
