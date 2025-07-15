@@ -55,19 +55,24 @@ pub struct Command {
 
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum Subcommands {
-    /// Initialize project or link to existing unlinked project
+    /// Initialize project or link to existing unlinked project.
+    ///
+    /// Also runs `[`BRANDING_CLI_CMD`] migration apply` and `[`BRANDING_CLI_CMD`] instance configure`.
     Init(init::Command),
+
     /// Clean up project configuration.
     ///
-    /// Use [`BRANDING_CLI_CMD`] project init to relink.
+    /// Use `[`BRANDING_CLI_CMD`] project init` to relink.
     Unlink(unlink::Command),
+
     /// Get various metadata about project instance
     Info(info::Command),
+
     /// Upgrade [`BRANDING`] instance used for current project
     ///
     /// Data is preserved using a dump/restore mechanism.
     ///
-    /// Upgrades to version specified in `{gel,edgedb}.toml` unless other options specified.
+    /// Upgrades to version specified in `gel.toml` unless other options specified.
     ///
     /// Note: May fail if lower version is specified (e.g. moving from nightly to stable).
     Upgrade(upgrade::Command),

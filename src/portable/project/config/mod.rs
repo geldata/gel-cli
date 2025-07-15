@@ -1,16 +1,40 @@
 mod schema;
 mod validation;
 
+use clap::ValueHint;
 use gel_protocol::value::Value as GelValue;
 use indexmap::IndexMap;
 use std::collections::HashMap;
 use std::path;
 use toml::Value as TomlValue;
 
-use crate::branding::QUERY_TAG;
+use crate::branding::{BRANDING_CLI_CMD, QUERY_TAG};
+use crate::commands::ExitCode;
 use crate::connect::Connection;
-use crate::print;
+use crate::options::Options;
+use crate::print::{self, Highlight};
 use validation::Commands;
+
+#[derive(clap::Args, Clone, Debug)]
+pub struct Command {
+    #[arg(long, value_hint=ValueHint::DirPath)]
+    pub project_dir: Option<path::PathBuf>,
+}
+
+pub fn run(c: &Command, _options: &Options) -> anyhow::Result<()> {
+    let project_loc = super::find_project(c.project_dir.as_ref().map(|p| p.as_ref()))?;
+
+    let Some(project_loc) = project_loc else {
+        print::msg!(
+            "{} {} Run `{BRANDING_CLI_CMD} project init`.",
+            print::err_marker(),
+            "Project is not initialized.".emphasized()
+        );
+        return Err(ExitCode::new(1).into());
+    };
+
+    apply_local(&project_loc.root)
+}
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
