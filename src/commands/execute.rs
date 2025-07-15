@@ -123,8 +123,8 @@ pub async fn common(
         Restore(params) => {
             commands::restore(conn, options, params).await?;
         }
-        Configure(c) => {
-            commands::configure::run(conn, options, c).await?;
+        Configure(cmd) => {
+            commands::configure::run(cmd, conn, options).await?;
         }
         Database(c) => match &c.subcommand {
             DatabaseCmd::Create(c) => {
