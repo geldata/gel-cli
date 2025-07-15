@@ -10,6 +10,7 @@ use toml::Value as TomlValue;
 use crate::branding::QUERY_TAG;
 use crate::connect::Connection;
 use crate::print;
+use validation::Commands;
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
@@ -34,8 +35,8 @@ pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
 
     // validate
     let schema = schema::default_schema();
-    let flat_config = validation::validate(config, &schema)?;
-    if flat_config.is_empty() {
+    let commands = validation::validate(config, &schema)?;
+    if commands.is_empty() {
         return Ok(());
     }
 
@@ -48,7 +49,7 @@ pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
         .build()?;
     let mut conn = Connection::connect(&conn_config, QUERY_TAG).await?;
     conn.execute("START TRANSACTION;", &()).await?;
-    configure(&mut conn, flat_config).await?;
+    configure(&mut conn, &commands).await?;
     conn.execute("COMMIT;", &()).await?;
 
     print::msg!("Done.");
@@ -56,26 +57,15 @@ pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn configure(
-    conn: &mut Connection,
-    flat_config: IndexMap<String, Value>,
-) -> anyhow::Result<()> {
-    for (name, value) in flat_config {
-        match value {
-            Value::Nested { values, .. } => {
-                for (key, value) in values {
-                    set_value(conn, value, &name, &key).await?;
-                }
-            }
-            Value::Set(values) => {
-                execute_configure(conn, &format!("reset {name}")).await?;
-                for value in values {
-                    insert_value(conn, value).await?;
-                }
-            }
-            _ => {
-                panic!("expected object or set, got {value:?}");
-            }
+async fn configure(conn: &mut Connection, commands: &Commands) -> anyhow::Result<()> {
+    for (cfg_obj, prop, value) in &commands.set {
+        set_value(conn, cfg_obj, prop, value).await?;
+    }
+    for (cfg_object, inserts) in &commands.insert {
+        execute_configure(conn, &format!("reset {cfg_object}")).await?;
+        for values in inserts {
+            let (query, args) = compile_insert(&cfg_object, values, 1);
+            execute_configure_args(conn, &query, args).await?;
         }
     }
     Ok(())
@@ -83,71 +73,20 @@ async fn configure(
 
 async fn set_value(
     conn: &mut Connection,
-    value: Value,
-    config: &str,
-    name: &str,
+    config_object: &str,
+    property: &str,
+    value: &Value,
 ) -> anyhow::Result<()> {
-    let config = match config {
+    let config_object = match config_object {
         "cfg::Config" => "cfg",
         config => config,
     };
-    match value {
-        Value::Injected(value) => {
-            execute_configure(conn, &(format!("set {config}::{name} := {value}"))).await?;
-        }
-        Value::Set(values) => {
-            let mut args = HashMap::new();
-            let values = values
-                .into_iter()
-                .map(|value| {
-                    let (value, value_args) = value.compile(args.len());
-                    args.extend(value_args);
-                    value
-                })
-                .collect::<Vec<_>>()
-                .join(",\n\t");
 
-            let query = format!("set {config}::{name} := {{\n\t{values}\n}}");
-            execute_configure_args(conn, &query, args).await?;
-        }
-        Value::Array(values) => {
-            let mut args = HashMap::new();
-            let values = values
-                .into_iter()
-                .map(|v| {
-                    let (value, value_args) = v.compile(args.len());
-                    args.extend(value_args);
-                    value
-                })
-                .collect::<Vec<_>>()
-                .join(",\n\t");
+    let (value, args) = compile_value(value, 1);
 
-            let query = format!("set {config}::{name} := [\n\t{values}\n]");
-            execute_configure_args(conn, &query, args).await?;
-        }
-        _ => {
-            anyhow::bail!("Unsupported value type for setting: {value:?}");
-        }
-    }
+    let query = format!("set {config_object}::{property} := {value}");
+    execute_configure_args(conn, &query, args).await?;
     Ok(())
-}
-
-async fn insert_value(conn: &mut Connection, value: Value) -> anyhow::Result<()> {
-    let Value::Nested { typ, values } = value else {
-        anyhow::bail!("Unsupported value type for inserting: {value:?}");
-    };
-    let mut args = HashMap::new();
-    let values = values
-        .into_iter()
-        .map(|(name, val)| {
-            let (val, value_args) = val.compile(args.len());
-            args.extend(value_args);
-            format!("{name} := {val}")
-        })
-        .collect::<Vec<_>>()
-        .join(",\n\t");
-
-    execute_configure_args(conn, &format!("insert {typ} {{\n\t{values}\n}}"), args).await
 }
 
 async fn execute_configure(conn: &mut Connection, query: &str) -> anyhow::Result<()> {
@@ -178,6 +117,69 @@ async fn execute_configure_args(
     Ok(())
 }
 
+fn compile_value(value: &Value, indent: usize) -> (String, HashMap<String, GelValue>) {
+    let padding = " ".repeat((indent + 1) * 2);
+    let padding_closing = " ".repeat(indent * 2);
+
+    match value {
+        Value::Injected(value) => (value.clone(), HashMap::new()),
+        Value::Set(values) => {
+            let mut params = Vec::new();
+            let mut args = HashMap::new();
+
+            for value in values {
+                let (p, a) = compile_value(value, indent + 1);
+                params.push(p);
+                args.extend(a);
+            }
+            let params = params.join(&format!(",\n{padding}"));
+
+            (format!("{{\n{padding}{params}\n{padding_closing}}}"), args)
+        }
+        Value::Array(values) => {
+            let mut params = Vec::new();
+            let mut args = HashMap::new();
+
+            for value in values {
+                let (p, a) = compile_value(value, indent + 1);
+                params.push(p);
+                args.extend(a);
+            }
+            let params = params.join(&format!(",\n{padding}"));
+
+            (format!("[\n{padding}{params}\n{padding_closing}]"), args)
+        }
+        Value::Insert { typ, values } => {
+            let (query, args) = compile_insert(typ, values, indent + 1);
+            (format!("({query})"), args)
+        }
+    }
+}
+
+fn compile_insert(
+    cfg_obj: &str,
+    values: &IndexMap<String, Value>,
+    indent: usize,
+) -> (String, HashMap<String, GelValue>) {
+    let padding = " ".repeat((indent + 1) * 2);
+    let padding_closing = " ".repeat(indent * 2);
+
+    let mut params = Vec::new();
+    let mut args = HashMap::new();
+
+    for (name, val) in values {
+        let (p, a) = compile_value(val, indent + 1);
+        params.push(format!("{name} := {p}"));
+        args.extend(a);
+    }
+    let params = params.join(&format!(",\n{padding}"));
+
+    (
+        format!("insert {cfg_obj} {{\n{padding}{params}\n{padding_closing}}}"),
+        args,
+    )
+}
+
 /// Format of gel.local.toml
 #[derive(Debug, serde::Deserialize)]
 pub struct LocalConfig {
@@ -190,99 +192,15 @@ pub struct Local {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Value {
     Injected(String),
-    Array(Vec<Value>),
+    Array(Vec<Value>), // array is not really used, we don't have such config, right?
     Set(Vec<Value>),
-    Nested {
+    Insert {
         typ: String,
         values: IndexMap<String, Value>,
     },
-}
-
-impl TryFrom<TomlValue> for Value {
-    type Error = anyhow::Error;
-
-    fn try_from(value: TomlValue) -> anyhow::Result<Self> {
-        Ok(match value {
-            TomlValue::String(value) => {
-                match value.strip_prefix("{{").and_then(|s| s.strip_suffix("}}")) {
-                    Some(value) => Value::Injected(value.to_string()),
-                    None => Value::Injected(value.into()),
-                }
-            }
-            TomlValue::Integer(value) => Value::Injected(value.to_string()),
-            TomlValue::Float(value) => Value::Injected(value.to_string()),
-            TomlValue::Boolean(value) => Value::Injected(value.to_string()),
-            TomlValue::Datetime(
-                datetimetz @ toml::value::Datetime {
-                    date: Some(_),
-                    time: Some(_),
-                    offset: Some(_),
-                },
-            ) => Value::Injected(format!("<datetime>{}", datetimetz)),
-            TomlValue::Datetime(
-                datetime @ toml::value::Datetime {
-                    date: Some(_),
-                    time: Some(_),
-                    offset: None,
-                },
-            ) => Value::Injected(format!("<cal::local_datetime>{}", datetime)),
-            TomlValue::Datetime(toml::value::Datetime {
-                date: Some(date),
-                time: None,
-                offset: None,
-            }) => Value::Injected(format!("<cal::local_date>{}", date)),
-            TomlValue::Datetime(toml::value::Datetime {
-                date: None,
-                time: Some(time),
-                offset: None,
-            }) => Value::Injected(format!("<cal::local_time>{}", time,)),
-            TomlValue::Datetime(value) => {
-                Err(anyhow::anyhow!("Invalid datetime value: {}", value))?
-            }
-            TomlValue::Array(values) => {
-                let values = values
-                    .into_iter()
-                    .map(Self::try_from)
-                    .collect::<anyhow::Result<Vec<_>>>()?;
-                if values.iter().any(Value::is_object) {
-                    Value::Set(values)
-                } else {
-                    Value::Array(values)
-                }
-            }
-            TomlValue::Table(mut table) => {
-                let Some(TomlValue::String(typ)) = table.remove("_tname") else {
-                    anyhow::bail!("missing tname");
-                };
-                let values = table
-                    .into_iter()
-                    .map(|(k, v)| Self::try_from(v).map(|v| (k, v)))
-                    .collect::<anyhow::Result<_>>()?;
-                Self::Nested { typ, values }
-            }
-        })
-    }
-}
-
-impl Value {
-    pub fn is_object(&self) -> bool {
-        match self {
-            Value::Set(values) => values.iter().any(Self::is_object),
-            Value::Nested { .. } => true,
-            _ => false,
-        }
-    }
-
-    fn compile(self, _arg_index: usize) -> (String, HashMap<String, GelValue>) {
-        match self {
-            Value::Injected(value) => (value, HashMap::new()),
-            _ => {
-                panic!("Unsupported value type to compile: {self:?}");
-            }
-        }
-    }
 }
 
 pub const INITIAL_CONFIG: &str = r###"

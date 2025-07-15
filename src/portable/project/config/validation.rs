@@ -1,374 +1,291 @@
-use anyhow::Context;
+use std::borrow::Cow;
+
 use edgeql_parser::helpers::quote_string as ql;
 use indexmap::IndexMap;
-use indexmap::map::Entry;
+
 use toml::Value as TomlValue;
 
+use crate::hint::HintExt;
+
 use super::Value;
-use super::schema::{Property, PropertyKind, Schema};
+use super::schema::{ObjectType, Schema, Typ};
 
-pub fn validate(value: TomlValue, schema: &Schema) -> anyhow::Result<IndexMap<String, Value>> {
-    let result = schema.validate(value, &[])?;
-
-    let Some(mut flat_config) = result.flat_config else {
-        return Ok(Default::default());
+pub fn validate(value: TomlValue, schema: &Schema) -> anyhow::Result<Commands> {
+    let mut validator = Validator {
+        commands: Commands::default(),
+        schema,
+        path: Vec::new(),
     };
 
-    dbg!(&result.result);
-    dbg!(&flat_config);
+    validator.validate_top_level(value)?;
 
-    merge_flat_config(
-        &mut flat_config,
-        [(
-            schema
-                .get_type()
-                .expect("root schema must have type")
-                .to_string(),
-            result.result,
-        )],
-    )?;
-    dbg!(&flat_config);
-    Ok(flat_config)
+    Ok(validator.commands)
 }
 
-impl Schema {
-    /// Compares the schema to the toml value and makes sure that the value is of correct type.
-    pub fn validate(&self, value: TomlValue, path: &[&str]) -> anyhow::Result<ValidateResult> {
-        use Schema::*;
-        use TomlValue as Toml;
+#[derive(Debug, Default)]
+pub struct Commands {
+    pub set: Vec<(String, String, Value)>,
+    pub insert: IndexMap<String, Vec<IndexMap<String, Value>>>,
+}
 
-        match (self, value) {
-            (_, Toml::String(value)) if value.starts_with("{{") && value.ends_with("}}") => {
-                Ok(Value::Injected(
-                    value
-                        .strip_prefix("{{")
-                        .and_then(|s| s.strip_suffix("}}"))
-                        .unwrap()
-                        .to_string(),
-                )
-                .into())
-            }
-            (Primitive { typ } | Enum { typ, .. }, Toml::Array(_)) => {
-                Err(anyhow::anyhow!("expected {typ} but got array"))
-            }
-            (Primitive { typ } | Enum { typ, .. }, Toml::Table(_)) => {
-                Err(anyhow::anyhow!("expected {typ} but got table"))
-            }
-            (Primitive { typ }, value) => match (typ.as_str(), value) {
-                ("str", Toml::String(value)) => Ok(Value::Injected(ql(&value)).into()),
-                ("int64", Toml::Integer(value)) => Ok(Value::Injected(value.to_string()).into()),
-                ("int32", Toml::Integer(value)) => Ok(Value::Injected(value.to_string()).into()),
-                ("int16", Toml::Integer(value)) => Ok(Value::Injected(value.to_string()).into()),
-                ("float64", Toml::Float(value)) => Ok(Value::Injected(value.to_string()).into()),
-                ("float32", Toml::Float(value)) => Ok(Value::Injected(value.to_string()).into()),
-                ("bool", Toml::Boolean(value)) => Ok(Value::Injected(value.to_string()).into()),
-                ("duration", Toml::String(value)) => {
-                    Ok(Value::Injected(format!("<duration>{}", ql(&value))).into())
-                }
-                (_, value) => Err(anyhow::anyhow!("expected {typ} but got {value:?}")),
-            },
-            (Enum { typ, choices }, Toml::String(value)) => {
-                if choices.contains(&value) {
-                    Ok(Value::Injected(format!("<{}>{}", typ, ql(&value))).into())
+impl Commands {
+    pub fn set(&mut self, config_object: &str, values: IndexMap<String, Value>) {
+        for (property, val) in values {
+            self.set.push((config_object.to_string(), property, val));
+        }
+    }
+    pub fn insert(&mut self, config_object: String, values: IndexMap<String, Value>) {
+        let inserts = self.insert.entry(config_object).or_default();
+        inserts.push(values);
+    }
+    pub fn is_empty(&self) -> bool {
+        self.set.is_empty() && self.insert.is_empty()
+    }
+}
+
+struct Validator<'s> {
+    commands: Commands,
+    schema: &'s Schema,
+    path: Vec<String>,
+}
+
+impl<'s> Validator<'s> {
+    /// Entry point
+    fn validate_top_level(&mut self, value: TomlValue) -> anyhow::Result<()> {
+        let TomlValue::Table(entries) = value else {
+            return Err(anyhow::anyhow!("expected a table for [local.config]"));
+        };
+
+        // validate entries like `cfg::Config` and `ext::auth::AuthConfig```
+        let mut not_found = toml::map::Map::new();
+        for (cfg_object, value) in entries {
+            let Some(object_type) = self.schema.find_object(&cfg_object) else {
+                not_found.insert(cfg_object, value);
+                continue;
+            };
+
+            let toml_values = if object_type.is_multi {
+                let TomlValue::Array(values) = value else {
+                    return Err(self.err_expected("an array", &value));
+                };
+                values
+            } else {
+                vec![value]
+            };
+
+            self.path.push(cfg_object.clone());
+            for v in toml_values {
+                let values = self.validate_object_type(v, object_type)?;
+                if object_type.is_top_level {
+                    self.commands.set(&cfg_object, values);
                 } else {
-                    Err(anyhow::anyhow!(
-                        "expected one of {choices:?} but got {value}"
-                    ))
+                    self.commands.insert(cfg_object.clone(), values);
                 }
             }
-            (Object { .. }, Toml::Table(value)) => Ok(self.validate_object(value, path)?),
-            (Union(schemas), Toml::Table(mut value)) => {
-                if let Some(Toml::String(tname)) = value.remove("_tname") {
-                    for schema in schemas {
-                        if schema.get_type() == Some(&tname) {
-                            return schema.validate_object(value, path);
+
+            self.path.pop();
+        }
+
+        // validate entries like `allow_bare_ddl`, which we implicitly assume are on cfg::Config
+        let cfg_config = self.schema.find_object("cfg::Config").unwrap();
+        let values = self.validate_object_type(TomlValue::Table(not_found), cfg_config)?;
+        self.commands.set("cfg::Config", values);
+
+        Ok(())
+    }
+
+    fn validate_object_type(
+        &mut self,
+        value: TomlValue,
+        obj: &ObjectType,
+    ) -> anyhow::Result<IndexMap<String, Value>> {
+        let TomlValue::Table(entries) = value else {
+            return Err(self.err_expected("a table", &value));
+        };
+
+        let mut properties = IndexMap::new();
+
+        for (key, value) in entries {
+            log::debug!("{key}");
+            self.path.push(key.clone());
+
+            let Some(ptr) = obj.pointers.get(&key) else {
+                return Err(anyhow::anyhow!(
+                    "unknown configuration option: {}",
+                    self.path.join(".")
+                ));
+            };
+
+            if ptr.target.is_scalar() {
+                // properties
+
+                if !ptr.is_multi {
+                    let value = self.validate_property(value, &ptr.target)?;
+                    properties.insert(key, value);
+                } else {
+                    let TomlValue::Array(array) = value else {
+                        return Err(self.err_expected("an array", &value));
+                    };
+                    let values = array
+                        .into_iter()
+                        .map(|v| self.validate_property(v, &ptr.target))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    properties.insert(key, Value::Set(values));
+                }
+            } else {
+                // links
+
+                if !ptr.is_multi {
+                    let value = self.validate_link(value, &ptr.target)?;
+                    if let Some(value) = value {
+                        properties.insert(key, value);
+                    }
+                } else {
+                    let TomlValue::Array(array) = value else {
+                        return Err(self.err_expected("an array", &value));
+                    };
+                    let mut set = Vec::new();
+                    for v in array {
+                        if let Some(v) = self.validate_link(v, &ptr.target)? {
+                            set.push(v);
                         }
                     }
-                    Err(anyhow::anyhow!("unknown type in union: {tname}"))
-                } else {
-                    Err(anyhow::anyhow!("expected _tname field in union object"))
+                    if !set.is_empty() {
+                        properties.insert(key, Value::Set(set));
+                    }
                 }
             }
-            (schema, value) => Err(anyhow::anyhow!("expected {schema:?}, value: {value:?}")),
+
+            self.path.pop();
         }
-        .with_context(|| path.join("."))
-    }
-    fn validate_array(&self, value: TomlValue, path: &[&str]) -> anyhow::Result<Vec<Value>> {
-        let ctx = || path.join(".");
-        let TomlValue::Array(array) = value else {
-            return Err(anyhow::anyhow!("expected array")).with_context(ctx);
-        };
-        Ok(array
-            .into_iter()
-            .enumerate()
-            .map(|(i, v)| {
-                let i = i.to_string();
-                let sub_path = &[path, &[&i]].concat();
-                self.validate(v, sub_path)
-                    .and_then(|r| r.take_result().with_context(|| sub_path.join(".")))
-            })
-            .collect::<anyhow::Result<_>>()?)
-    }
-    fn validate_object_array(
-        &self,
-        array: toml::value::Array,
-        path: &[&str],
-        flat_config: &mut IndexMap<String, Value>,
-    ) -> anyhow::Result<Vec<Value>> {
-        array
-            .into_iter()
-            .enumerate()
-            .map(|(i, value)| {
-                let i = i.to_string();
-                let sub_path = &[path, &[&i]].concat();
-                self.validate(value, sub_path).and_then(|v| {
-                    v.merge_into(flat_config)
-                        .with_context(|| sub_path.join("."))
-                })
-            })
-            .collect()
+
+        Ok(properties)
     }
 
-    fn validate_object(
-        &self,
-        value: toml::value::Table,
-        path: &[&str],
-    ) -> anyhow::Result<ValidateResult> {
-        use PropertyKind::*;
+    fn validate_property(&mut self, value: TomlValue, typ: &Typ) -> anyhow::Result<Value> {
+        use TomlValue as Toml;
+        use Typ::*;
 
-        let Schema::Object { typ, members } = self else {
-            panic!("{}: expected object schema", path.join("."));
-        };
-        let mut flat_config = IndexMap::new();
-        let mut values = IndexMap::new();
+        let as_injected = value
+            .as_str()
+            .and_then(|v| v.strip_prefix("{{"))
+            .and_then(|v| v.strip_suffix("}}"));
+        if let Some(injected) = as_injected {
+            return Ok(Value::Injected(injected.to_string()));
+        }
 
-        for (key, value) in value {
-            let sub_path = &[path, &[&key]].concat();
-            let key = key.clone();
-            let sub_ctx = || sub_path.join(".");
-            match members.get(&key) {
-                Some(Property {
-                    kind: Singleton(schema),
-                    ..
-                }) if schema.is_scalar() => {
-                    values.insert(
-                        key,
-                        schema
-                            .validate(value, sub_path)?
-                            .take_result()
-                            .with_context(sub_ctx)?,
+        Ok(match (typ, value) {
+            (Primitive(name) | Enum { name, .. }, Toml::Array(v)) => {
+                return Err(self.err_expected(name, &Toml::Array(v)));
+            }
+            (Primitive(name) | Enum { name, .. }, Toml::Table(v)) => {
+                return Err(self.err_expected(name, &Toml::Table(v)));
+            }
+            (Primitive(prim), value) => match (prim.as_str(), value) {
+                ("str", Toml::String(value)) => Value::Injected(ql(&value)),
+                ("int64", Toml::Integer(value)) => Value::Injected(value.to_string()),
+                ("int32", Toml::Integer(value)) => Value::Injected(value.to_string()),
+                ("int16", Toml::Integer(value)) => Value::Injected(value.to_string()),
+                ("float64", Toml::Float(value)) => Value::Injected(value.to_string()),
+                ("float32", Toml::Float(value)) => Value::Injected(value.to_string()),
+                ("bool", Toml::Boolean(value)) => Value::Injected(value.to_string()),
+                ("duration", Toml::String(value)) => {
+                    Value::Injected(format!("<duration>{}", ql(&value)))
+                }
+                (_, value) => {
+                    return Err(self.err_expected(prim, &value));
+                }
+            },
+            (Enum { name, choices }, Toml::String(value)) => {
+                if !choices.contains(&value) {
+                    return Err(
+                        self.err_expected(format!("one of {choices:?}"), &Toml::String(value))
                     );
                 }
-                Some(Property {
-                    kind: Singleton(schema),
-                    ..
-                }) => schema
-                    .validate(value, sub_path)?
-                    .merge_object(&mut flat_config)
-                    .with_context(sub_ctx)?,
-                Some(Property {
-                    kind: Array(schema),
-                    ..
-                }) => {
-                    values.insert(key, Value::Array(schema.validate_array(value, sub_path)?));
-                }
-                Some(Property {
-                    kind: Multiset(schema),
-                    ..
-                }) if schema.is_scalar() => {
-                    values.insert(key, Value::Set(schema.validate_array(value, sub_path)?));
-                }
-                Some(Property {
-                    kind: Multiset(schema),
-                    ..
-                }) => {
-                    let TomlValue::Array(array) = value else {
-                        return Err(anyhow::anyhow!("expected array for multiset"))
-                            .with_context(sub_ctx);
-                    };
-                    let objs = schema.validate_object_array(array, sub_path, &mut flat_config)?;
-                    merge_flat_objects(&mut flat_config, sub_path, objs)?;
-                }
-                None if path.is_empty() => match (self.find_object_schema(&key), value) {
-                    (Some((schema, true)), TomlValue::Array(array)) => {
-                        let objs =
-                            schema.validate_object_array(array, sub_path, &mut flat_config)?;
-                        merge_flat_objects(&mut flat_config, sub_path, objs)?;
-                    }
-                    (Some((schema, false)), TomlValue::Table(table)) => schema
-                        .validate_object(table, sub_path)?
-                        .merge_object(&mut flat_config)
-                        .with_context(sub_ctx)?,
-                    (Some((_, multi)), _) => {
-                        let expect = if multi { "array" } else { "object" };
-                        return Err(anyhow::anyhow!("expected {expect}")).with_context(sub_ctx);
-                    }
-                    (None, value) => {
-                        if let Some(value) =
-                            merge_schemaless_value(value, &mut flat_config, sub_path)
-                                .with_context(sub_ctx)?
-                        {
-                            values.insert(key, value);
-                        }
-                    }
-                },
-                None => {
-                    if let Some(value) = merge_schemaless_value(value, &mut flat_config, sub_path)
-                        .with_context(sub_ctx)?
-                    {
-                        values.insert(key, value);
-                    }
-                }
+                Value::Injected(format!("<{}>{}", name, ql(&value))).into()
             }
-        }
-        let typ = typ.into();
-        Ok(ValidateResult::new(
-            Value::Nested { typ, values },
-            flat_config,
-        ))
-    }
-}
-
-pub struct ValidateResult {
-    result: Value,
-    flat_config: Option<IndexMap<String, Value>>,
-}
-
-impl From<Value> for ValidateResult {
-    fn from(value: Value) -> Self {
-        ValidateResult {
-            result: value,
-            flat_config: None,
-        }
-    }
-}
-
-impl ValidateResult {
-    fn new(result: Value, flat_config: IndexMap<String, Value>) -> Self {
-        ValidateResult {
-            result,
-            flat_config: Some(flat_config),
-        }
+            (typ, value) => {
+                return Err(self.err_expected(typ, &value));
+            }
+        })
     }
 
-    pub fn take_result(self) -> anyhow::Result<Value> {
-        if self.flat_config.is_some() {
-            anyhow::bail!("not a value-only result");
-        }
-        Ok(self.result)
-    }
+    fn validate_link(&mut self, value: TomlValue, typ: &Typ) -> anyhow::Result<Option<Value>> {
+        use TomlValue as Toml;
+        use Typ::*;
 
-    pub fn merge_into(self, flat_config: &mut IndexMap<String, Value>) -> anyhow::Result<Value> {
-        if let Some(new_flat_config) = self.flat_config {
-            merge_flat_config(flat_config, new_flat_config)?;
-        }
-        Ok(self.result)
-    }
+        match (typ, value) {
+            (ObjectRef(target_ref), Toml::Table(value)) => {
+                let Some(target) = self.schema.find_object(target_ref) else {
+                    return Err(anyhow::anyhow!(
+                        "{}: unknown config object: {target_ref}",
+                        self.path.join(".")
+                    ));
+                };
 
-    pub fn merge_object(self, flat_config: &mut IndexMap<String, Value>) -> anyhow::Result<()> {
-        let value = self.merge_into(flat_config)?;
-        if let Value::Nested { typ, .. } = &value {
-            merge_flat_config(flat_config, [(typ.clone(), value)])
-        } else {
-            anyhow::bail!("expected object");
-        }
-    }
-}
+                let values = self.validate_object_type(Toml::Table(value), target)?;
+                Ok(if target.is_non_locatable {
+                    Some(Value::Insert {
+                        typ: target_ref.clone(),
+                        values,
+                    })
+                } else {
+                    self.commands.insert(target_ref.clone(), values);
+                    None
+                })
+            }
+            (Union(obj_type_refs), Toml::Table(mut value)) => {
+                let Some(Toml::String(t_name)) = value.remove("_tname") else {
+                    return Err(
+                        anyhow::anyhow!("{} is missing _tname field", self.path.join("."))
+                            .with_hint(|| format!(
+                                "{} can be any of the following types: {}. Use _tname to differenciate between them.",
+                                self.path.last().unwrap(),
+                                obj_type_refs.join(", ")
+                            ))
+                            .into(),
+                    );
+                };
+                let Some(obj_type_ref) = obj_type_refs.iter().find(|r| r == &&t_name) else {
+                    return Err(anyhow::anyhow!(
+                        "{}: unknown type {t_name}",
+                        self.path.join(".")
+                    ));
+                };
 
-fn merge_flat_config(
-    flat_config: &mut IndexMap<String, Value>,
-    new_flat_config: impl IntoIterator<Item = (String, Value)>,
-) -> anyhow::Result<()> {
-    for (key, value) in new_flat_config {
-        match flat_config.entry(key) {
-            Entry::Occupied(mut entry) => match (entry.get_mut(), value) {
-                (
-                    Value::Nested {
-                        typ: existing_typ,
-                        values: existing_map,
-                    },
-                    Value::Nested {
-                        typ: new_typ,
-                        values: new_map,
-                    },
-                ) => {
-                    if new_typ.ne(existing_typ) {
-                        anyhow::bail!(
-                            "cannot merge nested values of different types: {} and {}",
-                            existing_typ,
-                            new_typ
-                        );
-                    }
-                    for (new_key, new_value) in new_map {
-                        match existing_map.entry(new_key) {
-                            Entry::Occupied(entry) => {
-                                anyhow::bail!("duplicate key: {}", entry.key());
-                            }
-                            Entry::Vacant(entry) => {
-                                entry.insert(new_value);
-                            }
-                        }
-                    }
-                }
-                (Value::Set(existing_set), Value::Set(new_set)) => {
-                    existing_set.extend(new_set);
-                }
-                (existing, new) => {
-                    panic!("expected {existing:?} but got {new:?}");
-                }
-            },
-            Entry::Vacant(entry) => {
-                entry.insert(value);
+                let Some(target) = self.schema.find_object(obj_type_ref) else {
+                    return Err(anyhow::anyhow!(
+                        "{}: unknown config object: {obj_type_ref}",
+                        self.path.join(".")
+                    ));
+                };
+                let values = self.validate_object_type(Toml::Table(value), target)?;
+                Ok(if target.is_non_locatable {
+                    Some(Value::Insert {
+                        typ: obj_type_ref.clone(),
+                        values,
+                    })
+                } else {
+                    self.commands.insert(obj_type_ref.clone(), values);
+                    None
+                })
+            }
+            (typ, value) => {
+                return Err(self.err_expected(typ, &value));
             }
         }
     }
-    Ok(())
-}
 
-fn merge_flat_objects<I>(
-    flat_config: &mut IndexMap<String, Value>,
-    path: &[&str],
-    objects: I,
-) -> anyhow::Result<()>
-where
-    I: IntoIterator<Item = Value>,
-{
-    let mut values = IndexMap::new();
-    for (i, value) in objects.into_iter().enumerate() {
-        let i = i.to_string();
-        let sub_path = &[path, &[&i]].concat();
-        if let Value::Nested { typ, .. } = &value {
-            values
-                .entry(typ.to_string())
-                .or_insert_with(|| Vec::new())
-                .push(value);
-        } else {
-            panic!("{}: expected object", sub_path.join("."));
+    fn err_expected(&self, expected: impl std::fmt::Display, got: &TomlValue) -> anyhow::Error {
+        let got = match got {
+            TomlValue::String(s) => Cow::Owned(format!("\"{s}\"")),
+            TomlValue::Integer(_) => "an integer".into(),
+            TomlValue::Float(_) => "a float".into(),
+            TomlValue::Boolean(_) => "a boolean".into(),
+            TomlValue::Datetime(_) => "a datetime".into(),
+            TomlValue::Array(_) => "an array".into(),
+            TomlValue::Table(_) => "a table".into(),
         };
-    }
-    merge_flat_config(
-        flat_config,
-        values.into_iter().map(|(k, v)| (k, Value::Set(v))),
-    )
-    .with_context(|| path.join("."))
-}
-
-fn merge_schemaless_value(
-    value: TomlValue,
-    flat_config: &mut IndexMap<String, Value>,
-    path: &[&str],
-) -> anyhow::Result<Option<Value>> {
-    let value = Value::try_from(value)?;
-    match value {
-        Value::Nested { ref typ, .. } => {
-            merge_flat_config(flat_config, [(typ.clone(), Value::try_from(value)?)])
-                .with_context(|| path.join("."))?;
-            Ok(None)
-        }
-        Value::Set(items) if items.iter().any(Value::is_object) => {
-            merge_flat_objects(flat_config, path, items)?;
-            Ok(None)
-        }
-        _ => Ok(Some(value)),
+        anyhow::anyhow!("{} expected {expected}, got {got}", self.path.join("."))
     }
 }

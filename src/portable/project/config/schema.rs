@@ -1,34 +1,168 @@
-use std::collections::HashMap;
+use indexmap::IndexMap;
 
-/// The schema of configuration values
-#[derive(Clone, Debug)]
-pub enum Schema {
-    Primitive {
-        typ: String,
-    },
-    Enum {
-        typ: String,
-        choices: Vec<String>,
-    },
-    Object {
-        typ: String,
-        members: HashMap<String, Property>,
-    },
-    Union(Vec<Schema>),
+pub struct Schema {
+    pub object_types: IndexMap<String, ObjectType>,
 }
 
-#[derive(Clone, Debug)]
-#[allow(dead_code)]
-pub struct Property {
-    pub kind: PropertyKind,
-    pub required: bool,
+#[derive(Clone)]
+pub struct ObjectType {
+    /// Pointer of the object (properties and links)
+    pub pointers: IndexMap<String, Pointer>,
+
+    /// When a type is top-level, it's properties are configured with `configure set {obj}::{prop} := ...`
+    /// Otherwise, it is configured with `configure insert {obj} := { {prop} := ... };`
+    pub is_top_level: bool,
+
+    /// Indicates that this object cannot be identified just by its name. This happens, for example,
+    /// when it is used as a link on a multi object. `configure insert {obj}` does not indicate which parent
+    /// object this object belongs to. Instead these objects are inserted in a nested insert stmt.
+    pub is_non_locatable: bool,
+
+    /// Indicates that the object is used as multi property, so we should expect arrays instead of tables.
+    pub is_multi: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct Pointer {
+    pub target: Typ,
+
+    pub is_required: bool,
+    pub is_multi: bool,
+
     pub description: Option<String>,
     pub deprecated: Option<String>,
     pub examples: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub enum Typ {
+    Primitive(String),
+    Enum { name: String, choices: Vec<String> },
+    ObjectRef(String),
+
+    // TODO: this is not really a union, it should be an abstract type and sub types
+    Union(Vec<String>),
+}
+
+impl Schema {
+    pub fn find_object<'s>(&'s self, key: &str) -> Option<&'s ObjectType> {
+        self.object_types.get(key)
+    }
+
+    fn register(&mut self, name: impl ToString, obj: ObjectType) -> Typ {
+        for (_, ptr) in &obj.pointers {
+            let mut child_links = Vec::new();
+
+            for target_ref in ptr.target.get_object_refs() {
+                let target = self.object_types.get_mut(target_ref).unwrap();
+                target.is_top_level = false;
+                target.is_multi = ptr.is_multi;
+
+                for (_, ptr) in &target.pointers {
+                    child_links.extend(ptr.target.get_object_refs().into_iter().cloned());
+                }
+            }
+
+            if ptr.is_multi {
+                // set is_non_locatable
+                let mut descendant_links = child_links;
+                while let Some(obj_ref) = descendant_links.pop() {
+                    let obj = self.object_types.get_mut(&obj_ref).unwrap();
+                    obj.is_non_locatable = true;
+
+                    for (_, ptr) in &obj.pointers {
+                        descendant_links.extend(ptr.target.get_object_refs().into_iter().cloned());
+                    }
+                }
+            }
+        }
+
+        self.object_types.insert(name.to_string(), obj);
+        Typ::ObjectRef(name.to_string())
+    }
+}
+
+impl ObjectType {
+    fn new<I, S>(pointers: I) -> Self
+    where
+        S: ToString,
+        I: IntoIterator<Item = (S, Pointer)>,
+    {
+        Self {
+            pointers: pointers
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v))
+                .collect(),
+            is_top_level: true,
+            is_multi: false,
+            is_non_locatable: false,
+        }
+    }
+}
+
+impl Typ {
+    pub fn is_scalar(&self) -> bool {
+        match self {
+            Typ::Primitive(_) => true,
+            Typ::Enum { .. } => true,
+            Typ::ObjectRef(_) => false,
+            Typ::Union(_) => false,
+        }
+    }
+
+    pub fn get_object_refs(&self) -> Vec<&String> {
+        match self {
+            Typ::Primitive(_) => Vec::new(),
+            Typ::Enum { .. } => Vec::new(),
+            Typ::ObjectRef(r) => vec![r],
+            Typ::Union(components) => components.iter().collect(),
+        }
+    }
+
+    pub fn new_union(objects: impl IntoIterator<Item = Typ>) -> Self {
+        Typ::Union(
+            objects
+                .into_iter()
+                .map(|t| match t {
+                    Typ::ObjectRef(r) => r,
+                    _ => panic!(),
+                })
+                .collect(),
+        )
+    }
+}
+
+impl std::fmt::Display for Typ {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Debug::fmt(&self, f)
+    }
+}
+
+impl Pointer {
+    fn new(target: Typ) -> Pointer {
+        Pointer {
+            target,
+            is_multi: false,
+            is_required: false,
+            deprecated: None,
+            description: None,
+            examples: Vec::new(),
+        }
+    }
+
+    fn multi(mut self) -> Pointer {
+        self.is_multi = true;
+        self
+    }
+
+    fn required(mut self) -> Pointer {
+        self.is_required = true;
+        self
+    }
+}
+
 #[allow(dead_code)]
-impl Property {
+impl Pointer {
     fn with_description(mut self, description: impl ToString) -> Self {
         self.description = Some(description.to_string());
         self
@@ -49,495 +183,424 @@ impl Property {
     }
 }
 
-#[derive(Clone, Debug)]
-#[allow(dead_code)]
-pub enum PropertyKind {
-    Singleton(Schema),
-    Array(Schema),
-    Multiset(Schema),
-}
-
-impl Schema {
-    pub fn is_scalar(&self) -> bool {
-        use Schema::*;
-        match self {
-            Primitive { .. } | Enum { .. } => true,
-            Object { .. } => false,
-            Union(schemas) => schemas.iter().all(Schema::is_scalar),
-        }
-    }
-
-    pub fn get_type(&self) -> Option<&str> {
-        use Schema::*;
-        match self {
-            Primitive { typ } => Some(typ),
-            Enum { typ, .. } => Some(typ),
-            Object { typ, .. } => Some(typ),
-            Union(_) => None,
-        }
-    }
-
-    pub fn find_object_schema(&self, name: &str) -> Option<(&Self, bool)> {
-        match self {
-            Schema::Object { typ, .. } if typ == name => Some((self, false)),
-            Schema::Object { members, .. } => members.values().find_map(|prop| match &prop.kind {
-                PropertyKind::Singleton(schema) => schema.find_object_schema(name),
-                PropertyKind::Multiset(schema) => {
-                    schema.find_object_schema(name).map(|(s, _)| (s, true))
-                }
-                _ => None,
-            }),
-            Schema::Union(schemas) => schemas.iter().find_map(|s| s.find_object_schema(name)),
-            _ => None,
-        }
-    }
-}
-
 trait Optional {
-    fn optional(self, key: &str) -> Vec<(String, Property)>;
+    fn optional(self, key: &'static str) -> impl Iterator<Item = (String, Pointer)> + Clone;
 }
 
-impl<S> Optional for Vec<(S, Property)>
+impl<I> Optional for I
 where
-    S: ToString,
+    I: Iterator<Item = (String, Pointer)> + Clone,
 {
-    fn optional(self, key: &str) -> Vec<(String, Property)> {
-        self.into_iter()
-            .map(|(k, v)| {
-                let k = k.to_string();
-                if k != key {
-                    return (k, v);
-                }
-                (
-                    k,
-                    Property {
-                        required: false,
-                        ..v
-                    },
-                )
-            })
-            .collect()
+    fn optional(self, key: &'static str) -> impl Iterator<Item = (String, Pointer)> + Clone {
+        self.map(move |(k, mut p)| {
+            if k.as_str() == key {
+                p.is_required = false;
+            }
+            (k, p)
+        })
     }
 }
 
 /// Constructs the schema of most used config options
 pub fn default_schema() -> Schema {
-    use PropertyKind::*;
-    use Schema::*;
-
-    fn primitive(typ: impl ToString) -> Schema {
-        Primitive {
-            typ: typ.to_string(),
-        }
+    fn primitive(typ: impl ToString) -> Typ {
+        Typ::Primitive(typ.to_string())
     }
 
-    fn enumeration<I, S>(typ: impl ToString, choices: I) -> Schema
+    fn enumeration<I, S>(name: impl ToString, choices: I) -> Typ
     where
         S: ToString,
         I: IntoIterator<Item = S>,
     {
-        Enum {
-            typ: typ.to_string(),
+        Typ::Enum {
+            name: name.to_string(),
             choices: choices.into_iter().map(|s| s.to_string()).collect(),
         }
     }
 
-    fn singleton(schema: Schema, required: bool) -> Property {
-        Property {
-            kind: Singleton(schema),
-            required,
-            description: None,
-            deprecated: None,
-            examples: vec![],
-        }
-    }
-
-    fn object<I, S>(typ: impl ToString, members: I) -> Schema
-    where
-        S: ToString,
-        I: IntoIterator<Item = (S, Property)>,
-    {
-        Object {
-            typ: typ.to_string(),
-            members: members
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect(),
-        }
-    }
-
-    fn multiset(schema: Schema, required: bool) -> Property {
-        Property {
-            kind: Multiset(schema),
-            required,
-            description: None,
-            deprecated: None,
-            examples: vec![],
-        }
-    }
+    let mut schema = Schema {
+        object_types: IndexMap::new(),
+    };
 
     // auth
-    let provider_config = vec![("name", singleton(primitive("str"), true))];
-    let oauth_provider_config = provider_config
-        .clone()
-        .into_iter()
-        .chain([
-            ("secret".into(), singleton(primitive("str"), true)),
-            ("client_id".into(), singleton(primitive("str"), true)),
-            ("display_name".into(), singleton(primitive("str"), true)),
-            (
-                "additional_scope".into(),
-                singleton(primitive("str"), false),
-            ),
-        ])
-        .collect::<Vec<_>>();
-    let openid_connect_provider_config = provider_config
-        .clone()
-        .into_iter()
-        .chain(oauth_provider_config.clone())
-        .chain([
-            ("issuer_url".into(), singleton(primitive("str"), true)),
-            ("logo_url".into(), singleton(primitive("str"), false)),
-        ]);
-    let vendor_oauth_provider_config = oauth_provider_config
-        .clone()
-        .optional("name")
-        .optional("display_name");
-    let provider_config_optional_name = provider_config.clone().optional("name");
-    let email_password_provider_config =
-        provider_config_optional_name.clone().into_iter().chain([(
-            "require_verification".into(),
-            singleton(primitive("bool"), false),
-        )]);
-    let web_authn_provider_config = provider_config_optional_name.clone().into_iter().chain([
+    let provider_config = vec![(
+        "name".to_string(),
+        Pointer::new(primitive("str")).required(),
+    )];
+
+    let oauth_provider_config = ObjectType::new(provider_config.clone().into_iter().chain([
+        ("secret".into(), Pointer::new(primitive("str")).required()),
         (
-            "relying_party_origin".into(),
-            singleton(primitive("str"), true),
+            "client_id".into(),
+            Pointer::new(primitive("str")).required(),
         ),
         (
+            "display_name".into(),
+            Pointer::new(primitive("str")).required(),
+        ),
+        ("additional_scope".into(), Pointer::new(primitive("str"))),
+    ]));
+
+    let openid_connect_provider_config = ObjectType::new(
+        provider_config
+            .clone()
+            .into_iter()
+            .chain(oauth_provider_config.pointers.clone())
+            .chain([
+                (
+                    "issuer_url".into(),
+                    Pointer::new(primitive("str")).required(),
+                ),
+                ("logo_url".into(), Pointer::new(primitive("str"))),
+            ]),
+    );
+    let vendor_oauth_provider_config = ObjectType::new(
+        oauth_provider_config
+            .pointers
+            .clone()
+            .into_iter()
+            .optional("name")
+            .optional("display_name"),
+    );
+
+    let email_password_provider_config = ObjectType::new(vec![
+        ("name".to_string(), Pointer::new(primitive("str"))),
+        (
             "require_verification".into(),
-            singleton(primitive("bool"), false),
+            Pointer::new(primitive("bool")),
         ),
     ]);
-    let magic_link_provider_config = provider_config_optional_name.clone().into_iter().chain([(
-        "token_time_to_live".into(),
-        singleton(primitive("duration"), false),
-    )]);
-    let auth_providers = vec![
-        object("ext::auth::OAuthProviderConfig", oauth_provider_config),
-        object(
+    let web_authn_provider_config = ObjectType::new(vec![
+        ("name".to_string(), Pointer::new(primitive("str"))),
+        (
+            "relying_party_origin".into(),
+            Pointer::new(primitive("str")).required(),
+        ),
+        (
+            "require_verification".into(),
+            Pointer::new(primitive("bool")),
+        ),
+    ]);
+    let magic_link_provider_config = ObjectType::new(vec![
+        ("name".to_string(), Pointer::new(primitive("str"))),
+        (
+            "token_time_to_live".into(),
+            Pointer::new(primitive("duration")),
+        ),
+    ]);
+
+    let auth_providers = Typ::new_union(vec![
+        schema.register("ext::auth::OAuthProviderConfig", oauth_provider_config),
+        schema.register(
             "ext::auth::OpenIDConnectProvider",
             openid_connect_provider_config,
         ),
-        object(
+        schema.register(
             "ext::auth::AppleOAuthProvider",
             vendor_oauth_provider_config.clone(),
         ),
-        object(
+        schema.register(
             "ext::auth::AzureOAuthProvider",
             vendor_oauth_provider_config.clone(),
         ),
-        object(
+        schema.register(
             "ext::auth::DiscordOAuthProvider",
             vendor_oauth_provider_config.clone(),
         ),
-        object(
+        schema.register(
             "ext::auth::SlackOAuthProvider",
             vendor_oauth_provider_config.clone(),
         ),
-        object(
+        schema.register(
             "ext::auth::GitHubOAuthProvider",
             vendor_oauth_provider_config.clone(),
         ),
-        object(
+        schema.register(
             "ext::auth::GoogleOAuthProvider",
             vendor_oauth_provider_config.clone(),
         ),
-        object(
+        schema.register(
             "ext::auth::EmailPasswordProviderConfig",
             email_password_provider_config,
         ),
-        object(
+        schema.register(
             "ext::auth::WebAuthnProviderConfig",
             web_authn_provider_config,
         ),
-        object(
+        schema.register(
             "ext::auth::MagicLinkProviderConfig",
             magic_link_provider_config,
         ),
-    ];
-    let ui_config = object(
+    ]);
+    let ui_config = schema.register(
         "ext::auth::UIConfig",
-        [
-            ("redirect_to", singleton(primitive("str"), true)),
-            ("redirect_to_on_signup", singleton(primitive("str"), false)),
+        ObjectType::new([
+            ("redirect_to", Pointer::new(primitive("str")).required()),
+            ("redirect_to_on_signup", Pointer::new(primitive("str"))),
             (
                 "flow_type",
-                singleton(
-                    enumeration("ext::auth::FlowType", ["PKCE", "implicit"]),
-                    false,
-                ),
+                Pointer::new(enumeration("ext::auth::FlowType", ["PKCE", "implicit"])),
             ),
-            ("app_name".into(), singleton(primitive("str"), false)),
-            ("logo_url".into(), singleton(primitive("str"), false)),
-            ("dark_logo_url".into(), singleton(primitive("str"), false)),
-            ("brand_color".into(), singleton(primitive("str"), false)),
-        ],
+            ("app_name".into(), Pointer::new(primitive("str"))),
+            ("logo_url".into(), Pointer::new(primitive("str"))),
+            ("dark_logo_url".into(), Pointer::new(primitive("str"))),
+            ("brand_color".into(), Pointer::new(primitive("str"))),
+        ]),
     );
-    let webhook_config = object(
+    let webhooks_config = schema.register(
         "ext::auth::WebhookConfig",
-        [
-            ("url", singleton(primitive("str"), true)),
+        ObjectType::new([
+            ("url", Pointer::new(primitive("str")).required()),
             (
                 "events",
-                multiset(
-                    enumeration(
-                        "ext::auth::WebhookEvent",
-                        [
-                            "IdentityCreated",
-                            "IdentityAuthenticated",
-                            "EmailFactorCreated",
-                            "EmailVerified",
-                            "EmailVerificationRequested",
-                            "PasswordResetRequested",
-                            "MagicLinkRequested",
-                        ],
-                    ),
-                    true,
-                ),
+                Pointer::new(enumeration(
+                    "ext::auth::WebhookEvent",
+                    [
+                        "IdentityCreated",
+                        "IdentityAuthenticated",
+                        "EmailFactorCreated",
+                        "EmailVerified",
+                        "EmailVerificationRequested",
+                        "PasswordResetRequested",
+                        "MagicLinkRequested",
+                    ],
+                ))
+                .multi()
+                .required(),
             ),
-            (
-                "signing_secret_key".into(),
-                singleton(primitive("str"), false),
-            ),
-        ],
+            ("signing_secret_key".into(), Pointer::new(primitive("str"))),
+        ]),
     );
-    let auth = object(
+    schema.register(
         "ext::auth::AuthConfig",
-        [
-            ("providers", multiset(Union(auth_providers), false)),
-            ("ui", singleton(ui_config, false)),
-            ("webhooks", multiset(webhook_config, false)),
-            ("app_name", singleton(primitive("str"), false)),
-            ("logo_url", singleton(primitive("str"), false)),
-            ("dark_logo_url", singleton(primitive("str"), false)),
-            ("brand_color", singleton(primitive("str"), false)),
-            ("auth_signing_key", singleton(primitive("str"), false)),
+        ObjectType::new([
+            ("providers", Pointer::new(auth_providers).multi()),
+            ("ui", Pointer::new(ui_config)),
+            ("webhooks", Pointer::new(webhooks_config).multi()),
+            ("app_name", Pointer::new(primitive("str"))),
+            ("logo_url", Pointer::new(primitive("str"))),
+            ("dark_logo_url", Pointer::new(primitive("str"))),
+            ("brand_color", Pointer::new(primitive("str"))),
+            ("auth_signing_key", Pointer::new(primitive("str"))),
+            ("token_time_to_live", Pointer::new(primitive("duration"))),
             (
-                "token_time_to_live",
-                singleton(primitive("duration"), false),
-            ),
-            ("allowed_redirect_urls", multiset(primitive("str"), false)),
-        ],
-    );
-
-    // AI
-    let provider_config = vec![
-        ("name", singleton(primitive("str"), true)),
-        ("display_name", singleton(primitive("str"), true)),
-        ("api_url", singleton(primitive("str"), true)),
-        ("client_id", singleton(primitive("str"), false)),
-        ("secret", singleton(primitive("str"), true)),
-        (
-            "api_style",
-            singleton(
-                enumeration(
-                    "ext::ai::ProviderAPIStyle",
-                    ["OpenAI", "Anthropic", "Ollama"],
-                ),
-                true,
-            ),
-        ),
-    ];
-    let vendor_provider_config = provider_config
-        .clone()
-        .optional("name")
-        .optional("display_name")
-        .optional("api_url")
-        .optional("api_style");
-    let ai = object(
-        "ext::ai::Config",
-        [
-            ("indexer_naptime", singleton(primitive("duration"), false)),
-            (
-                "providers",
-                multiset(
-                    Union(vec![
-                        object(
-                            "ext::ai::CustomProviderConfig",
-                            provider_config
-                                .clone()
-                                .optional("display_name")
-                                .optional("api_style"),
-                        ),
-                        object(
-                            "ext::ai::OpenAIProviderConfig",
-                            vendor_provider_config.clone(),
-                        ),
-                        object(
-                            "ext::ai::MistralProviderConfig",
-                            vendor_provider_config.clone(),
-                        ),
-                        object(
-                            "ext::ai::AnthropicProviderConfig",
-                            vendor_provider_config.clone(),
-                        ),
-                        object(
-                            "ext::ai::OllamaProviderConfig",
-                            vendor_provider_config.clone().optional("secret"),
-                        ),
-                    ]),
-                    false,
-                ),
-            ),
-        ],
-    );
-
-    // email provider
-    let email_provider_config = vec![("name", singleton(primitive("str"), true))];
-
-    let smtp_provider_config = object(
-        "cfg::SMTPProviderConfig",
-        email_provider_config.clone().into_iter().chain([
-            ("sender".into(), singleton(primitive("str"), false)),
-            ("host".into(), singleton(primitive("str"), false)),
-            ("port".into(), singleton(primitive("int32"), false)),
-            ("username".into(), singleton(primitive("str"), false)),
-            ("password".into(), singleton(primitive("str"), false)),
-            (
-                "security".into(),
-                singleton(
-                    enumeration(
-                        "cfg::SMTPSecurity",
-                        ["PlainText", "TLS", "STARTTLS", "STARTTLSOrPlainText"],
-                    ),
-                    false,
-                ),
-            ),
-            ("validate_certs".into(), singleton(primitive("bool"), false)),
-            (
-                "timeout_per_email".into(),
-                singleton(primitive("duration"), false),
-            ),
-            (
-                "timeout_per_attempt".into(),
-                singleton(primitive("duration"), false),
+                "allowed_redirect_urls",
+                Pointer::new(primitive("str")).multi(),
             ),
         ]),
     );
 
-    object(
-        "cfg::Config",
-        [
+    // AI
+    let provider_config = vec![
+        (
+            "name".to_string(),
+            Pointer::new(primitive("str")).required(),
+        ),
+        (
+            "display_name".to_string(),
+            Pointer::new(primitive("str")).required(),
+        ),
+        (
+            "api_url".to_string(),
+            Pointer::new(primitive("str")).required(),
+        ),
+        ("client_id".to_string(), Pointer::new(primitive("str"))),
+        (
+            "secret".to_string(),
+            Pointer::new(primitive("str")).required(),
+        ),
+        (
+            "api_style".to_string(),
+            Pointer::new(enumeration(
+                "ext::ai::ProviderAPIStyle",
+                ["OpenAI", "Anthropic", "Ollama"],
+            ))
+            .required(),
+        ),
+    ];
+    let vendor_provider_config = provider_config
+        .clone()
+        .into_iter()
+        .optional("name")
+        .optional("display_name")
+        .optional("api_url")
+        .optional("api_style");
+
+    let ai_providers = Typ::new_union(vec![
+        schema.register(
+            "ext::ai::CustomProviderConfig",
+            ObjectType::new(
+                provider_config
+                    .clone()
+                    .into_iter()
+                    .optional("display_name")
+                    .optional("api_style"),
+            ),
+        ),
+        schema.register(
+            "ext::ai::OpenAIProviderConfig",
+            ObjectType::new(vendor_provider_config.clone()),
+        ),
+        schema.register(
+            "ext::ai::MistralProviderConfig",
+            ObjectType::new(vendor_provider_config.clone()),
+        ),
+        schema.register(
+            "ext::ai::AnthropicProviderConfig",
+            ObjectType::new(vendor_provider_config.clone()),
+        ),
+        schema.register(
+            "ext::ai::OllamaProviderConfig",
+            ObjectType::new(vendor_provider_config.optional("secret")),
+        ),
+    ]);
+
+    schema.register(
+        "ext::ai::Config",
+        ObjectType::new([
+            ("indexer_naptime", Pointer::new(primitive("duration"))),
+            ("providers", Pointer::new(ai_providers).multi()),
+        ]),
+    );
+
+    // email provider
+    let email_provider_config = vec![("name", Pointer::new(primitive("str")).required())];
+
+    let smtp_provider_config = schema.register(
+        "cfg::SMTPProviderConfig",
+        ObjectType::new(email_provider_config.clone().into_iter().chain([
+            ("sender".into(), Pointer::new(primitive("str"))),
+            ("host".into(), Pointer::new(primitive("str"))),
+            ("port".into(), Pointer::new(primitive("int32"))),
+            ("username".into(), Pointer::new(primitive("str"))),
+            ("password".into(), Pointer::new(primitive("str"))),
             (
-                "extensions",
-                singleton(
-                    object(
-                        "cfg::ExtensionConfig",
-                        [
-                            ("auth", singleton(auth, false)),
-                            ("ai", singleton(ai, false)),
-                        ],
-                    ),
-                    false,
-                ),
+                "security".into(),
+                Pointer::new(enumeration(
+                    "cfg::SMTPSecurity",
+                    ["PlainText", "TLS", "STARTTLS", "STARTTLSOrPlainText"],
+                )),
+            ),
+            ("validate_certs".into(), Pointer::new(primitive("bool"))),
+            (
+                "timeout_per_email".into(),
+                Pointer::new(primitive("duration")),
             ),
             (
+                "timeout_per_attempt".into(),
+                Pointer::new(primitive("duration")),
+            ),
+        ])),
+    );
+
+    // cfg::Auth
+    let transport = enumeration("cfg::ConnectionTransport", ["TCP", "TCP_PG", "HTTP"]);
+    let cfg_auth_method = Typ::new_union(vec![
+        schema.register(
+            "cfg::Trust",
+            ObjectType::new([("transports", Pointer::new(transport.clone()).multi())]),
+        ),
+        schema.register(
+            "cfg::SCRAM",
+            ObjectType::new([("transports", Pointer::new(transport.clone()).multi())]),
+        ),
+        schema.register(
+            "cfg::JWT",
+            ObjectType::new([("transports", Pointer::new(transport).multi())]),
+        ),
+    ]);
+
+    let cfg_auth = schema.register(
+        "cfg::Auth",
+        ObjectType::new([
+            ("priority", Pointer::new(primitive("int64")).required()),
+            ("user", Pointer::new(primitive("str")).multi()),
+            ("method", Pointer::new(cfg_auth_method).required()),
+            ("comment", Pointer::new(primitive("str"))),
+        ]),
+    );
+
+    schema.register(
+        "cfg::Config",
+        ObjectType::new([
+            (
                 "default_transaction_isolation",
-                singleton(
-                    enumeration(
-                        "sys::TransactionIsolation",
-                        ["Serializable", "RepeatableRead"],
-                    ),
-                    false,
-                ),
+                Pointer::new(enumeration(
+                    "sys::TransactionIsolation",
+                    ["Serializable", "RepeatableRead"],
+                )),
             ),
             (
                 "default_transaction_access_mode",
-                singleton(
-                    enumeration("sys::TransactionAccessMode", ["ReadOnly", "ReadWrite"]),
-                    false,
-                ),
+                Pointer::new(enumeration(
+                    "sys::TransactionAccessMode",
+                    ["ReadOnly", "ReadWrite"],
+                )),
             ),
             (
                 "default_transaction_deferrable",
-                singleton(
-                    enumeration(
-                        "sys::TransactionDeferrability",
-                        ["Deferrable", "NotDeferrable"],
-                    ),
-                    false,
-                ),
+                Pointer::new(enumeration(
+                    "sys::TransactionDeferrability",
+                    ["Deferrable", "NotDeferrable"],
+                )),
             ),
             (
                 "session_idle_transaction_timeout",
-                singleton(primitive("duration"), false),
+                Pointer::new(primitive("duration")),
             ),
             (
                 "query_execution_timeout",
-                singleton(primitive("duration"), false),
+                Pointer::new(primitive("duration")),
             ),
             (
                 "email_providers",
-                multiset(Union(vec![smtp_provider_config]), false),
+                Pointer::new(smtp_provider_config).multi(),
             ),
             (
                 "current_email_provider_name",
-                singleton(primitive("str"), false),
+                Pointer::new(primitive("str")),
             ),
-            (
-                "allow_dml_in_functions",
-                singleton(primitive("bool"), false),
-            ),
+            ("allow_dml_in_functions", Pointer::new(primitive("bool"))),
             (
                 "allow_bare_ddl",
-                singleton(
-                    enumeration("cfg::AllowBareDDL", ["AlwaysAllow", "NeverAllow"]),
-                    false,
-                ),
+                Pointer::new(enumeration(
+                    "cfg::AllowBareDDL",
+                    ["AlwaysAllow", "NeverAllow"],
+                )),
             ),
             (
                 "store_migration_sdl",
-                singleton(
-                    enumeration("cfg::StoreMigrationSDL", ["AlwaysStore", "NeverStore"]),
-                    false,
-                ),
+                Pointer::new(enumeration(
+                    "cfg::StoreMigrationSDL",
+                    ["AlwaysStore", "NeverStore"],
+                )),
             ),
-            ("apply_access_policies", singleton(primitive("bool"), false)),
-            (
-                "apply_access_policies_pg",
-                singleton(primitive("bool"), false),
-            ),
-            (
-                "allow_user_specified_id",
-                singleton(primitive("bool"), false),
-            ),
-            ("simple_scoping", singleton(primitive("bool"), false)),
-            ("warn_old_scoping", singleton(primitive("bool"), false)),
-            ("cors_allow_origins", multiset(primitive("str"), false)),
-            (
-                "auto_rebuild_query_cache",
-                singleton(primitive("bool"), false),
-            ),
+            ("apply_access_policies", Pointer::new(primitive("bool"))),
+            ("apply_access_policies_pg", Pointer::new(primitive("bool"))),
+            ("allow_user_specified_id", Pointer::new(primitive("bool"))),
+            ("simple_scoping", Pointer::new(primitive("bool"))),
+            ("warn_old_scoping", Pointer::new(primitive("bool"))),
+            ("cors_allow_origins", Pointer::new(primitive("str")).multi()),
+            ("auto_rebuild_query_cache", Pointer::new(primitive("bool"))),
             (
                 "auto_rebuild_query_cache_timeout",
-                singleton(primitive("duration"), false),
+                Pointer::new(primitive("duration")),
             ),
             (
                 "query_cache_mode",
-                singleton(
-                    enumeration(
-                        "cfg::QueryCacheMode",
-                        ["InMemory", "RegInline", "PgFunc", "Default"],
-                    ),
-                    false,
-                ),
+                Pointer::new(enumeration(
+                    "cfg::QueryCacheMode",
+                    ["InMemory", "RegInline", "PgFunc", "Default"],
+                )),
             ),
-            ("http_max_connections", singleton(primitive("int64"), false)),
+            ("http_max_connections", Pointer::new(primitive("int64"))),
             (
                 "track_query_stats",
-                singleton(enumeration("cfg::QueryStatsOption", ["None", "All"]), false),
+                Pointer::new(enumeration("cfg::QueryStatsOption", ["None", "All"])),
             ),
-        ],
-    )
+            ("auth", Pointer::new(cfg_auth).multi()),
+        ]),
+    );
+
+    schema
 }
