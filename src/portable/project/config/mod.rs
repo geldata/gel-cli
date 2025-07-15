@@ -9,9 +9,8 @@ use std::path;
 use toml::Value as TomlValue;
 
 use crate::branding::{BRANDING_CLI_CMD, QUERY_TAG};
-use crate::commands::ExitCode;
+use crate::commands::{ExitCode, Options};
 use crate::connect::Connection;
-use crate::options::Options;
 use crate::print::{self, Highlight};
 use validation::Commands;
 
@@ -21,7 +20,7 @@ pub struct Command {
     pub project_dir: Option<path::PathBuf>,
 }
 
-pub fn run(c: &Command, _options: &Options) -> anyhow::Result<()> {
+pub async fn run(c: &Command, _options: &Options) -> anyhow::Result<()> {
     let project_loc = super::find_project(c.project_dir.as_ref().map(|p| p.as_ref()))?;
 
     let Some(project_loc) = project_loc else {
@@ -33,11 +32,15 @@ pub fn run(c: &Command, _options: &Options) -> anyhow::Result<()> {
         return Err(ExitCode::new(1).into());
     };
 
-    apply_local(&project_loc.root)
+    apply(&project_loc.root).await
 }
 
 #[tokio::main(flavor = "current_thread")]
-pub async fn apply_local(project_root: &path::Path) -> anyhow::Result<()> {
+pub async fn apply_sync(project_root: &path::Path) -> anyhow::Result<()> {
+    apply(project_root).await
+}
+
+pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
     let local_toml = project_root.join("gel.local.toml");
 
     if !tokio::fs::try_exists(&local_toml).await? {

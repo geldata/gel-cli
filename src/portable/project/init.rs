@@ -88,7 +88,7 @@ pub fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<
         }
     };
 
-    project::config::apply_local(&project_loc.root)?;
+    project::config::apply_sync(&project_loc.root)?;
 
     Ok(())
 }
