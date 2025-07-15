@@ -78,9 +78,11 @@ $ gel project init --link --server-instance=inst1 --non-interactive --project-di
 ? WARNING: existing instance has version %{DATA}, but nightly is required by `gel.toml` \(or `edgedb.toml`\)
 ! Applying migrations...
 ? Everything is up to date. Revision %{DATA}
+! Applying configuration...
+*
+! Configuration applied.
 ! Project linked
 ! To connect to inst1, navigate to %{GREEDYDATA} and run `gel`
-! Writing gel.local.toml for config (it should be executed from source control)
 
 $ gel project info --instance-name --project-dir=./project1
 ! inst1
@@ -144,9 +146,10 @@ optional {
 }
 ! Applying migrations...
 ! Everything is up to date. Revision initial
+! Writing gel.local.toml for configuration
 ! Project initialized.
 ! To connect to project2, run `gel`
-! Writing gel.local.toml for config (it should be executed from source control)
+
 
 $ gel project info --instance-name
 ! project2
@@ -216,8 +219,6 @@ repeat {
 ! Everything is up to date. Revision initial
 ! Project initialized.
 ! To connect to project2, run `gel`
-! Applying config...
-! Done.
 
 $ gel project upgrade --to-latest --force
 choice {

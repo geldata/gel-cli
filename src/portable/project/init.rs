@@ -57,13 +57,12 @@ pub fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<
 
     let project_loc = project::find_project(options.project_dir.as_deref())?;
 
-    let project_loc = if let Some(project_loc) = project_loc {
+    if let Some(project_loc) = project_loc {
         if options.link {
-            link(options, project_loc.clone(), opts)?;
+            link(options, project_loc, opts)?;
         } else {
-            init_existing(options, project_loc.clone(), opts)?;
+            init_existing(options, project_loc, opts)?;
         }
-        project_loc
     } else {
         if options.link {
             anyhow::bail!(
@@ -82,13 +81,9 @@ pub fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<
                 PROJECT_FILES[1]
             });
             let location = project::Location { root, manifest };
-            init_new(options, location.clone(), opts)?;
-
-            location
+            init_new(options, location, opts)?;
         }
     };
-
-    project::config::apply_sync(&project_loc.root)?;
 
     Ok(())
 }
@@ -425,6 +420,9 @@ fn do_init(
     } else {
         create_database(&handle)?;
     }
+
+    project::config::apply_sync(&project.location.root)?;
+
     print_initialized(name, &cmd.project_dir);
     Ok(())
 }
@@ -557,6 +555,8 @@ fn do_link(
     } else {
         create_database(inst)?;
     }
+
+    project::config::apply_sync(&project.location.root)?;
 
     print::success!("Project linked");
     if let Some(dir) = &cmd.project_dir {

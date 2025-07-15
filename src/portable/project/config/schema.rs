@@ -554,7 +554,7 @@ pub fn default_schema() -> Schema {
             ),
             (
                 "email_providers",
-                Pointer::new(smtp_provider_config).multi(),
+                Pointer::new(Typ::new_union([smtp_provider_config])).multi(),
             ),
             (
                 "current_email_provider_name",

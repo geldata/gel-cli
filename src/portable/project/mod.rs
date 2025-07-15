@@ -57,7 +57,7 @@ pub struct Command {
 pub enum Subcommands {
     /// Initialize project or link to existing unlinked project.
     ///
-    /// Also runs `[`BRANDING_CLI_CMD`] migration apply` and `[`BRANDING_CLI_CMD`] instance configure`.
+    /// Also runs `[`BRANDING_CLI_CMD`] migration apply` and `[`BRANDING_CLI_CMD`] configure apply`.
     Init(init::Command),
 
     /// Clean up project configuration.

@@ -45,7 +45,7 @@ pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
 
     if !tokio::fs::try_exists(&local_toml).await? {
         print::msg!(
-            "Writing gel.local.toml for config (it should be executed from source control)"
+            "Writing gel.local.toml for configuration"
         );
         tokio::fs::write(&local_toml, INITIAL_CONFIG).await?;
         return Ok(());
@@ -67,7 +67,7 @@ pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
         return Ok(());
     }
 
-    print::msg!("Applying config...");
+    print::msg!("Applying configuration...");
 
     // configure
     let conn_config = gel_tokio::Builder::new()
@@ -79,7 +79,7 @@ pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
     configure(&mut conn, &commands).await?;
     conn.execute("COMMIT;", &()).await?;
 
-    print::msg!("Done.");
+    print::msg!("Configuration applied.");
 
     Ok(())
 }
