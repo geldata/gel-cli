@@ -124,7 +124,7 @@ pub async fn common(
             commands::restore(conn, options, params).await?;
         }
         Configure(c) => {
-            commands::configure(conn, options, c).await?;
+            commands::configure::run(conn, options, c).await?;
         }
         Database(c) => match &c.subcommand {
             DatabaseCmd::Create(c) => {
