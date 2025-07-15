@@ -1,6 +1,6 @@
 pub mod backslash;
 pub mod cli;
-mod configure;
+pub mod configure;
 mod database;
 mod describe;
 mod describe_schema;
@@ -27,7 +27,6 @@ mod psql;
 mod restore;
 mod ui;
 
-pub use self::configure::configure;
 pub use self::describe::describe;
 pub use self::describe_schema::describe_schema;
 pub use self::dump::{dump, dump_all};

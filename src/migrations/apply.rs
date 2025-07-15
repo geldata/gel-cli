@@ -1,14 +1,16 @@
 use std::collections::{HashMap, VecDeque};
 use std::path::Path;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use anyhow::Context as _;
 use gel_cli_instance::instance::backup::{
-    BackupStrategy, ProgressCallback, RequestedBackupStrategy,
+    BackupStrategy, InstanceBackup, ProgressCallback, RequestedBackupStrategy,
 };
 use gel_protocol::common::{
     Capabilities, Cardinality, CompilationOptions, InputLanguage, IoFormat,
 };
+use gel_tokio::Queryable;
 use indexmap::IndexMap;
 use indicatif::{HumanBytes, ProgressBar};
 use tokio::fs;
@@ -31,9 +33,11 @@ use crate::migrations::edb::{execute, execute_if_connected};
 use crate::migrations::migration::{self, MigrationFile};
 use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
-use crate::portable::local::{InstallInfo, InstanceInfo};
-use crate::portable::ver::Specific;
+use crate::portable::local::InstanceInfo;
+use crate::portable::ver::{self, Specific};
 use crate::print::{self, Highlight};
+
+const LOCALDEV_URL: &'static str = "https://geldata.com/p/localdev";
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -71,6 +75,14 @@ pub struct Command {
     /// a regular `.edgeql` file, after which the above query will return nothing.
     #[arg(long)]
     pub dev_mode: bool,
+
+    /// Disable building of concurrent indexes after applying migrations.
+    ///
+    /// Indexes that set `build_concurrently` to `true` are not built when migration is applied.
+    /// Instead, they are built right after, unless this flag is set. Index building will
+    /// not acquire any locks that would prevent concurrent reads or writes of objects.
+    #[arg(long)]
+    pub no_index_build: bool,
 
     /// Runs the migration(s) in a single transaction.
     #[arg(long = "single-transaction")]
@@ -174,6 +186,10 @@ pub async fn run(
     };
     let migrations = slice(&migrations, last_db_rev, target_rev.as_ref())?;
     if migrations.is_empty() {
+        if !cmd.no_index_build {
+            index_build_concurrently(conn).await?;
+        }
+
         if !cmd.quiet {
             eprintln!(
                 "{} Revision {}",
@@ -184,6 +200,7 @@ pub async fn run(
                     .emphasized(),
             );
         }
+
         return Ok(());
     }
     if !skip_auto_backup {
@@ -192,16 +209,22 @@ pub async fn run(
         }
     }
     apply_migrations(conn, migrations, &ctx, cmd.single_transaction).await?;
+
+    if !cmd.no_index_build {
+        index_build_concurrently(conn).await?;
+    }
+
     if db_migrations.is_empty() {
         disable_ddl(conn).await?;
     }
     Ok(())
 }
 
-#[derive(Debug, Clone)]
+#[derive(derive_more::Debug, Clone)]
 pub struct AutoBackup {
     instance_name: String,
-    install_info: InstallInfo,
+    #[debug(skip)]
+    backup: Arc<Box<dyn InstanceBackup>>,
 }
 
 impl AutoBackup {
@@ -209,13 +232,13 @@ impl AutoBackup {
         instance_name: Option<gel_tokio::InstanceName>,
         quiet: bool,
     ) -> anyhow::Result<Option<Self>> {
-        const LOCALDEV_URL: &'static str = "https://geldata.com/p/localdev";
+        const LOCALDEV_URL: &str = "https://geldata.com/p/localdev";
         if cfg!(windows) {
             eprintln!(
                 "Automatic backup is disabled because backup/restore \
                 is not yet supported on Windows."
             );
-            eprintln!("Read more at {}", LOCALDEV_URL);
+            eprintln!("Read more at {LOCALDEV_URL}");
             return Ok(None);
         }
         let mut skipped = *crate::cli::env::Env::in_ci()?.unwrap_or_default();
@@ -227,8 +250,7 @@ impl AutoBackup {
             if !quiet {
                 eprintln!(
                     "Automatic backup is disabled by environment variable. \
-                    Read more at {}",
-                    LOCALDEV_URL,
+                    Read more at {LOCALDEV_URL}",
                 );
             }
             return Ok(None);
@@ -246,9 +268,26 @@ impl AutoBackup {
                             "Automatic backup is disabled because it is not supported \
                             for local instances older than version 6.5."
                         );
-                        eprintln!("Read more at {}", LOCALDEV_URL);
+                        eprintln!("Read more at {LOCALDEV_URL}");
                         return Ok(None);
                     }
+
+                    let bin_dir = install_info.base_path()?.join("bin");
+                    let instance = gel_cli_instance::instance::get_local_instance(
+                        &name,
+                        bin_dir,
+                        install_info.version.specific().to_string(),
+                    )?;
+                    let backup = match instance.backup() {
+                        Ok(backup) => backup,
+                        Err(e) => {
+                            eprintln!(
+                                "Automatic backup is disabled.\n{e}\n\
+                                Read more at {LOCALDEV_URL}"
+                            );
+                            return Ok(None);
+                        }
+                    };
 
                     if !quiet {
                         eprintln!(
@@ -261,9 +300,10 @@ impl AutoBackup {
                         );
                         eprintln!("{}{}", "Read more at ".muted(), LOCALDEV_URL.muted(),);
                     }
+
                     Ok(Some(AutoBackup {
                         instance_name: name,
-                        install_info,
+                        backup: Arc::new(backup),
                     }))
                 } else {
                     if !quiet {
@@ -301,15 +341,9 @@ impl AutoBackup {
                 );
             }
         }
-        let bin_dir = self.install_info.base_path()?.join("bin");
 
-        let instance = gel_cli_instance::instance::get_local_instance(
-            &self.instance_name,
-            bin_dir,
-            self.install_info.version.specific().to_string(),
-        )?;
-        let backup = instance.backup()?;
-        if let Some(backup_id) = backup
+        if let Some(backup_id) = self
+            .backup
             .backup(
                 RequestedBackupStrategy::Auto,
                 callback.clone().unwrap_or_else(|| ().into()),
@@ -317,7 +351,7 @@ impl AutoBackup {
             .await?
         {
             if !quiet {
-                let backup = backup.get_backup(&backup_id).await?;
+                let backup = self.backup.get_backup(&backup_id).await?;
                 if let Some(callback) = &callback {
                     callback.println(&format!(
                         "Created {} backup:",
@@ -412,7 +446,7 @@ impl AsOperations for Vec<Operation<'_>> {
 }
 
 async fn fixup(
-    cli: &mut Connection,
+    conn: &mut Connection,
     ctx: &Context,
     migrations: &IndexMap<String, MigrationFile>,
     db_migrations: &IndexMap<String, DBMigration>,
@@ -516,7 +550,7 @@ async fn fixup(
         }
     }
 
-    apply_migrations(cli, &operations, ctx, _options.single_transaction).await?;
+    apply_migrations(conn, &operations, ctx, _options.single_transaction).await?;
     Ok(())
 }
 
@@ -649,7 +683,7 @@ fn backtrack<'a>(
 }
 
 pub async fn apply_migrations(
-    cli: &mut Connection,
+    conn: &mut Connection,
     migrations: &(impl AsOperations + ?Sized),
     ctx: &Context,
     single_transaction: bool,
@@ -661,29 +695,29 @@ pub async fn apply_migrations(
         }
     }
 
-    let old_timeout = timeout::inhibit_for_transaction(cli).await?;
+    let old_timeout = timeout::inhibit_for_transaction(conn).await?;
     {
         async_try! {
             async {
                 if single_transaction {
-                    execute(cli, "START TRANSACTION", None).await?;
+                    execute(conn, "START TRANSACTION", None).await?;
                     async_try! {
                         async {
-                            apply_migrations_inner(cli, migrations, !ctx.quiet).await
+                            apply_migrations_inner(conn, migrations, !ctx.quiet).await
                         },
                         except async {
-                            execute_if_connected(cli, "ROLLBACK").await
+                            execute_if_connected(conn, "ROLLBACK").await
                         },
                         else async {
-                            execute(cli, "COMMIT", None).await
+                            execute(conn, "COMMIT", None).await
                         }
                     }
                 } else {
-                    apply_migrations_inner(cli, migrations, !ctx.quiet).await
+                    apply_migrations_inner(conn, migrations, !ctx.quiet).await
                 }
             },
             finally async {
-                timeout::restore_for_transaction(cli, old_timeout).await
+                timeout::restore_for_transaction(conn, old_timeout).await
             }
         }
     }?;
@@ -695,7 +729,7 @@ pub async fn apply_migrations(
 }
 
 pub async fn apply_migration(
-    cli: &mut Connection,
+    conn: &mut Connection,
     migration: &MigrationFile,
     verbose: bool,
 ) -> anyhow::Result<()> {
@@ -713,7 +747,7 @@ pub async fn apply_migration(
         .await
         .context("error re-reading migration file")?;
 
-    let res = execute_with_parse_callback(cli, &data, || {
+    let res = execute_with_parse_callback(conn, &data, || {
         if verbose {
             eprintln!("... parsed");
         }
@@ -735,7 +769,7 @@ pub async fn apply_migration(
 }
 
 async fn execute_with_parse_callback(
-    cli: &mut Connection,
+    conn: &mut Connection,
     query: &str,
     after_parse: impl FnOnce(),
 ) -> Result<(), gel_errors::Error> {
@@ -750,38 +784,38 @@ async fn execute_with_parse_callback(
         expected_cardinality: Cardinality::Many,
     };
 
-    let command = cli.parse(&opts, query).await?;
+    let command = conn.parse(&opts, query).await?;
     after_parse();
-    let stream: ResponseStream<bool> = cli.execute_stream(&opts, query, &command, &()).await?;
+    let stream: ResponseStream<bool> = conn.execute_stream(&opts, query, &command, &()).await?;
     stream.complete().await?;
     Ok(())
 }
 
 pub async fn apply_migrations_inner(
-    cli: &mut Connection,
+    conn: &mut Connection,
     migrations: &(impl AsOperations + ?Sized),
     verbose: bool,
 ) -> anyhow::Result<()> {
     for operation in migrations.as_operations() {
         match operation {
             Operation::Apply(migration) => {
-                apply_migration(cli, migration, verbose).await?;
+                apply_migration(conn, migration, verbose).await?;
             }
             Operation::Rewrite(migrations) => {
-                execute(cli, "START MIGRATION REWRITE", None).await?;
+                execute(conn, "START MIGRATION REWRITE", None).await?;
                 async_try! {
                     async {
                         for migration in migrations.values() {
-                            apply_migration(cli, migration, false).await?;
+                            apply_migration(conn, migration, false).await?;
                         }
                         anyhow::Ok(())
                     },
                     except async {
-                        execute_if_connected(cli, "ABORT MIGRATION REWRITE")
+                        execute_if_connected(conn, "ABORT MIGRATION REWRITE")
                             .await
                     },
                     else async {
-                        execute(cli, "COMMIT MIGRATION REWRITE", None).await
+                        execute(conn, "COMMIT MIGRATION REWRITE", None).await
                             .context("commit migration rewrite")
                     }
                 }?;
@@ -791,8 +825,8 @@ pub async fn apply_migrations_inner(
     Ok(())
 }
 
-async fn disable_ddl(cli: &mut Connection) -> Result<(), anyhow::Error> {
-    let ddl_setting = cli
+async fn disable_ddl(conn: &mut Connection) -> Result<(), anyhow::Error> {
+    let ddl_setting = conn
         .query_required_single(
             r#"
         SELECT exists(
@@ -807,7 +841,7 @@ async fn disable_ddl(cli: &mut Connection) -> Result<(), anyhow::Error> {
         )
         .await?;
     if ddl_setting {
-        cli.execute(
+        conn.execute(
             r#"
             CONFIGURE CURRENT DATABASE SET allow_bare_ddl :=
                 cfg::AllowBareDDL.NeverAllow;
@@ -816,6 +850,58 @@ async fn disable_ddl(cli: &mut Connection) -> Result<(), anyhow::Error> {
         )
         .await?;
     }
+    Ok(())
+}
+
+async fn index_build_concurrently(conn: &mut Connection) -> Result<(), anyhow::Error> {
+    let version = conn.get_version().await?;
+
+    // supported on 7.0-dev.9640 onward
+    let is_supported = if version.specific().major == 7 {
+        match version.specific().minor {
+            ver::MinorVersion::Dev(m) if m < 9641 => false,
+            _ => true,
+        }
+    } else {
+        version.specific().major > 7
+    };
+    if !is_supported {
+        return Ok(());
+    }
+
+    #[derive(Queryable)]
+    struct IndexShort {
+        id: uuid::Uuid,
+        expr: String,
+        subject_name: String,
+    }
+
+    let inactive_indexes: Vec<IndexShort> = conn
+        .query(
+            "
+            select schema::Index {
+              id, expr, subject_name := .<indexes[is schema::ObjectType].name
+            }
+            filter .build_concurrently and not .active
+            ",
+            &(),
+        )
+        .await?;
+
+    for index in inactive_indexes {
+        print::msg!(
+            "Building index on '{}' with expr '{}'",
+            index.subject_name.emphasized(),
+            index.expr
+        );
+        conn.execute(
+            &format!("administer concurrent_index_build(<uuid>\"{}\")", index.id),
+            &(),
+        )
+        .await?;
+        print::msg!("... {}", "done".emphasized().success());
+    }
+
     Ok(())
 }
 

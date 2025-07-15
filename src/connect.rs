@@ -7,9 +7,9 @@ use std::time::Duration;
 
 use bytes::Bytes;
 
+use futures_util::Stream;
 use gel_tokio::dsn::DatabaseBranch;
 use tokio::time::sleep;
-use tokio_stream::Stream;
 
 use gel_errors::{ClientError, NoDataError, ProtocolEncodingError, WatchError};
 use gel_errors::{Error, ErrorKind, ResultExt};
@@ -233,7 +233,7 @@ impl Connector {
     }
 
     pub fn instance_name(&self) -> anyhow::Result<Option<gel_tokio::InstanceName>> {
-        Ok(self.get()?.instance_name().map(|name| name.clone()))
+        Ok(self.get()?.instance_name().cloned())
     }
 }
 
@@ -420,7 +420,7 @@ impl Connection {
         &mut self,
         query: &str,
         arguments: &A,
-    ) -> Result<(Bytes, Vec<Warning>), Error>
+    ) -> Result<(String, Vec<Warning>), Error>
     where
         A: QueryArgs,
     {
@@ -430,7 +430,7 @@ impl Connection {
         &mut self,
         query: &str,
         arguments: &A,
-    ) -> Result<(Bytes, Vec<Warning>), Error>
+    ) -> Result<(String, Vec<Warning>), Error>
     where
         A: QueryArgs,
     {
@@ -445,7 +445,7 @@ impl Connection {
             )
             .await?;
         update_state(&mut self.state, &resp)?;
-        Ok((resp.status_data, resp.warnings))
+        Ok((resp.status, resp.warnings))
     }
     pub async fn execute_stream<R, A>(
         &mut self,

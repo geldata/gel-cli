@@ -22,8 +22,8 @@ pub fn map_join_error<T, E: Into<anyhow::Error>>(
 
 #[derive(thiserror::Error, Debug)]
 pub enum InstanceOpError {
-    #[error("Unsupported operation for {0} instances")]
-    Unsupported(String),
+    #[error("Unsupported operation for {0}, {1}")]
+    Unsupported(String, String),
 }
 
 pub trait Instance {
@@ -60,9 +60,9 @@ pub fn get_local_instance(
     version: String,
 ) -> Result<InstanceHandle, InstanceOpError> {
     let paths = Builder::default().with_system().stored_info().paths();
-    let instance_paths = paths
-        .for_instance(name)
-        .ok_or_else(|| InstanceOpError::Unsupported(name.to_string()))?;
+    let instance_paths = paths.for_instance(name).ok_or_else(|| {
+        InstanceOpError::Unsupported(name.to_string(), "instance paths unavailable".to_string())
+    })?;
     let instance: LocalInstanceHandle = LocalInstanceHandle {
         name: name.to_string(),
         paths: Arc::new(instance_paths),

@@ -18,11 +18,11 @@ indexmap = {version = "2.4", features=["serde"]}
 heck = "0.5.0"
 
 # Use cargo update for these
-gel-protocol = { version = "0.8", features = ["all-types"] }
+gel-protocol = { version = "0.9", features = ["all-types"] }
 gel-derive = { version = "0.7" }
 gel-errors = { version = "0.5" }
 gel-auth = { version = "0.1" }
-gel-tokio = { version = "0.10.14", features=["admin_socket", "unstable"] }
+gel-tokio = { version = "0.11", features=["admin_socket", "unstable"] }
 gel-dsn = { version = "0.2" }
 gel-jwt = { version = "0.1", features = ["gel"] }
 gel-stream = { version = "0.4" }
@@ -59,6 +59,7 @@ gel-jwt = { workspace = true }
 gel-cli-instance = { path = "./gel-cli-instance" }
 gel-cli-derive = { path = "./gel-cli-derive" }
 
+derive_more = { version = "2", features = ["debug"] }
 snafu = "0.8.4"
 ansi-escapes = "0.2"
 anyhow = "1.0.23"
@@ -119,7 +120,6 @@ termimad = {workspace=true}
 minimad = "0.13.1"
 fs-err = "3.1.0"
 pem = "3.0.3"
-tokio-stream = "0.1.11"
 futures-util = "0.3.15" # used for signals
 concolor = { version = "0.1.1", features = ["auto"] }
 backtrace = "0.3.61"

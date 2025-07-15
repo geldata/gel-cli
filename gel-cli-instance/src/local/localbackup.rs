@@ -2,6 +2,7 @@ use std::{
     fs::File,
     path::{Path, PathBuf},
     process::Command,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -16,7 +17,7 @@ use uuid::Uuid;
 use crate::{
     ProcessRunner, Processes, SystemProcessRunner,
     instance::{
-        Operation,
+        InstanceOpError, Operation,
         backup::{
             Backup, BackupId, BackupStrategy, BackupType, InstanceBackup, ProgressCallback,
             RequestedBackupStrategy, RestoreType,
@@ -30,13 +31,45 @@ use super::LocalInstanceHandle;
 const BACKUP_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const BACKUP_LIVENESS_INTERVAL: Duration = Duration::from_secs(60);
 
+#[derive(Clone)]
 pub struct LocalBackup {
+    pg_backup: Arc<PgBackupCommands<SystemProcessRunner>>,
     handle: LocalInstanceHandle,
 }
 
 impl LocalBackup {
-    pub fn new(handle: LocalInstanceHandle) -> Self {
-        Self { handle }
+    pub fn new(handle: LocalInstanceHandle) -> Result<Self, InstanceOpError> {
+        let pg_backup = PgBackupCommands::new(SystemProcessRunner, handle.bin_dir.clone());
+
+        if !pg_backup.has_all_executables() {
+            return Err(InstanceOpError::Unsupported(
+                "older releases".to_string(),
+                "missing pg_basebackup, pg_combinebackup, or pg_verifybackup".to_string(),
+            ));
+        }
+
+        // Some 6.x releases appear to have a broken pg_hba.conf. Check for that and disable backups.
+        let pg_hba = handle.paths.data_dir.join("pg_hba.conf");
+        let Ok(pg_hba_contents) = std::fs::read_to_string(&pg_hba) else {
+            return Err(InstanceOpError::Unsupported(
+                "older releases".to_string(),
+                "pg_hba.conf not found or unreadable".to_string(),
+            ));
+        };
+        if !pg_hba_contents.contains("local replication postgres trust") {
+            return Err(InstanceOpError::Unsupported(
+                "older releases".to_string(),
+                format!(
+                    "pg_hba.conf does not allow local replication connections (add `local replication postgres trust` to {:?} and restart the instance)",
+                    dunce::canonicalize(&pg_hba).unwrap_or(pg_hba)
+                ),
+            ));
+        }
+
+        Ok(Self {
+            pg_backup: Arc::new(pg_backup),
+            handle,
+        })
     }
 
     fn get_backups_dir(&self) -> PathBuf {
@@ -143,7 +176,7 @@ impl BackupRecord {
 
     fn latest(backups_dir: impl AsRef<Path>) -> Result<Option<BackupId>, anyhow::Error> {
         // Try to read the latest backup id, if it exists.
-        if let Ok(id) = std::fs::read_to_string(&backups_dir.as_ref().join("latest")) {
+        if let Ok(id) = std::fs::read_to_string(backups_dir.as_ref().join("latest")) {
             if let Ok(id) = Uuid::parse_str(&id) {
                 return Ok(Some(BackupId::new(id.to_string())));
             }
@@ -179,7 +212,7 @@ impl BackupRecord {
             // compare the values.
             if uuid > latest {
                 let Ok(metadata) = BackupMetadata::from_file(
-                    &backups_dir
+                    backups_dir
                         .as_ref()
                         .join(entry.file_name())
                         .join("backup.json"),
@@ -213,7 +246,7 @@ impl InstanceBackup for LocalBackup {
         strategy: RequestedBackupStrategy,
         callback: ProgressCallback,
     ) -> Operation<Option<BackupId>> {
-        let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
+        let pg_backup = self.pg_backup.clone();
         let backup_id = Uuid::now_v7().to_string();
         let backups_dir = self.get_backups_dir();
         let now = SystemTime::now();
@@ -234,7 +267,7 @@ impl InstanceBackup for LocalBackup {
 
         let target_dir = backups_dir.join(&backup_id);
         let latest_backup = backups_dir.join("latest");
-        let latest_backup_temp = backups_dir.join(format!(".latest.tmp"));
+        let latest_backup_temp = backups_dir.join(".latest.tmp");
         let temp_dir = backups_dir.join(format!(".{backup_id}.tmp"));
         let run_dir = self.handle.paths.runstate_path.clone();
 
@@ -255,13 +288,12 @@ impl InstanceBackup for LocalBackup {
                         if parent_record.metadata.completed_at.is_none() {
                             record = None;
                         } else if let Some(incremental) = &parent_record.metadata.incremental {
-                            if incremental.incremental_generation > MAX_INCREMENTAL_GENERATION {
-                                record = None;
-                            } else if incremental
-                                .full_backup_completed_at
-                                .elapsed()
-                                .unwrap_or(Duration::MAX)
-                                > MAX_INCREMENTAL_AGE
+                            if (incremental.incremental_generation > MAX_INCREMENTAL_GENERATION)
+                                || incremental
+                                    .full_backup_completed_at
+                                    .elapsed()
+                                    .unwrap_or(Duration::MAX)
+                                    > MAX_INCREMENTAL_AGE
                             {
                                 record = None;
                             }
@@ -368,7 +400,7 @@ impl InstanceBackup for LocalBackup {
             metadata.pid = None;
             metadata.completed_at = Some(metadata.last_updated_at);
             let mut size = 0;
-            for entry in std::fs::read_dir(&temp_dir.join("data"))? {
+            for entry in std::fs::read_dir(temp_dir.join("data"))? {
                 let Ok(entry) = entry else {
                     continue;
                 };
@@ -392,7 +424,7 @@ impl InstanceBackup for LocalBackup {
             _ = std::fs::remove_file(&latest_backup_temp);
             std::fs::write(&latest_backup_temp, backup_id.as_bytes())?;
             if std::fs::rename(&latest_backup_temp, &latest_backup).is_err() {
-                _ = std::fs::remove_file(&latest_backup)?;
+                std::fs::remove_file(&latest_backup)?;
                 std::fs::write(&latest_backup_temp, backup_id.as_bytes())?;
                 std::fs::rename(&latest_backup_temp, &latest_backup)?;
             }
@@ -418,7 +450,7 @@ impl InstanceBackup for LocalBackup {
         restore_type: RestoreType,
         callback: ProgressCallback,
     ) -> Operation<()> {
-        let pg_backup = PgBackupCommands::new(SystemProcessRunner, self.handle.bin_dir.clone());
+        let pg_backup = self.pg_backup.clone();
         let backups_dir = self.get_backups_dir();
 
         let data_dir = self.handle.paths.data_dir.clone();
@@ -630,6 +662,16 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
             ));
         }
         Ok(path)
+    }
+
+    /// Detect all the executables we need for successful backup/restore (including incremental).
+    pub fn has_all_executables(&self) -> bool {
+        for executable in ["pg_basebackup", "pg_combinebackup", "pg_verifybackup"] {
+            if self.find_executable(executable).is_err() {
+                return false;
+            }
+        }
+        true
     }
 
     pub async fn unpack_backup(

@@ -78,24 +78,64 @@ pub enum Subcommands {
     Upgrade(upgrade::Command),
 }
 
+const EXT_AUTH_SCHEMA: &str = "\
+    # Gel Auth is a batteries-included authentication solution\n\
+    # for your app built into the Gel server.\n\
+    #\n\
+    # See: https://docs.geldata.com/reference/auth\n\
+    #\n\
+    #using extension auth;\n\
+";
+
+const EXT_AI_SCHEMA: &str = "\
+    # Gel AI is a set of tools designed to enable you to ship\n\
+    # AI-enabled apps with practically no effort.\n\
+    #\n\
+    # See: https://docs.geldata.com/reference/ai\n\
+    #\n\
+    #using extension ai;\n\
+";
+
+const EXT_POSTGIS_SCHEMA: &str = "\
+    # The `ext::postgis` extension exposes the functionality of the \n\
+    # PostGIS library. It is a vast library dedicated to handling\n\
+    # geographic and various geometric data. The scope of the Gel\n\
+    # extension is to mainly adapt the types and functions used in\n\
+    # this library with minimal changes.\n\
+    #\n\
+    # See: https://docs.geldata.com/reference/stdlib/postgis\n\
+    #\n\
+    # `ext::postgis` is not installed by default, use the command\n\
+    # `gel extension` to manage its installation, then uncomment\n\
+    # the line below to enable it.\n\
+    #\n\
+    #using extension postgis;\n\
+";
+
 const DEFAULT_SCHEMA: &str = "\
     module default {\n\
     \n\
     }\n\
 ";
 
-const FUTURES_SCHEMA: &str = "\
+const FUTURE_NONRECURSIVE_ACCESS_POLICIES: &str = "\
     # Disable the application of access policies within access policies\n\
     # themselves. This behavior will become the default in EdgeDB 3.0.\n\
     # See: https://www.edgedb.com/docs/reference/ddl/access_policies#nonrecursive\n\
     using future nonrecursive_access_policies;\n\
 ";
 
-const SIMPLE_SCOPING_SCHEMA: &str = "\
+const FUTURE_SIMPLE_SCOPING: &str = "\
     # Use a simpler algorithm for resolving the scope of object names.\n\
-    # This behavior will become the default in Gel 7.0.\n\
+    # This behavior will become the default in Gel 8.0.\n\
     # See: https://docs.geldata.com/reference/edgeql/path_resolution#new-path-scoping\n\
     using future simple_scoping;\n\
+";
+
+const FUTURE_NO_LINKFUL_COMPUTED_SPLATS: &str = "\
+    # Prevent computed properties that use links from appearing in splats.\n\
+    # This behavior will become the default in Gel 8.0.\n\
+    using future no_linkful_computed_splats;\n\
 ";
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -286,20 +326,54 @@ fn write_schema_default(dir: &Path, version: &Query) -> anyhow::Result<()> {
     fs::write(&tmp, DEFAULT_SCHEMA)?;
     fs::rename(&tmp, &default)?;
 
-    if version.is_nonrecursive_access_policies_needed() {
+    let mut extensions = vec![];
+    if version.has_ext_auth() {
+        extensions.push(EXT_AUTH_SCHEMA);
+    }
+    if version.has_ext_ai() {
+        extensions.push(EXT_AI_SCHEMA);
+    }
+    if version.has_ext_postgis() {
+        extensions.push(EXT_POSTGIS_SCHEMA);
+    }
+    if !extensions.is_empty() {
+        extensions.insert(
+            0,
+            "\
+            # This file contains Gel extensions used by the project.\n\
+            # Uncomment the `using extension ...` below to enable them.\n\
+        ",
+        );
+        let ext_file = dir.join(format!("extensions.{BRANDING_SCHEMA_FILE_EXT}"));
+        let tmp = tmp_file_path(&ext_file);
+        fs::remove_file(&tmp).ok();
+        fs::write(&tmp, extensions.join("\n\n"))?;
+        fs::rename(&tmp, &ext_file)?;
+    }
+
+    let needs_futures = version.is_nonrecursive_access_policies_needed()
+        || version.is_simple_scoping_needed()
+        || version.is_no_linkful_computed_splats_needed();
+    if needs_futures {
         let futures = dir.join(format!("futures.{BRANDING_SCHEMA_FILE_EXT}"));
         let tmp = tmp_file_path(&futures);
-        fs::remove_file(&tmp).ok();
-        fs::write(&tmp, FUTURES_SCHEMA)?;
+
+        use std::io::Write;
+        let mut writer = std::io::BufWriter::new(std::fs::File::create(&tmp)?);
+        if version.is_nonrecursive_access_policies_needed() {
+            writer.write_all(FUTURE_NONRECURSIVE_ACCESS_POLICIES.as_bytes())?;
+        }
+        if version.is_simple_scoping_needed() {
+            writer.write_all(FUTURE_SIMPLE_SCOPING.as_bytes())?;
+        }
+        if version.is_no_linkful_computed_splats_needed() {
+            writer.write_all(FUTURE_NO_LINKFUL_COMPUTED_SPLATS.as_bytes())?;
+        }
+        drop(writer);
+
         fs::rename(&tmp, &futures)?;
     };
-    if version.is_simple_scoping_needed() {
-        let futures = dir.join(format!("scoping.{BRANDING_SCHEMA_FILE_EXT}"));
-        let tmp = tmp_file_path(&futures);
-        fs::remove_file(&tmp).ok();
-        fs::write(&tmp, SIMPLE_SCOPING_SCHEMA)?;
-        fs::rename(&tmp, &futures)?;
-    };
+
     Ok(())
 }
 
