@@ -44,9 +44,7 @@ pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
     let local_toml = project_root.join("gel.local.toml");
 
     if !tokio::fs::try_exists(&local_toml).await? {
-        print::msg!(
-            "Writing gel.local.toml for configuration"
-        );
+        print::msg!("Writing gel.local.toml for configuration");
         tokio::fs::write(&local_toml, INITIAL_CONFIG).await?;
         return Ok(());
     }
@@ -91,7 +89,7 @@ async fn configure(conn: &mut Connection, commands: &Commands) -> anyhow::Result
     for (cfg_object, inserts) in &commands.insert {
         execute_configure(conn, &format!("reset {cfg_object}")).await?;
         for values in inserts {
-            let (query, args) = compile_insert(&cfg_object, values, 1);
+            let (query, args) = compile_insert(cfg_object, values, 1);
             execute_configure_args(conn, &query, args).await?;
         }
     }

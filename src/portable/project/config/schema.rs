@@ -341,10 +341,10 @@ pub fn default_schema() -> Schema {
                 "flow_type",
                 Pointer::new(enumeration("ext::auth::FlowType", ["PKCE", "implicit"])),
             ),
-            ("app_name".into(), Pointer::new(primitive("str"))),
-            ("logo_url".into(), Pointer::new(primitive("str"))),
-            ("dark_logo_url".into(), Pointer::new(primitive("str"))),
-            ("brand_color".into(), Pointer::new(primitive("str"))),
+            ("app_name", Pointer::new(primitive("str"))),
+            ("logo_url", Pointer::new(primitive("str"))),
+            ("dark_logo_url", Pointer::new(primitive("str"))),
+            ("brand_color", Pointer::new(primitive("str"))),
         ]),
     );
     let webhooks_config = schema.register(
@@ -368,7 +368,7 @@ pub fn default_schema() -> Schema {
                 .multi()
                 .required(),
             ),
-            ("signing_secret_key".into(), Pointer::new(primitive("str"))),
+            ("signing_secret_key", Pointer::new(primitive("str"))),
         ]),
     );
     schema.register(
@@ -469,25 +469,25 @@ pub fn default_schema() -> Schema {
     let smtp_provider_config = schema.register(
         "cfg::SMTPProviderConfig",
         ObjectType::new(email_provider_config.clone().into_iter().chain([
-            ("sender".into(), Pointer::new(primitive("str"))),
-            ("host".into(), Pointer::new(primitive("str"))),
-            ("port".into(), Pointer::new(primitive("int32"))),
-            ("username".into(), Pointer::new(primitive("str"))),
-            ("password".into(), Pointer::new(primitive("str"))),
+            ("sender", Pointer::new(primitive("str"))),
+            ("host", Pointer::new(primitive("str"))),
+            ("port", Pointer::new(primitive("int32"))),
+            ("username", Pointer::new(primitive("str"))),
+            ("password", Pointer::new(primitive("str"))),
             (
-                "security".into(),
+                "security",
                 Pointer::new(enumeration(
                     "cfg::SMTPSecurity",
                     ["PlainText", "TLS", "STARTTLS", "STARTTLSOrPlainText"],
                 )),
             ),
-            ("validate_certs".into(), Pointer::new(primitive("bool"))),
+            ("validate_certs", Pointer::new(primitive("bool"))),
             (
-                "timeout_per_email".into(),
+                "timeout_per_email",
                 Pointer::new(primitive("duration")),
             ),
             (
-                "timeout_per_attempt".into(),
+                "timeout_per_attempt",
                 Pointer::new(primitive("duration")),
             ),
         ])),

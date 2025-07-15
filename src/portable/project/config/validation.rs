@@ -49,7 +49,7 @@ struct Validator<'s> {
     path: Vec<String>,
 }
 
-impl<'s> Validator<'s> {
+impl Validator<'_> {
     /// Entry point
     fn validate_top_level(&mut self, value: TomlValue) -> anyhow::Result<()> {
         let TomlValue::Table(entries) = value else {
@@ -202,7 +202,7 @@ impl<'s> Validator<'s> {
                         self.err_expected(format!("one of {choices:?}"), &Toml::String(value))
                     );
                 }
-                Value::Injected(format!("<{}>{}", name, ql(&value))).into()
+                Value::Injected(format!("<{}>{}", name, ql(&value)))
             }
             (typ, value) => {
                 return Err(self.err_expected(typ, &value));
@@ -271,7 +271,7 @@ impl<'s> Validator<'s> {
                 })
             }
             (typ, value) => {
-                return Err(self.err_expected(typ, &value));
+                Err(self.err_expected(typ, &value))
             }
         }
     }
