@@ -12,6 +12,7 @@ use crate::branding::{BRANDING_CLI_CMD, QUERY_TAG};
 use crate::commands::{ExitCode, Options};
 use crate::connect::Connection;
 use crate::print::{self, Highlight};
+use schema::Schema;
 use validation::Commands;
 
 #[derive(clap::Args, Clone, Debug)]
@@ -49,19 +50,16 @@ pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
         return Ok(());
     }
 
+    let schema = schema::default_schema();
+
     // read toml
     let local_conf = tokio::fs::read_to_string(local_toml).await?;
     let toml = toml::de::Deserializer::new(&local_conf);
-    let local_conf: LocalConfig = serde_path_to_error::deserialize(toml)?;
-    let Some(config) = local_conf.local.and_then(|l| l.config) else {
-        // there is no [config] table, don't sync
-        return Ok(());
-    };
+    let local_conf: ProjectManifestLocal = serde_path_to_error::deserialize(toml)?;
 
-    // validate
-    let schema = schema::default_schema();
-    let commands = validation::validate(config, &schema)?;
-    if commands.is_empty() {
+    let branch = validate_scoped_config(local_conf.branch, &schema).await?;
+    let instance = validate_scoped_config(local_conf.instance, &schema).await?;
+    if branch.is_none() && instance.is_none() {
         return Ok(());
     }
 
@@ -73,60 +71,90 @@ pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
         .with_explicit_project(project_root)
         .build()?;
     let mut conn = Connection::connect(&conn_config, QUERY_TAG).await?;
-    conn.execute("START TRANSACTION;", &()).await?;
-    configure(&mut conn, &commands).await?;
-    conn.execute("COMMIT;", &()).await?;
+
+    if let Some(branch_cmds) = branch {
+        conn.execute("START TRANSACTION;", &()).await?;
+        configure(&mut conn, CfgScope::Branch, &branch_cmds).await?;
+        conn.execute("COMMIT;", &()).await?;
+    }
+    if let Some(instance_cmds) = instance {
+        configure(&mut conn, CfgScope::Instance, &instance_cmds).await?;
+    }
 
     print::msg!("Configuration applied.");
-
     Ok(())
 }
 
-async fn configure(conn: &mut Connection, commands: &Commands) -> anyhow::Result<()> {
+#[derive(Debug, Clone, Copy)]
+enum CfgScope {
+    Branch,
+    Instance,
+}
+
+pub async fn validate_scoped_config(
+    scoped: Option<ScopedConfig>,
+    schema: &Schema,
+) -> anyhow::Result<Option<Commands>> {
+    let Some(config) = scoped.and_then(|l| l.config) else {
+        // there is no [config] table, don't sync
+        return Ok(None);
+    };
+
+    // validate
+    let commands = validation::validate(config, &schema)?;
+    if commands.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(commands))
+}
+
+async fn configure(
+    conn: &mut Connection,
+    scope: CfgScope,
+    commands: &Commands,
+) -> anyhow::Result<()> {
     for (cfg_obj, prop, value) in &commands.set {
-        set_value(conn, cfg_obj, prop, value).await?;
+        // configure set
+        let cfg_obj = match cfg_obj.as_str() {
+            "cfg::Config" => "cfg",
+            c => c,
+        };
+
+        let (value, args) = compile_value(value, 1);
+
+        let query = format!("set {cfg_obj}::{prop} := {value}");
+        execute_configure(conn, scope, &query, args).await?;
     }
     for (cfg_object, inserts) in &commands.insert {
-        execute_configure(conn, &format!("reset {cfg_object}")).await?;
+        // configure reset
+        execute_configure(
+            conn,
+            scope,
+            &format!("reset {cfg_object}"),
+            Default::default(),
+        )
+        .await?;
+
+        // configure insert
         for values in inserts {
             let (query, args) = compile_insert(cfg_object, values, 1);
-            execute_configure_args(conn, &query, args).await?;
+            execute_configure(conn, scope, &query, args).await?;
         }
     }
     Ok(())
 }
 
-async fn set_value(
+async fn execute_configure(
     conn: &mut Connection,
-    config_object: &str,
-    property: &str,
-    value: &Value,
-) -> anyhow::Result<()> {
-    let config_object = match config_object {
-        "cfg::Config" => "cfg",
-        config => config,
-    };
-
-    let (value, args) = compile_value(value, 1);
-
-    let query = format!("set {config_object}::{property} := {value}");
-    execute_configure_args(conn, &query, args).await?;
-    Ok(())
-}
-
-async fn execute_configure(conn: &mut Connection, query: &str) -> anyhow::Result<()> {
-    let query = format!("configure current branch {query};");
-    print::msg!("> {query}");
-    conn.execute(&query, &()).await?;
-    Ok(())
-}
-
-async fn execute_configure_args(
-    conn: &mut Connection,
+    scope: CfgScope,
     query: &str,
     args: HashMap<String, gel_protocol::value::Value>,
 ) -> anyhow::Result<()> {
-    let query = format!("configure current branch {query};");
+    let scope = match scope {
+        CfgScope::Branch => "current branch",
+        CfgScope::Instance => "instance",
+    };
+    let query = format!("configure {scope} {query};");
 
     print::msg!("> {query}");
     if !args.is_empty() {
@@ -142,6 +170,7 @@ async fn execute_configure_args(
     Ok(())
 }
 
+/// Converts config value into EdgeQL query and arguments.
 fn compile_value(value: &Value, indent: usize) -> (String, HashMap<String, GelValue>) {
     let padding = " ".repeat((indent + 1) * 2);
     let padding_closing = " ".repeat(indent * 2);
@@ -181,6 +210,7 @@ fn compile_value(value: &Value, indent: usize) -> (String, HashMap<String, GelVa
     }
 }
 
+/// Converts a "value insert" into EdgeQL query and arguments.
 fn compile_insert(
     cfg_obj: &str,
     values: &IndexMap<String, Value>,
@@ -207,21 +237,33 @@ fn compile_insert(
 
 /// Format of gel.local.toml
 #[derive(Debug, serde::Deserialize)]
-pub struct LocalConfig {
-    local: Option<Local>,
+#[serde(deny_unknown_fields)]
+pub struct ProjectManifestLocal {
+    branch: Option<ScopedConfig>,
+    instance: Option<ScopedConfig>,
 }
 
 #[derive(Debug, serde::Deserialize)]
-pub struct Local {
+#[serde(deny_unknown_fields)]
+pub struct ScopedConfig {
     config: Option<TomlValue>,
 }
 
+/// A value of a configuration option.
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum Value {
+    /// Use this string verbatim in EdgeQL source
     Injected(String),
-    Array(Vec<Value>), // array is not really used, we don't have such config, right?
+
+    /// An array of values
+    // array is not really used, we don't have such config, right?
+    Array(Vec<Value>),
+
+    /// An set of values (for multi properties)
     Set(Vec<Value>),
+
+    /// Nested insert (not to be confused with top-level `configure insert`)
     Insert {
         typ: String,
         values: IndexMap<String, Value>,
@@ -239,9 +281,8 @@ pub const INITIAL_CONFIG: &str = r###"
 
 ## ---- [ Generic config settings ] ----
 
-[local.config]
+[branch.config]
 
-## timeouts
 # session_idle_transaction_timeout     = "30 seconds"
 # query_execution_timeout              = "1 minute"
 
@@ -258,10 +299,12 @@ pub const INITIAL_CONFIG: &str = r###"
 # cors_allow_origins                  = ["http://localhost:8000", "http://127.0.0.1:8000"]
 # auto_rebuild_query_cache            = false
 # auto_rebuild_query_cache_timeout    = "30 seconds"
+
+# [instance.config]
 # http_max_connections                = 100
 
 ## Email providers (SMTP)
-# [[local.config."cfg::SMTPProviderConfig"]]
+# [[branch.config."cfg::SMTPProviderConfig"]]
 # name                  = "mailtrap_sandbox"
 # sender                = "hello@example.com"
 # host                  = "sandbox.smtp.mailtrap.io"
@@ -281,7 +324,7 @@ pub const INITIAL_CONFIG: &str = r###"
 ## 3. Run `gel migration apply`
 
 ## general auth settings
-# [local.config."ext::auth::AuthConfig"]
+# [branch.config."ext::auth::AuthConfig"]
 # app_name                           = "My Project"
 # logo_url                           = "https://localhost:8000/static/logo.png"
 # dark_logo_url                      = "https://localhost:8000/static/darklogo.png"
@@ -291,61 +334,61 @@ pub const INITIAL_CONFIG: &str = r###"
 # allowed_redirect_urls              = ["http://localhost:8000", "http://testserver"]
 
 ## Email & Password Auth Provider
-# [[local.config."ext::auth::EmailPasswordProviderConfig"]]
+# [[branch.config."ext::auth::EmailPasswordProviderConfig"]]
 # require_verification              = false
 
 ## Apple OAuth Provider
-# [[local.config."ext::auth::AppleOAuthProvider"]]
+# [[branch.config."ext::auth::AppleOAuthProvider"]]
 # client_id                         = "YOUR_APPLE_CLIENT_ID"
 # secret                            = "YOUR_APPLE_SECRET"
 # additional_scope                  = "email name"
 
 ## Azure OAuth Provider
-# [[local.config."ext::auth::AzureOAuthProvider"]]
+# [[branch.config."ext::auth::AzureOAuthProvider"]]
 # client_id                         = "YOUR_AZURE_CLIENT_ID"
 # secret                            = "YOUR_AZURE_SECRET"
 # additional_scope                  = "openid profile email"
 
 ## Discord OAuth Provider
-# [[local.config."ext::auth::DiscordOAuthProvider"]]
+# [[branch.config."ext::auth::DiscordOAuthProvider"]]
 # client_id                         = "YOUR_DISCORD_CLIENT_ID"
 # secret                            = "YOUR_DISCORD_SECRET"
 # additional_scope                  = "identify email"
 
 ## Slack OAuth Provider
-# [[local.config."ext::auth::SlackOAuthProvider"]]
+# [[branch.config."ext::auth::SlackOAuthProvider"]]
 # client_id                         = "YOUR_SLACK_CLIENT_ID"
 # secret                            = "YOUR_SLACK_SECRET"
 # additional_scope                  = "identity.basic identity.email"
 
 ## GitHub OAuth Provider
-# [[local.config."ext::auth::GitHubOAuthProvider"]]
+# [[branch.config."ext::auth::GitHubOAuthProvider"]]
 # client_id                         = "YOUR_GITHUB_CLIENT_ID"
 # secret                            = "YOUR_GITHUB_SECRET"
 # additional_scope                  = "read:user user:email"
 
 ## Google OAuth Provider
-# [[local.config."ext::auth::GoogleOAuthProvider"]]
+# [[branch.config."ext::auth::GoogleOAuthProvider"]]
 # client_id                         = "YOUR_GOOGLE_CLIENT_ID"
 # secret                            = "YOUR_GOOGLE_SECRET"
 # additional_scope                  = "openid email profile"
 
 ## WebAuthn Provider
-# [[local.config."ext::auth::WebAuthnProviderConfig"]]
+# [[branch.config."ext::auth::WebAuthnProviderConfig"]]
 # relying_party_origin              = "https://example.com"
 # require_verification              = true
 
 ## Magic Link Provider
-# [[local.config."ext::auth::MagicLinkProviderConfig"]]
+# [[branch.config."ext::auth::MagicLinkProviderConfig"]]
 # token_time_to_live                = "15 minutes"
 
 ## UI customization
-# [local.config."ext::auth::UIConfig"]
+# [branch.config."ext::auth::UIConfig"]
 # redirect_to                        = "http://localhost:8000/auth/callback"
 # redirect_to_on_signup              = "http://localhost:8000/auth/callback?isSignUp=true"
 
 ## Webhooks (ext::auth::WebhookConfig)
-# [[local.config."ext::auth::WebhookConfig"]]
+# [[branch.config."ext::auth::WebhookConfig"]]
 # url                              = "https://example.com/webhook"
 # events                           = ["IdentityCreated", "EmailVerified"]
 # signing_secret_key               = "YOUR_WEBHOOK_SECRET"
@@ -358,34 +401,34 @@ pub const INITIAL_CONFIG: &str = r###"
 ## 2. Run `gel migration create`
 ## 3. Run `gel migration apply`
 
-# [local.config."ext::ai::Config"]
+# [branch.config."ext::ai::Config"]
 # indexer_naptime                    = "5 minutes"
 
 ## OpenAI Provider
-# [[local.config."ext::ai::OpenAIProviderConfig"]]
+# [[branch.config."ext::ai::OpenAIProviderConfig"]]
 # api_url                          = "https://api.openai.com/v1"
 # secret                           = "YOUR_API_KEY"
 # client_id                        = "optional_client_id"
 
 ## Anthropic Provider
-# [[local.config."ext::ai::AnthropicProviderConfig"]]
+# [[branch.config."ext::ai::AnthropicProviderConfig"]]
 # api_url                          = "https://api.anthropic.com/v1"
 # secret                           = "YOUR_API_KEY"
 # client_id                        = "optional_client_id"
 
 ## Mistral Provider
-# [[local.config."ext::ai::MistralProviderConfig"]]
+# [[branch.config."ext::ai::MistralProviderConfig"]]
 # api_url                          = "https://api.mistral.ai/v1"
 # secret                           = "YOUR_API_KEY"
 # client_id                        = "optional_client_id"
 
 ## Ollama Provider
-# [[local.config."ext::ai::OllamaProviderConfig"]]
+# [[branch.config."ext::ai::OllamaProviderConfig"]]
 # api_url                          = "http://localhost:11434/api"
 # client_id                        = "optional_client_id"
 
 ## Example custom provider: Google Gemini via OpenAI-compatible API
-# [[local.config."ext::ai::CustomProviderConfig"]]
+# [[branch.config."ext::ai::CustomProviderConfig"]]
 # api_url     = "https://generativelanguage.googleapis.com/v1beta/openai"
 # secret      = "YOUR_GEMINI_API_KEY"
 # client_id   = "YOUR_GEMINI_CLIENT_ID"

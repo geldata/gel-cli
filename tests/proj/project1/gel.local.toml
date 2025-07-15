@@ -1,4 +1,4 @@
 
-[local.config]
+[branch.config]
 session_idle_transaction_timeout     = "30 seconds"
 query_execution_timeout              = "1 minute"

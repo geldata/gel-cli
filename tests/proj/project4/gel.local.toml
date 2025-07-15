@@ -1,14 +1,17 @@
 
-[local.config]
+[branch.config]
 
 # timeouts
 session_idle_transaction_timeout     = "30 seconds"
 query_execution_timeout              = "1 minute"
 
-[local.config."cfg::Config"]
+[instance.config]
+http_max_connections                 = 100
+
+[branch.config."cfg::Config"]
 allow_user_specified_id              = true
 
-[[local.config.email_providers]]
+[[branch.config.email_providers]]
 _tname                = "cfg::SMTPProviderConfig"
 name                  = "mailtrap-sandbox"
 port                  = 2525
@@ -16,7 +19,7 @@ timeout_per_email     = "5 minutes"
 timeout_per_attempt   = "1 minute"
 validate_certs        = false
 
-[[local.config.'cfg::SMTPProviderConfig']]
+[[branch.config.'cfg::SMTPProviderConfig']]
 port                  = 2525
 name                  = "some-other-smtp-provider"
 timeout_per_email     = "5 minutes"
@@ -24,12 +27,12 @@ timeout_per_attempt   = "1 minute"
 validate_certs        = false
 
 
-[[local.config.auth]]
+[[branch.config.auth]]
 priority = 100
 user = ["gel"]
 method = { _tname = "cfg::JWT", transports = ["HTTP"] }
 
-[[local.config.auth]]
+[[branch.config.auth]]
 priority = 200
 user = ["admin", "gel"]
 method = { _tname = "cfg::SCRAM", transports = ["TCP", "HTTP"] }
