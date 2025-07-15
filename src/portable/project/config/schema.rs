@@ -1,5 +1,18 @@
 use std::collections::HashMap;
 
+#[derive(Clone, Debug)]
+pub enum ObjectRoot {
+    AbstractConfig,
+    ExtensionConfig,
+    ConfigObject,
+}
+
+impl ObjectRoot {
+    pub fn is_root_config(&self) -> bool {
+        matches!(self, Self::AbstractConfig | Self::ExtensionConfig)
+    }
+}
+
 /// The schema of configuration values
 #[derive(Clone, Debug)]
 pub enum Schema {
@@ -12,6 +25,7 @@ pub enum Schema {
     },
     Object {
         typ: String,
+        root: ObjectRoot,
         members: HashMap<String, Property>,
     },
     Union(Vec<Schema>),
@@ -58,6 +72,13 @@ pub enum PropertyKind {
 }
 
 impl Schema {
+    pub fn with_root(self, root: ObjectRoot) -> Self {
+        match self {
+            Self::Object { typ, members, .. } => Self::Object { typ, root, members },
+            _ => panic!("cannot set root of {self:?}"),
+        }
+    }
+
     pub fn is_scalar(&self) -> bool {
         use Schema::*;
         match self {
@@ -159,6 +180,7 @@ pub fn default_schema() -> Schema {
     {
         Object {
             typ: typ.to_string(),
+            root: ObjectRoot::ConfigObject,
             members: members
                 .into_iter()
                 .map(|(k, v)| (k.to_string(), v))
@@ -329,7 +351,8 @@ pub fn default_schema() -> Schema {
             ),
             ("allowed_redirect_urls", multiset(primitive("str"), false)),
         ],
-    );
+    )
+    .with_root(ObjectRoot::ExtensionConfig);
 
     // AI
     let provider_config = vec![
@@ -391,7 +414,8 @@ pub fn default_schema() -> Schema {
                 ),
             ),
         ],
-    );
+    )
+    .with_root(ObjectRoot::ExtensionConfig);
 
     // email provider
     let email_provider_config = vec![("name", singleton(primitive("str"), true))];
@@ -540,4 +564,5 @@ pub fn default_schema() -> Schema {
             ),
         ],
     )
+    .with_root(ObjectRoot::AbstractConfig)
 }

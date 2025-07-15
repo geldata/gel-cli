@@ -136,7 +136,7 @@ impl Schema {
     ) -> anyhow::Result<ValidateResult> {
         use PropertyKind::*;
 
-        let Schema::Object { typ, members } = self else {
+        let Schema::Object { typ, root, members } = self else {
             panic!("{}: expected object schema", path.join("."));
         };
         let mut flat_config = IndexMap::new();
@@ -162,10 +162,20 @@ impl Schema {
                 Some(Property {
                     kind: Singleton(schema),
                     ..
-                }) => schema
+                }) if root.is_root_config() => schema
                     .validate(value, sub_path)?
                     .merge_object(&mut flat_config)
                     .with_context(sub_ctx)?,
+                Some(Property {
+                    kind: Singleton(schema),
+                    ..
+                }) => {
+                    let value = schema
+                        .validate(value, sub_path)?
+                        .merge_into(&mut flat_config)
+                        .with_context(sub_ctx)?;
+                    values.insert(key, value);
+                }
                 Some(Property {
                     kind: Array(schema),
                     ..
@@ -223,7 +233,11 @@ impl Schema {
         }
         let typ = typ.into();
         Ok(ValidateResult::new(
-            Value::Nested { typ, values },
+            Value::Nested {
+                typ,
+                values,
+                is_root_config: root.is_root_config(),
+            },
             flat_config,
         ))
     }
@@ -286,10 +300,12 @@ fn merge_flat_config(
                     Value::Nested {
                         typ: existing_typ,
                         values: existing_map,
+                        ..
                     },
                     Value::Nested {
                         typ: new_typ,
                         values: new_map,
+                        ..
                     },
                 ) => {
                     if new_typ.ne(existing_typ) {

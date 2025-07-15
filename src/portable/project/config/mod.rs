@@ -1,6 +1,7 @@
 mod schema;
 mod validation;
 
+use edgeql_parser::helpers::quote_string as ql;
 use gel_protocol::value::Value as GelValue;
 use indexmap::IndexMap;
 use std::collections::HashMap;
@@ -62,10 +63,18 @@ async fn configure(
 ) -> anyhow::Result<()> {
     for (name, value) in flat_config {
         match value {
-            Value::Nested { values, .. } => {
+            Value::Nested {
+                values,
+                is_root_config,
+                ..
+            } if is_root_config => {
                 for (key, value) in values {
                     set_value(conn, value, &name, &key).await?;
                 }
+            }
+            Value::Nested { .. } => {
+                execute_configure(conn, &format!("reset {name}")).await?;
+                insert_value(conn, value).await?;
             }
             Value::Set(values) => {
                 execute_configure(conn, &format!("reset {name}")).await?;
@@ -91,56 +100,24 @@ async fn set_value(
         "cfg::Config" => "cfg",
         config => config,
     };
-    match value {
-        Value::Injected(value) => {
-            execute_configure(conn, &(format!("set {config}::{name} := {value}"))).await?;
-        }
-        Value::Set(values) => {
-            let mut args = HashMap::new();
-            let values = values
-                .into_iter()
-                .map(|value| {
-                    let (value, value_args) = value.compile(args.len());
-                    args.extend(value_args);
-                    value
-                })
-                .collect::<Vec<_>>()
-                .join(",\n\t");
-
-            let query = format!("set {config}::{name} := {{\n\t{values}\n}}");
-            execute_configure_args(conn, &query, args).await?;
-        }
-        Value::Array(values) => {
-            let mut args = HashMap::new();
-            let values = values
-                .into_iter()
-                .map(|v| {
-                    let (value, value_args) = v.compile(args.len());
-                    args.extend(value_args);
-                    value
-                })
-                .collect::<Vec<_>>()
-                .join(",\n\t");
-
-            let query = format!("set {config}::{name} := [\n\t{values}\n]");
-            execute_configure_args(conn, &query, args).await?;
-        }
-        _ => {
-            anyhow::bail!("Unsupported value type for setting: {value:?}");
-        }
-    }
-    Ok(())
+    let (value, args) = value.compile(0, 1);
+    execute_configure_args(conn, &(format!("set {config}::{name} := {value}")), args).await
 }
 
 async fn insert_value(conn: &mut Connection, value: Value) -> anyhow::Result<()> {
-    let Value::Nested { typ, values } = value else {
+    let Value::Nested {
+        typ,
+        values,
+        is_root_config: false,
+    } = value
+    else {
         anyhow::bail!("Unsupported value type for inserting: {value:?}");
     };
     let mut args = HashMap::new();
     let values = values
         .into_iter()
         .map(|(name, val)| {
-            let (val, value_args) = val.compile(args.len());
+            let (val, value_args) = val.compile(args.len(), 2);
             args.extend(value_args);
             format!("{name} := {val}")
         })
@@ -196,6 +173,7 @@ pub enum Value {
     Set(Vec<Value>),
     Nested {
         typ: String,
+        is_root_config: bool,
         values: IndexMap<String, Value>,
     },
 }
@@ -208,7 +186,7 @@ impl TryFrom<TomlValue> for Value {
             TomlValue::String(value) => {
                 match value.strip_prefix("{{").and_then(|s| s.strip_suffix("}}")) {
                     Some(value) => Value::Injected(value.to_string()),
-                    None => Value::Injected(value.into()),
+                    None => Value::Injected(ql(&value)),
                 }
             }
             TomlValue::Integer(value) => Value::Injected(value.to_string()),
@@ -260,7 +238,11 @@ impl TryFrom<TomlValue> for Value {
                     .into_iter()
                     .map(|(k, v)| Self::try_from(v).map(|v| (k, v)))
                     .collect::<anyhow::Result<_>>()?;
-                Self::Nested { typ, values }
+                Self::Nested {
+                    typ,
+                    values,
+                    is_root_config: false,
+                }
             }
         })
     }
@@ -275,11 +257,53 @@ impl Value {
         }
     }
 
-    fn compile(self, _arg_index: usize) -> (String, HashMap<String, GelValue>) {
+    fn compile(self, arg_index: usize, indent: i32) -> (String, HashMap<String, GelValue>) {
+        let padding = "\t".repeat(indent as usize);
+        let padding_closing = "\t".repeat(indent as usize - 1);
         match self {
             Value::Injected(value) => (value, HashMap::new()),
-            _ => {
-                panic!("Unsupported value type to compile: {self:?}");
+            Value::Set(values) => {
+                let mut args = HashMap::new();
+                let values = values
+                    .into_iter()
+                    .map(|value| {
+                        let (value, value_args) = value.compile(arg_index + args.len(), indent + 1);
+                        args.extend(value_args);
+                        value
+                    })
+                    .collect::<Vec<_>>()
+                    .join(&format!(",\n{padding}"));
+                (format!("{{\n{padding}{values}\n{padding_closing}}}"), args)
+            }
+            Value::Array(values) => {
+                let mut args = HashMap::new();
+                let values = values
+                    .into_iter()
+                    .map(|v| {
+                        let (value, value_args) = v.compile(args.len(), indent + 1);
+                        args.extend(value_args);
+                        value
+                    })
+                    .collect::<Vec<_>>()
+                    .join(&format!(",\n{padding}"));
+
+                (format!("[\n{padding}{values}\n{padding_closing}]"), args)
+            }
+            Value::Nested { typ, values, .. } => {
+                let mut args = HashMap::new();
+                let values = values
+                    .into_iter()
+                    .map(|(name, value)| {
+                        let (value, value_args) = value.compile(arg_index + args.len(), indent + 1);
+                        args.extend(value_args);
+                        format!("{name} := {value}")
+                    })
+                    .collect::<Vec<_>>()
+                    .join(&format!(",\n{padding}"));
+                (
+                    format!("(insert {typ} {{\n{padding}{values}\n{padding_closing}}})"),
+                    args,
+                )
             }
         }
     }
