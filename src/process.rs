@@ -222,6 +222,10 @@ impl Native {
         self.proxy = false;
         self
     }
+    pub fn set_proxy(&mut self, proxy: bool) -> &mut Self {
+        self.proxy = proxy;
+        self
+    }
 
     #[allow(dead_code)]
     pub fn quiet(&mut self) -> &mut Self {
