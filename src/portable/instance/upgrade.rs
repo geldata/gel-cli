@@ -90,9 +90,17 @@ pub struct Command {
 
     /// Force dump-restore during upgrade even if version is compatible.
     ///
-    /// Used by `project upgrade --force`.
-    #[arg(long, hide = true)]
+    /// Used by `project upgrade --force` for local instances
+    /// or to force Cloud to use dump-restore method to
+    /// upgrade an instance.
+    #[arg(long)]
+    #[arg(conflicts_with = "force_in_place")]
     pub force_dump_restore: bool,
+
+    /// Force in-place upgrade method for Cloud instances.
+    #[arg(long)]
+    #[arg(conflicts_with = "force_dump_restore")]
+    pub force_in_place: bool,
 
     /// Do not ask questions. Assume user wants to upgrade instance.
     #[arg(long)]
@@ -250,7 +258,14 @@ fn upgrade_cloud_cmd(
 
     let inst_name = name.to_string().emphasized();
 
-    let result = upgrade_cloud(name, &query, &client, cmd.force, |target_ver| {
+    let use_dump_restore = match (cmd.force_dump_restore, cmd.force_in_place) {
+        (true, false) => Some(true),
+        (false, true) => Some(false),
+        (false, false) => None,
+        _ => unreachable!(), // should be prevented by Clap
+    };
+
+    let result = upgrade_cloud(name, &query, &client, use_dump_restore, |target_ver| {
         let target_ver_str = target_ver.to_string();
         ver::print_version_hint(target_ver, &query);
         if !cmd.non_interactive {
@@ -292,7 +307,7 @@ pub fn upgrade_cloud(
     name: &CloudName,
     to_version: &Query,
     client: &cloud::client::CloudClient,
-    force: bool,
+    use_dump_restore: Option<bool>,
     confirm: impl FnOnce(&ver::Specific) -> anyhow::Result<bool>,
 ) -> anyhow::Result<UpgradeResult> {
     let inst = cloud::ops::find_cloud_instance_by_name(name, client)?
@@ -301,7 +316,7 @@ pub fn upgrade_cloud(
     let target_ver = cloud::versions::get_version(to_version, client)?;
     let inst_ver = ver::Specific::from_str(&inst.version)?;
 
-    if target_ver <= inst_ver && !force {
+    if target_ver <= inst_ver {
         Ok(UpgradeResult {
             action: UpgradeAction::None,
             prior_version: inst_ver,
@@ -318,7 +333,7 @@ pub fn upgrade_cloud(
     } else {
         let request = CloudInstanceUpgrade {
             version: target_ver.to_string(),
-            force,
+            use_dump_restore: use_dump_restore,
         };
 
         cloud::ops::upgrade_cloud_instance(client, name, request)?;

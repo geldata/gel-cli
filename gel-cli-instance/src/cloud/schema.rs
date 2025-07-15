@@ -183,7 +183,7 @@ pub struct CloudInstanceResize {
 #[derive(Debug, serde::Serialize)]
 pub struct CloudInstanceUpgrade {
     pub version: String,
-    pub force: bool,
+    pub use_dump_restore: Option<bool>,
 }
 
 #[derive(Debug, serde::Serialize)]
