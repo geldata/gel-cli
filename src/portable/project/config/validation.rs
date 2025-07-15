@@ -270,9 +270,7 @@ impl Validator<'_> {
                     None
                 })
             }
-            (typ, value) => {
-                Err(self.err_expected(typ, &value))
-            }
+            (typ, value) => Err(self.err_expected(typ, &value)),
         }
     }
 

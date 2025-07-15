@@ -482,14 +482,8 @@ pub fn default_schema() -> Schema {
                 )),
             ),
             ("validate_certs", Pointer::new(primitive("bool"))),
-            (
-                "timeout_per_email",
-                Pointer::new(primitive("duration")),
-            ),
-            (
-                "timeout_per_attempt",
-                Pointer::new(primitive("duration")),
-            ),
+            ("timeout_per_email", Pointer::new(primitive("duration"))),
+            ("timeout_per_attempt", Pointer::new(primitive("duration"))),
         ])),
     );
 
