@@ -72,7 +72,7 @@
               ])
             ];
             shellHook = ''
-              export PATH="/home/aljaz/EdgeDB/edgedb-cli/target/debug:$PATH"
+              export PATH="$(git rev-parse --show-toplevel)/target/debug:$PATH"
             '';
           };
         };
