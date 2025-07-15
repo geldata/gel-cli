@@ -151,7 +151,8 @@ pub fn init_existing(
     );
     let stash_dir = get_stash_path(&project.root)?;
     if stash_dir.exists() {
-        return Ok(());
+        // TODO(tailhook) do more checks and probably cleanup the dir
+        anyhow::bail!("Project is already initialized.");
     }
     msg!("Initializing project...");
 
