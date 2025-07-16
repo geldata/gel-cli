@@ -78,6 +78,9 @@ $ gel project init --link --server-instance=inst1 --non-interactive --project-di
 ? WARNING: existing instance has version %{DATA}, but nightly is required by `gel.toml` \(or `edgedb.toml`\)
 ! Applying migrations...
 ? Everything is up to date. Revision %{DATA}
+! Applying configuration...
+*
+! Configuration applied.
 ! Project linked
 ! To connect to inst1, navigate to %{GREEDYDATA} and run `gel`
 
@@ -143,8 +146,10 @@ optional {
 }
 ! Applying migrations...
 ! Everything is up to date. Revision initial
+! Writing gel.local.toml for configuration
 ! Project initialized.
 ! To connect to project2, run `gel`
+
 
 $ gel project info --instance-name
 ! project2
@@ -195,7 +200,7 @@ $ gel instance list
 $ gel instance destroy --instance=project2 --force
 !!!
 Unlinking %{GREEDYDATA}
-Gel instance 'project2' was successfully deleted.   
+Gel instance 'project2' was successfully deleted.
 !!!
 
 $ gel project init --non-interactive

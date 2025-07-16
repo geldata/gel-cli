@@ -71,6 +71,9 @@
                 "rust-analyzer"
               ])
             ];
+            shellHook = ''
+              export PATH="$(git rev-parse --show-toplevel)/target/debug:$PATH"
+            '';
           };
         };
     };

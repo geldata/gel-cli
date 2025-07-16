@@ -1,0 +1,56 @@
+#!/usr/bin/env clitest --v0
+
+pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
+
+ignore {
+    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
+}
+
+$ gel instance destroy -I project4 --force
+%EXIT any
+*
+
+$ gel --version
+? Gel CLI %{VERSION}
+
+$ gel server list-versions
+? ┌%{DATA}┬%{DATA}┬%{DATA}┐
+? │%{DATA}│%{DATA}│%{DATA}│
+repeat {
+    choice {
+        ? │ stable %{DATA}
+        ? │ nightly %{DATA}
+        ? │ testing %{DATA}
+    }
+}
+? └%{DATA}┴%{DATA}┴%{DATA}┘
+
+# =================================
+# project4
+# =================================
+
+
+using tempdir;
+
+$ cp -R $INITIAL_PWD/../../proj/project4 .
+*
+
+cd project4;
+
+$ gel project init --non-interactive --no-migrations
+! Found `gel.toml` in %{PATH}
+*
+! Applying configuration...
+*
+! Configuration applied.
+*
+
+$ gel configure apply
+*
+! Applying configuration...
+*
+! Configuration applied.
+*
