@@ -1,14 +1,18 @@
 #!/usr/bin/env clitest --v0
 
-$ gel instance destroy -I watch_test --force
+$ gel instance destroy -I watch_test0 --force
 %EXIT any
 *
 
 using tempdir;
 
-using new dir "watch_test";
+using new dir "watch_test0";
 
-$ gel project init --instance=watch_test --non-interactive
+$ gel project init --instance=watch_test0 --non-interactive
+*
+
+# Create another branch for tests
+$ gel branch create other
 *
 
 $ find .
@@ -21,7 +25,7 @@ background {
 }
 
 background {
-    $ gel instance logs -I watch_test --follow --tail 10
+    $ gel instance logs -I watch_test0 --follow --tail 10
     %EXIT any
     *
 }
@@ -29,8 +33,39 @@ background {
 # Give it a second to start up
 $ sleep 1
 
-# Project is locked, so we can't switch to another branch
-$ gel branch switch --create --empty other
+# Cannot start another watch for the same project
+$ gel watch --migrate
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
+
+# Project is locked, so we can't manipulate branches
+$ gel branch switch other
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
+
+$ gel branch switch --create --empty foo
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
+
+$ gel branch wipe main
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
+
+$ gel branch rebase other
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
+
+$ gel branch merge other
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
+
+$ gel branch drop other
 %EXIT 1
 *
 ! gel error: Could not acquire lock %{GREEDYDATA}
@@ -108,3 +143,14 @@ $ sleep 1
 $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
 *
+
+# Project is locked, so we can't overwrite the migrations
+$ gel migration extract
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
+
+$ gel migration edit
+%EXIT 1
+*
+! gel error: Could not acquire lock %{GREEDYDATA}
