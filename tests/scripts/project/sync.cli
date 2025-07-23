@@ -1,0 +1,84 @@
+#!/usr/bin/env clitest --v0
+
+pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
+
+ignore {
+    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
+}
+
+$ gel instance destroy -I sync_test --force
+%EXIT any
+*
+
+using tempdir;
+
+using new dir "sync_test";
+
+$ gel project init --instance=sync_test --non-interactive
+*
+
+$ gel sync
+%EXIT 1
+! 1. Applying migrations...
+! Done.
+! 2. Checking if schema is up to date...
+? Please check the generated migration file .* and run `gel sync` again to apply it.
+
+$ gel sync
+! 1. Applying migrations...
+! Done.
+! 2. Checking if schema is up to date...
+! Done.
+! 3. Applying config...
+! No config to apply, run `gel sync` again after modifying `gel.local.toml`.
+
+$ echo "
+[branch.config]
+query_execution_timeout = \"1 minute\"
+" > gel.local.toml
+
+$ gel sync
+! 1. Applying migrations...
+! Done.
+! 2. Checking if schema is up to date...
+! Done.
+! 3. Applying config...
+! > configure current branch set cfg::query_execution_timeout := <duration>"1 minute";
+! Project is now in sync.
+
+$ echo "
+[[branch.config.\"ext::auth::EmailPasswordProviderConfig\"]]
+require_verification              = false
+" > gel.local.toml
+
+$ gel sync
+%EXIT 1
+! 1. Applying migrations...
+! Done.
+! 2. Checking if schema is up to date...
+! Done.
+! 3. Applying config...
+! > configure current branch reset ext::auth::EmailPasswordProviderConfig;
+! Extension `auth` is required by the config. It's now enabled in dbschema/extensions.gel, please run `gel sync` again.
+
+$ gel sync
+%EXIT 1
+! 1. Applying migrations...
+! Done.
+! 2. Checking if schema is up to date...
+? Please check the generated migration file .* and run `gel sync` again to apply it.
+
+$ gel sync
+! 1. Applying migrations...
+! Done.
+! 2. Checking if schema is up to date...
+! Done.
+! 3. Applying config...
+! > configure current branch reset ext::auth::EmailPasswordProviderConfig;
+! > configure current branch insert ext::auth::EmailPasswordProviderConfig {
+!     require_verification := false
+!   };
+! Project is now in sync.
