@@ -81,7 +81,7 @@ pub struct Command {
     #[arg(long, hide = true)]
     pub debug_print_err: bool,
     /// Do not print messages, only indicate success by exit status
-    #[arg(long, hide = true)]  // only used internally for now
+    #[arg(long, hide = true)] // only used internally for now
     pub quiet: bool,
 }
 
