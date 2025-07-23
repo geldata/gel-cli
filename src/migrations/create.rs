@@ -47,7 +47,8 @@ pub async fn run(cmd: &Command, conn: &mut Connection, options: &Options) -> any
     if cmd.squash {
         squash::run(cmd, conn, options).await
     } else {
-        run_inner(cmd, conn, options).await
+        run_inner(cmd, conn, options).await?;
+        Ok(())
     }
 }
 
@@ -79,9 +80,16 @@ pub struct Command {
     /// Show error details.
     #[arg(long, hide = true)]
     pub debug_print_err: bool,
+    /// Do not print messages, only indicate success by exit status
+    #[arg(long, hide = true)]  // only used internally for now
+    pub quiet: bool,
 }
 
-async fn run_inner(cmd: &Command, conn: &mut Connection, options: &Options) -> anyhow::Result<()> {
+pub async fn run_inner(
+    cmd: &Command,
+    conn: &mut Connection,
+    options: &Options,
+) -> anyhow::Result<String> {
     let ctx = Context::for_migration_config(&cmd.cfg, false, options.skip_hooks, true).await?;
 
     if dev_mode::check_client(conn).await? {
@@ -118,8 +126,7 @@ async fn run_inner(cmd: &Command, conn: &mut Connection, options: &Options) -> a
             timeout::restore_for_transaction(conn, old_timeout).await
         }
     }?;
-    write_migration(&ctx, &migration, !cmd.non_interactive).await?;
-    Ok(())
+    write_migration(&ctx, &migration, !cmd.non_interactive).await
 }
 
 pub enum SourceName {
@@ -419,7 +426,9 @@ pub async fn first_migration(
                 return Err(bug::error("First migration population is not complete"));
             }
             if descr.confirmed.is_empty() && !options.allow_empty {
-                print::warn!("No schema changes detected.");
+                if !options.quiet {
+                    print::warn!("No schema changes detected.");
+                }
                 return Err(ExitCode::new(4))?;
             }
             Ok(FutureMigration::new(MigrationKey::Index(1), descr))
@@ -596,8 +605,10 @@ async fn run_non_interactive(
         non_interactive_populate(ctx, cli).await?
     };
     if descr.confirmed.is_empty() && !options.allow_empty {
-        print::warn!("No schema changes detected.");
-        //print::echo!("Hint: --allow-empty can be used to create a data-only migration with no schema changes.");
+        if !options.quiet {
+            print::warn!("No schema changes detected.");
+            //print::echo!("Hint: --allow-empty can be used to create a data-only migration with no schema changes.");
+        }
         return Err(ExitCode::new(4))?;
     }
     Ok(FutureMigration::new(key, descr))
@@ -821,7 +832,7 @@ pub async fn write_migration<'a, T>(
     ctx: &Context,
     descr: &'a impl MigrationToText<'a, T>,
     verbose: bool,
-) -> anyhow::Result<()>
+) -> anyhow::Result<String>
 where
     T: Iterator<Item = &'a String>,
 {
@@ -843,7 +854,7 @@ async fn _write_migration<'a, T>(
     descr: &'a impl MigrationToText<'a, T>,
     filepath: &Path,
     verbose: bool,
-) -> anyhow::Result<()>
+) -> anyhow::Result<String>
 where
     T: Iterator<Item = &'a String>,
 {
@@ -878,7 +889,7 @@ where
             filepath.to_string().emphasized(),
         );
     }
-    Ok(())
+    Ok(filepath.to_string())
 }
 
 pub async fn normal_migration(
