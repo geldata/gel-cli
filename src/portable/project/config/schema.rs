@@ -1,6 +1,9 @@
 use indexmap::IndexMap;
 
-pub struct Schema {
+pub struct Schema(Vec<ModuleSchema>);
+
+pub struct ModuleSchema {
+    pub extension_name: Option<String>,
     pub object_types: IndexMap<String, ObjectType>,
 }
 
@@ -45,6 +48,34 @@ pub enum Typ {
 }
 
 impl Schema {
+    pub fn find_object(&self, key: &str) -> Option<(Option<&str>, &ObjectType)> {
+        for s in &self.0 {
+            if let Some(obj) = s.find_object(key) {
+                return Some((s.extension_name.as_deref(), obj));
+            }
+        }
+        None
+    }
+
+    fn std(&mut self) -> &mut ModuleSchema {
+        self.push(None)
+    }
+
+    fn ext(&mut self, extension_name: impl ToString) -> &mut ModuleSchema {
+        self.push(Some(extension_name.to_string()))
+    }
+
+    fn push(&mut self, extension_name: Option<String>) -> &mut ModuleSchema {
+        let schema = ModuleSchema {
+            extension_name,
+            object_types: Default::default(),
+        };
+        self.0.push(schema);
+        self.0.last_mut().unwrap()
+    }
+}
+
+impl ModuleSchema {
     pub fn find_object<'s>(&'s self, key: &str) -> Option<&'s ObjectType> {
         self.object_types.get(key)
     }
@@ -218,9 +249,8 @@ pub fn default_schema() -> Schema {
         }
     }
 
-    let mut schema = Schema {
-        object_types: IndexMap::new(),
-    };
+    let mut rv = Schema(Vec::new());
+    let schema = rv.ext("auth");
 
     // auth
     let provider_config = vec![(
@@ -391,6 +421,7 @@ pub fn default_schema() -> Schema {
     );
 
     // AI
+    let schema = rv.ext("ai");
     let provider_config = vec![
         (
             "name".to_string(),
@@ -462,6 +493,8 @@ pub fn default_schema() -> Schema {
             ("providers", Pointer::new(ai_providers).multi()),
         ]),
     );
+
+    let schema = rv.std();
 
     // email provider
     let email_provider_config = vec![("name", Pointer::new(primitive("str")).required())];
@@ -596,5 +629,5 @@ pub fn default_schema() -> Schema {
         ]),
     );
 
-    schema
+    rv
 }

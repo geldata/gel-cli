@@ -486,6 +486,8 @@ pub struct SubcommandOption {
 pub enum Command {
     /// Initialize project (alias for [`BRANDING_CLI_CMD`] project init)
     Init(project::init::Command),
+    /// Synchronize project with the current directory
+    Sync(project::sync::Command),
     #[command(flatten)]
     Common(Common),
     /// Execute EdgeQL query in quotes (e.g. `"select 9;"`)

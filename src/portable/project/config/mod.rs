@@ -11,15 +11,20 @@ use toml::Value as TomlValue;
 use crate::branding::{BRANDING_CLI_CMD, QUERY_TAG};
 use crate::commands::{ExitCode, Options};
 use crate::connect::Connection;
+use crate::hint::HintExt;
 use crate::print::{self, Highlight};
 use schema::Schema;
-use validation::Commands;
+use validation::{Commands, ConfigureInsert, ConfigureSet};
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
     #[arg(long, value_hint=ValueHint::DirPath)]
     pub project_dir: Option<path::PathBuf>,
 }
+
+#[derive(Debug, thiserror::Error)]
+#[error("cannot configure: extension \"{}\" is not enabled", _0)]
+pub struct MissingExtension(pub String);
 
 pub async fn run(c: &Command, _options: &Options) -> anyhow::Result<()> {
     let project_loc = super::find_project(c.project_dir.as_ref().map(|p| p.as_ref()))?;
@@ -33,21 +38,23 @@ pub async fn run(c: &Command, _options: &Options) -> anyhow::Result<()> {
         return Err(ExitCode::new(1).into());
     };
 
-    apply(&project_loc.root).await
+    apply(&project_loc.root, false).await?;
+    Ok(())
 }
 
 #[tokio::main(flavor = "current_thread")]
 pub async fn apply_sync(project_root: &path::Path) -> anyhow::Result<()> {
-    apply(project_root).await
+    apply(project_root, false).await?;
+    Ok(())
 }
 
-pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
+pub async fn apply(project_root: &path::Path, quiet: bool) -> anyhow::Result<bool> {
     let local_toml = project_root.join("gel.local.toml");
 
     if !tokio::fs::try_exists(&local_toml).await? {
         print::msg!("Writing gel.local.toml for configuration");
         tokio::fs::write(&local_toml, INITIAL_CONFIG).await?;
-        return Ok(());
+        return Ok(false);
     }
 
     let schema = schema::default_schema();
@@ -60,10 +67,12 @@ pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
     let branch = validate_scoped_config(local_conf.branch, &schema).await?;
     let instance = validate_scoped_config(local_conf.instance, &schema).await?;
     if branch.is_none() && instance.is_none() {
-        return Ok(());
+        return Ok(false);
     }
 
-    print::msg!("Applying configuration...");
+    if !quiet {
+        print::msg!("Applying configuration...");
+    }
 
     // configure
     let conn_config = gel_tokio::Builder::new()
@@ -81,8 +90,10 @@ pub async fn apply(project_root: &path::Path) -> anyhow::Result<()> {
         configure(&mut conn, CfgScope::Instance, &instance_cmds).await?;
     }
 
-    print::msg!("Configuration applied.");
-    Ok(())
+    if !quiet {
+        print::success!("Configuration applied.");
+    }
+    Ok(true)
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -113,7 +124,13 @@ async fn configure(
     scope: CfgScope,
     commands: &Commands,
 ) -> anyhow::Result<()> {
-    for (cfg_obj, prop, value) in &commands.set {
+    for ConfigureSet {
+        object_name: cfg_obj,
+        extension_name,
+        property_name: prop,
+        value,
+    } in &commands.set
+    {
         // configure set
         let cfg_obj = match cfg_obj.as_str() {
             "cfg::Config" => "cfg",
@@ -123,13 +140,21 @@ async fn configure(
         let (value, args) = compile_value(value, 1);
 
         let query = format!("set {cfg_obj}::{prop} := {value}");
-        execute_configure(conn, scope, &query, args).await?;
+        execute_configure(conn, scope, extension_name.as_deref(), &query, args).await?;
     }
-    for (cfg_object, inserts) in &commands.insert {
+    for (
+        cfg_object,
+        ConfigureInsert {
+            extension_name,
+            values: inserts,
+        },
+    ) in &commands.insert
+    {
         // configure reset
         execute_configure(
             conn,
             scope,
+            extension_name.as_deref(),
             &format!("reset {cfg_object}"),
             Default::default(),
         )
@@ -138,7 +163,7 @@ async fn configure(
         // configure insert
         for values in inserts {
             let (query, args) = compile_insert(cfg_object, values, 1);
-            execute_configure(conn, scope, &query, args).await?;
+            execute_configure(conn, scope, extension_name.as_deref(), &query, args).await?;
         }
     }
     Ok(())
@@ -147,6 +172,7 @@ async fn configure(
 async fn execute_configure(
     conn: &mut Connection,
     scope: CfgScope,
+    extension_name: Option<&str>,
     query: &str,
     args: HashMap<String, gel_protocol::value::Value>,
 ) -> anyhow::Result<()> {
@@ -166,7 +192,20 @@ async fn execute_configure(
         .map(|(k, v)| (k.as_str(), v.clone().into()))
         .collect();
 
-    conn.execute(&query, &args).await?;
+    if let Err(e) = conn.execute(&query, &args).await {
+        let regex = regex::Regex::new("unrecognized configuration (parameter|object)")?;
+        if e.is::<gel_errors::ConfigurationError>()
+            && e.initial_message()
+                .map(|m| regex.is_match(&m))
+                .unwrap_or(false)
+        {
+            if let Some(name) = extension_name {
+                return Err(MissingExtension(name.to_string()).into())
+                    .with_hint(|| format!("add `using extension {name};` to your schema file."))?;
+            }
+        }
+        return Err(e)?;
+    }
     Ok(())
 }
 

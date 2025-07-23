@@ -2,6 +2,7 @@ pub mod config;
 pub mod info;
 pub mod init;
 pub mod manifest;
+pub mod sync;
 pub mod unlink;
 pub mod upgrade;
 

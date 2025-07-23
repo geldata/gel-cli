@@ -22,21 +22,58 @@ pub fn validate(value: TomlValue, schema: &Schema) -> anyhow::Result<Commands> {
     Ok(validator.commands)
 }
 
+#[derive(Debug)]
+pub struct ConfigureSet {
+    pub object_name: String,
+    pub extension_name: Option<String>,
+    pub property_name: String,
+    pub value: Value,
+}
+
+#[derive(Debug)]
+pub struct ConfigureInsert {
+    pub extension_name: Option<String>,
+    pub values: Vec<IndexMap<String, Value>>,
+}
+
 #[derive(Debug, Default)]
 pub struct Commands {
-    pub set: Vec<(String, String, Value)>,
-    pub insert: IndexMap<String, Vec<IndexMap<String, Value>>>,
+    pub set: Vec<ConfigureSet>,
+    pub insert: IndexMap<String, ConfigureInsert>,
 }
 
 impl Commands {
-    pub fn set(&mut self, config_object: &str, values: IndexMap<String, Value>) {
-        for (property, val) in values {
-            self.set.push((config_object.to_string(), property, val));
+    pub fn set(
+        &mut self,
+        config_object: &str,
+        extension_name: Option<&str>,
+        values: IndexMap<String, Value>,
+    ) {
+        for (property_name, value) in values {
+            let object_name = config_object.to_string();
+            let extension_name = extension_name.map(|name| name.to_string());
+            self.set.push(ConfigureSet {
+                object_name,
+                extension_name,
+                property_name,
+                value,
+            });
         }
     }
-    pub fn insert(&mut self, config_object: String, values: IndexMap<String, Value>) {
-        let inserts = self.insert.entry(config_object).or_default();
-        inserts.push(values);
+    pub fn insert(
+        &mut self,
+        config_object: String,
+        extension_name: Option<&str>,
+        values: IndexMap<String, Value>,
+    ) {
+        let inserts = self.insert.entry(config_object).or_insert_with(|| {
+            let extension_name = extension_name.map(|name| name.to_string());
+            ConfigureInsert {
+                extension_name,
+                values: Vec::new(),
+            }
+        });
+        inserts.values.push(values);
     }
     pub fn is_empty(&self) -> bool {
         self.set.is_empty() && self.insert.is_empty()
@@ -59,7 +96,7 @@ impl Validator<'_> {
         // validate entries like `cfg::Config` and `ext::auth::AuthConfig```
         let mut not_found = toml::map::Map::new();
         for (cfg_object, value) in entries {
-            let Some(object_type) = self.schema.find_object(&cfg_object) else {
+            let Some((ext_name, object_type)) = self.schema.find_object(&cfg_object) else {
                 not_found.insert(cfg_object, value);
                 continue;
             };
@@ -77,9 +114,9 @@ impl Validator<'_> {
             for v in toml_values {
                 let values = self.validate_object_type(v, object_type)?;
                 if object_type.is_top_level {
-                    self.commands.set(&cfg_object, values);
+                    self.commands.set(&cfg_object, ext_name, values);
                 } else {
-                    self.commands.insert(cfg_object.clone(), values);
+                    self.commands.insert(cfg_object.clone(), ext_name, values);
                 }
             }
 
@@ -87,9 +124,9 @@ impl Validator<'_> {
         }
 
         // validate entries like `allow_bare_ddl`, which we implicitly assume are on cfg::Config
-        let cfg_config = self.schema.find_object("cfg::Config").unwrap();
+        let (ext_name, cfg_config) = self.schema.find_object("cfg::Config").unwrap();
         let values = self.validate_object_type(TomlValue::Table(not_found), cfg_config)?;
-        self.commands.set("cfg::Config", values);
+        self.commands.set("cfg::Config", ext_name, values);
 
         Ok(())
     }
@@ -216,7 +253,7 @@ impl Validator<'_> {
 
         match (typ, value) {
             (ObjectRef(target_ref), Toml::Table(value)) => {
-                let Some(target) = self.schema.find_object(target_ref) else {
+                let Some((ext_name, target)) = self.schema.find_object(target_ref) else {
                     return Err(anyhow::anyhow!(
                         "{}: unknown config object: {target_ref}",
                         self.path.join(".")
@@ -230,7 +267,7 @@ impl Validator<'_> {
                         values,
                     })
                 } else {
-                    self.commands.insert(target_ref.clone(), values);
+                    self.commands.insert(target_ref.clone(), ext_name, values);
                     None
                 })
             }
@@ -253,7 +290,7 @@ impl Validator<'_> {
                     ));
                 };
 
-                let Some(target) = self.schema.find_object(obj_type_ref) else {
+                let Some((ext_name, target)) = self.schema.find_object(obj_type_ref) else {
                     return Err(anyhow::anyhow!(
                         "{}: unknown config object: {obj_type_ref}",
                         self.path.join(".")
@@ -266,7 +303,7 @@ impl Validator<'_> {
                         values,
                     })
                 } else {
-                    self.commands.insert(obj_type_ref.clone(), values);
+                    self.commands.insert(obj_type_ref.clone(), ext_name, values);
                     None
                 })
             }

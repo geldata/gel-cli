@@ -365,7 +365,7 @@ pub async fn create(
     conn: &mut Connection,
     _options: &Options,
     ctx: &Context,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String> {
     let migrations = migration::read_all(ctx, true).await?;
 
     let old_timeout = timeout::inhibit_for_transaction(conn).await?;
@@ -386,6 +386,5 @@ pub async fn create(
             timeout::restore_for_transaction(conn, old_timeout).await
         }
     }?;
-    write_migration(ctx, &migration, !cmd.non_interactive).await?;
-    Ok(())
+    write_migration(ctx, &migration, !cmd.non_interactive).await
 }
