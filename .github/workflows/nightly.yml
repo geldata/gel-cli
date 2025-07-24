@@ -1323,11 +1323,6 @@ jobs:
       with:
         python-version: "3.12"
 
-    - name: Configure Pagefile
-      uses: elprans/configure-pagefile-action@v2
-      with:
-        minimum-size: 8GB
-
     - name: Build
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
