@@ -12,7 +12,10 @@ use crate::commands::options::Options;
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct Command {
+    /// The generator to use, in the form `<lang>/<tool>`. Currently available: py/queries,
+    /// py/models, js/edgeql-js, js/queries, js/interfaces, js/prisma.
     pub generator: String,
+    /// Arguments to pass to the generator.
     pub arguments: Vec<String>,
 }
 
