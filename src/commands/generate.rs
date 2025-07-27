@@ -62,25 +62,25 @@ fn print_help(short_help: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// How we should invoke via `uv run` (or not).
+/// How we should invoke via `uvx` (or not).
 #[derive(Debug, Clone, Copy)]
-enum UseUv {
+enum UseUvx {
     Always,
     Auto,
     Never,
 }
 
-impl UseUv {
-    /// Read from the `GEL_GENERATE_USE_UV` env var, defaulting to `auto`
+impl UseUvx {
+    /// Read from the `GEL_GENERATE_USE_UVX` env var, defaulting to `auto`
     fn from_env() -> Self {
-        match env::var("GEL_GENERATE_USE_UV")
+        match env::var("GEL_GENERATE_USE_UVX")
             .unwrap_or_default()
             .to_lowercase()
             .as_str()
         {
-            "always" => UseUv::Always,
-            "never" => UseUv::Never,
-            _ => UseUv::Auto,
+            "always" => UseUvx::Always,
+            "never" => UseUvx::Never,
+            _ => UseUvx::Auto,
         }
     }
 }
@@ -93,39 +93,42 @@ pub fn prepare_command(cmd: &Command) -> Result<Vec<OsString>, anyhow::Error> {
         .split_once('/')
         .context("generator should be of form <lang>/<tool>")?;
 
-    let use_uv = UseUv::from_env();
+    let use_uvx = UseUvx::from_env();
 
     let commands = if lang == "py" {
         let gen_name = "gel-generate-py";
 
-        let uv_invocation = || -> Result<Vec<OsString>, anyhow::Error> {
-            let uv = which("uv").context("`uv` not found on PATH")?;
+        let uvx_invocation = || -> Result<Vec<OsString>, anyhow::Error> {
+            let uvx = which("uvx").context("`uvx` not found on PATH")?;
+            let mut gel = OsString::from("gel");
+            gel.push(env::var_os("GEL_PYTHON_VERSION_SPEC").unwrap_or_else(|| ">=4.0.0b1".into()));
             Ok(vec![
-                uv.into_os_string(),
-                OsString::from("run"),
+                uvx.into_os_string(),
+                OsString::from("--from"),
+                gel,
                 gen_name.into(),
                 generator.into(),
             ])
         };
 
-        match use_uv {
-            UseUv::Always => {
-                // always use uv
-                uv_invocation()?
+        match use_uvx {
+            UseUvx::Always => {
+                // always use uvx
+                uvx_invocation()?
             }
-            UseUv::Never => {
-                // never use uv: must have the binary directly
+            UseUvx::Never => {
+                // never use uvx: must have the binary directly
                 let direct =
                     which(gen_name).with_context(|| format!("`{}` not found on PATH", gen_name))?;
                 vec![direct.into_os_string(), generator.into()]
             }
-            UseUv::Auto => {
-                // fallback logic: try direct, then uv
+            UseUvx::Auto => {
+                // fallback logic: try direct, then uvx
                 if let Ok(direct) = which(gen_name) {
                     vec![direct.into_os_string(), generator.into()]
                 } else {
-                    // fall back to uv
-                    uv_invocation()?
+                    // fall back to uvx
+                    uvx_invocation()?
                 }
             }
         }
