@@ -29,6 +29,7 @@ $ gel project init --non-interactive
 *
 ! Applying migrations...
 ! Everything is up to date. Revision initial
+! Writing gel.local.toml for configuration
 ! Project initialized.
 ! To connect to extract_test, run `gel`
 
