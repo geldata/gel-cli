@@ -73,7 +73,7 @@ fn main() {
                 err = arc.inner();
             }
             if let Some(e) = err.downcast_ref::<gel_errors::Error>() {
-                print::edgedb_error(e, false);
+                print::gel_error(e, false);
             } else {
                 let mut error_chain = err.chain();
                 if let Some(first) = error_chain.next() {

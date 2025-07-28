@@ -27,7 +27,7 @@ use crate::process;
 use crate::watch::{self, WatchOptions};
 
 #[derive(Debug, serde::Deserialize)]
-struct EdgedbStatus {
+struct GelServerStatus {
     port: u16,
     tls_cert_file: String,
 }
@@ -96,7 +96,7 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
     // This is run from windows to do the upgrade check
     if let Some(status_path) = &options.run_server_with_status {
         let server_path = info.server_path()?;
-        let mut cmd = process::Native::new("edgedb", "edgedb", server_path);
+        let mut cmd = process::Native::new("gel-server", "gel-server", server_path);
         cmd.arg("--temp-dir");
         cmd.arg("--auto-shutdown-after=0");
         cmd.arg("--default-auth-method=Trust");
@@ -153,7 +153,7 @@ fn spawn_and_check(
 
     let server_path = info.server_path()?;
     let status_dir = tempfile::tempdir().context("tempdir failure")?;
-    let mut cmd = process::Native::new("edgedb", "edgedb", server_path);
+    let mut cmd = process::Native::new("gel-server", "gel-server", server_path);
     cmd.env("NOTIFY_SOCKET", status_dir.path().join("notify"));
     cmd.quiet();
     cmd.arg("--temp-dir");
@@ -195,7 +195,7 @@ async fn do_check(
     let Some(json_data) = status_data.strip_prefix("READY=") else {
         anyhow::bail!("Invalid server status {status_data:?}");
     };
-    let status: EdgedbStatus = serde_json::from_str(json_data)?;
+    let status: GelServerStatus = serde_json::from_str(json_data)?;
     let cert_path = if cfg!(windows) {
         crate::portable::windows::path_to_windows(Path::new(&status.tls_cert_file))?
     } else {

@@ -316,7 +316,7 @@ pub fn server_cmd(
     let data_dir = data_dir()?.join(&inst.name);
     let runstate_dir = runstate_dir(&inst.name)?;
     let server_path = inst.server_path()?;
-    let mut pro = process::Native::new("edgedb", "edgedb", server_path);
+    let mut pro = process::Native::new("gel-server", "gel-server", server_path);
     pro.env_default("EDGEDB_SERVER_LOG_LEVEL", "warn");
     pro.env_default("EDGEDB_SERVER_HTTP_ENDPOINT_SECURITY", "optional");
     pro.env_default("EDGEDB_SERVER_INSTANCE_NAME", &inst.name);

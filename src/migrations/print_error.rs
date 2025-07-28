@@ -54,7 +54,7 @@ pub fn print_migration_error(
     let (file_name, data, pstart, pend, eof) = match info {
         Some(pair) => pair,
         None => {
-            print::edgedb_error(err, false);
+            print::gel_error(err, false);
             return Ok(());
         }
     };
