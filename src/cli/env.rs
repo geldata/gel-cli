@@ -3,6 +3,8 @@ use std::path::PathBuf;
 use anyhow::Context;
 use gel_tokio::dsn::CloudCerts;
 
+use crate::hint::HintExt;
+
 macro_rules! define_env {
     (
         $(
@@ -11,9 +13,19 @@ macro_rules! define_env {
             $(#[preprocess=$preprocess:expr])?
             $(#[parse=$parse:expr])?
             $(#[validate=$validate:expr])?
+            $(#[setenv=$setenv:expr])?
             $name:ident: $type:ty
         ),* $(,)?
     ) => {
+        struct EnvNames;
+
+        impl EnvNames {
+            $(
+                #[allow(non_upper_case_globals)]
+                const $name: &[&str] = &[$(stringify!($env_name)),+];
+            )*
+        }
+
         #[derive(Debug, Clone)]
         pub struct Env {
         }
@@ -23,8 +35,7 @@ macro_rules! define_env {
             $(
                 #[doc = $doc]
                 pub fn $name() -> ::std::result::Result<::std::option::Option<$type>, anyhow::Error> {
-                    const ENV_NAMES: &[&str] = &[$(stringify!($env_name)),+];
-                    let Some((name, s)) = $crate::cli::env::get_envs(ENV_NAMES)? else {
+                    let Some((name, s)) = $crate::cli::env::get_envs(EnvNames::$name)? else {
                         return Ok(None);
                     };
                     $(let Some(s) = $preprocess(&s, context)? else {
@@ -41,7 +52,7 @@ macro_rules! define_env {
                             // Disable the fallback parser
                             #[cfg(all(debug_assertions, not(debug_assertions)))]
                         )?
-                        $crate::cli::env::parse::<_>(&s)
+                        s.parse()
                             .context(format!("Failed to parse environment variable: {name}"))?
                     };
 
@@ -49,6 +60,54 @@ macro_rules! define_env {
                     Ok(Some(value))
                 }
             )*
+        }
+
+        $(
+            $(
+                impl $type {
+                    pub fn set_env<T>(&self, f: impl FnOnce(&str, &str) -> T) -> T {
+                        let value = self.to_string();
+                        f(EnvNames::$name[$setenv], &value)
+                    }
+                }
+            )?
+        )*
+    };
+}
+
+macro_rules! str_enum {
+    (
+        $(#[$outer:meta])*
+        $vis:vis enum $name:ident {
+            $(
+                $variant:ident => $str:expr
+            ),* $(,)?
+        }
+    ) => {
+        $(#[$outer])*
+        $vis enum $name {
+            $($variant),*
+        }
+
+        impl ::std::str::FromStr for $name {
+            type Err = ::anyhow::Error;
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s.to_lowercase().as_str() {
+                    $( $str => Ok($name::$variant), )*
+                    _ => Err(::anyhow::anyhow!("invalid value: {s}")).with_hint(
+                        || format!("valid values are: {}", [$($str),*].join(", "))
+                    )?,
+                }
+            }
+        }
+
+        impl ::std::fmt::Display for $name {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+                let s = match self {
+                    $( $name::$variant => $str, )*
+                };
+                write!(f, "{}", s)
+            }
         }
     };
 }
@@ -145,6 +204,11 @@ define_env! {
     /// The auto backup mode
     #[env(GEL_AUTO_BACKUP_MODE)]
     auto_backup_mode: AutoBackupMode,
+
+    /// How we should invoke via `uv run` (or not)
+    #[env(GEL_GENERATE_USE_UV)]
+    #[setenv=0]
+    use_uv: UseUv,
 }
 
 pub fn get_envs(names: &[&str]) -> Result<Option<(String, String)>, anyhow::Error> {
@@ -157,68 +221,37 @@ pub fn get_envs(names: &[&str]) -> Result<Option<(String, String)>, anyhow::Erro
     Ok(None)
 }
 
-pub fn parse<T: std::str::FromStr>(s: &str) -> anyhow::Result<T>
-where
-    T::Err: std::fmt::Display,
-{
-    T::from_str(s).map_err(|e| anyhow::anyhow!("{e}"))
-}
-
-#[derive(Debug)]
-pub enum VersionCheck {
-    Never,
-    Cached,
-    Default,
-    Strict,
-}
-
-impl std::str::FromStr for VersionCheck {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "never" => Ok(Self::Never),
-            "cached" => Ok(Self::Cached),
-            "default" => Ok(Self::Default),
-            "strict" => Ok(Self::Strict),
-            _ => Err(format!("Invalid value: {}", s)),
-        }
+str_enum! {
+    #[derive(Debug)]
+    pub enum VersionCheck {
+        Never => "never",
+        Cached => "cached",
+        Default => "default",
+        Strict => "strict",
     }
 }
 
-#[derive(Debug)]
-pub enum InstallInDocker {
-    Forbid,
-    Allow,
-    Default,
-}
-
-impl std::str::FromStr for InstallInDocker {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "forbid" => Ok(Self::Forbid),
-            "allow" => Ok(Self::Allow),
-            "default" => Ok(Self::Default),
-            _ => Err(format!("Invalid value: {}", s)),
-        }
+str_enum! {
+    #[derive(Debug)]
+    pub enum InstallInDocker {
+        Forbid => "forbid",
+        Allow => "allow",
+        Default => "default",
     }
 }
 
-#[derive(Debug)]
-pub enum AutoBackupMode {
-    Disabled,
+str_enum! {
+    #[derive(Debug)]
+    pub enum AutoBackupMode {
+        Disabled => "disabled",
+    }
 }
 
-impl std::str::FromStr for AutoBackupMode {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "disabled" => Ok(Self::Disabled),
-            _ => Err(format!("Invalid value: {}", s)),
-        }
+str_enum! {
+    #[derive(Debug, Clone, Copy)]
+    pub enum UseUv {
+        Auto => "auto",
+        Never => "never",
     }
 }
 
@@ -226,13 +259,14 @@ impl std::str::FromStr for AutoBackupMode {
 pub struct BoolFlag(pub bool);
 
 impl std::str::FromStr for BoolFlag {
-    type Err = String;
+    type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "true" | "1" => Ok(Self(true)),
             "false" | "0" => Ok(Self(false)),
-            _ => Err(format!("Invalid boolean value: {}", s)),
+            _ => Err(anyhow::anyhow!("Invalid boolean value: {}", s))
+                .with_hint(|| "valid values are: true, 1, false, 0".into())?,
         }
     }
 }

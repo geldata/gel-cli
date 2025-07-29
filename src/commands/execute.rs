@@ -89,7 +89,7 @@ pub async fn common(
         // it as if it does so that we get the connection failed error
         // from the CLI instead of whichever binding.
         Generate(cmd) => {
-            generate::run(cmd, options).await?;
+            generate::run(cmd, options, "generate").await?;
         }
         Pgaddr => match conn.get_server_param::<PostgresAddress>() {
             Some(addr) => {
