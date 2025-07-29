@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::env;
 use std::ffi::OsString;
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::Stdio;
 
 use anyhow::Context;
@@ -8,7 +10,13 @@ use tempfile::NamedTempFile;
 use tokio::process;
 use which::which;
 
+use crate::branding::BRANDING_CLI_CMD;
+use crate::cli::env::{Env, UseUv};
 use crate::commands::options::Options;
+use crate::hint::HintExt;
+use crate::print::{self, Highlight};
+
+const GEL_PYTHON: &str = "gel";
 
 #[derive(clap::Args, Debug, Clone)]
 #[command(disable_help_flag = true)]
@@ -26,8 +34,8 @@ pub struct Command {
     pub arguments: Vec<String>,
 }
 
-fn print_help(short_help: bool) -> anyhow::Result<()> {
-    let mut app = crate::options::Options::command().mut_subcommand("generate", |cmd| {
+fn print_help(short_help: bool, subcommand_name: &str) -> anyhow::Result<()> {
+    let mut app = crate::options::Options::command().mut_subcommand(subcommand_name, |cmd| {
         cmd.arg(
             clap::arg!(<GENERATOR>)
                 .value_parser([
@@ -52,7 +60,7 @@ fn print_help(short_help: bool) -> anyhow::Result<()> {
         })
     });
     let generate = app
-        .find_subcommand_mut("generate")
+        .find_subcommand_mut(subcommand_name)
         .expect("generate subcommand should exist");
     if short_help {
         generate.print_help()?;
@@ -62,30 +70,68 @@ fn print_help(short_help: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// How we should invoke via `uv run` (or not).
-#[derive(Debug, Clone, Copy)]
-enum UseUv {
-    Always,
-    Auto,
-    Never,
-}
-
-impl UseUv {
-    /// Read from the `GEL_GENERATE_USE_UV` env var, defaulting to `auto`
-    fn from_env() -> Self {
-        match env::var("GEL_GENERATE_USE_UV")
-            .unwrap_or_default()
-            .to_lowercase()
-            .as_str()
-        {
-            "always" => UseUv::Always,
-            "never" => UseUv::Never,
-            _ => UseUv::Auto,
-        }
+fn detect_venv() -> anyhow::Result<Option<PathBuf>> {
+    if let Some(env) = env::var_os("VIRTUAL_ENV") {
+        Ok(Some(env.into()))
+    } else {
+        env::current_exe()?
+            .parent()
+            .and_then(|p| p.parent())
+            .filter(|p| p.join("pyvenv.cfg").exists())
+            .map(|p| Ok(p.into()))
+            .transpose()
     }
 }
 
-pub fn prepare_command(cmd: &Command) -> Result<Vec<OsString>, anyhow::Error> {
+async fn detect_uv() -> anyhow::Result<Option<PathBuf>> {
+    match Env::use_uv()?.unwrap_or(UseUv::Auto) {
+        UseUv::Never => return Ok(None),
+        UseUv::Auto => {}
+    }
+    let Ok(uv) = which("uv") else {
+        return Ok(None);
+    };
+    let out = process::Command::new(&uv)
+        .arg("version")
+        .arg("--output-format")
+        .arg("json")
+        .output()
+        .await?;
+    if out.status.success() {
+        let package_name = serde_json::from_slice::<serde_json::Value>(&out.stdout)?
+            .as_object()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "uv version output is not an object: {}",
+                    String::from_utf8_lossy(&out.stdout)
+                )
+            })?
+            .get("package_name")
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "uv version output does not contain package_name: {}",
+                    String::from_utf8_lossy(&out.stdout)
+                )
+            })?
+            .as_str()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "uv version output package_name is not a string: {}",
+                    String::from_utf8_lossy(&out.stdout)
+                )
+            })?
+            .emphasized();
+        print::msg!("Detected uv project: {package_name}",);
+        Ok(Some(uv))
+    } else {
+        Ok(None)
+    }
+}
+
+pub async fn prepare_command(
+    cmd: &Command,
+    subcommand_name: &str,
+) -> anyhow::Result<(Vec<OsString>, HashMap<OsString, OsString>)> {
     let (lang, generator) = cmd
         .arguments
         .first()
@@ -93,41 +139,49 @@ pub fn prepare_command(cmd: &Command) -> Result<Vec<OsString>, anyhow::Error> {
         .split_once('/')
         .context("generator should be of form <lang>/<tool>")?;
 
-    let use_uv = UseUv::from_env();
+    let mut env = HashMap::new();
 
     let commands = if lang == "py" {
         let gen_name = "gel-generate-py";
 
-        let uv_invocation = || -> Result<Vec<OsString>, anyhow::Error> {
-            let uv = which("uv").context("`uv` not found on PATH")?;
-            Ok(vec![
-                uv.into_os_string(),
-                OsString::from("run"),
-                gen_name.into(),
-                generator.into(),
-            ])
-        };
-
-        match use_uv {
-            UseUv::Always => {
-                // always use uv
-                uv_invocation()?
-            }
-            UseUv::Never => {
-                // never use uv: must have the binary directly
-                let direct =
-                    which(gen_name).with_context(|| format!("`{}` not found on PATH", gen_name))?;
-                vec![direct.into_os_string(), generator.into()]
-            }
-            UseUv::Auto => {
-                // fallback logic: try direct, then uv
-                if let Ok(direct) = which(gen_name) {
-                    vec![direct.into_os_string(), generator.into()]
-                } else {
-                    // fall back to uv
-                    uv_invocation()?
-                }
-            }
+        if let Some(venv) = detect_venv()? {
+            print::msg!(
+                "Using Python virtual environment: {}",
+                venv.display().to_string().emphasized()
+            );
+            let cmd = venv.join("bin").join(gen_name);
+            which(&cmd).map_err(|e| {
+                anyhow::anyhow!(e)
+                    .context(format!("cannot execute {}", cmd.display()))
+                    .with_hint(|| {
+                        format!("have you installed `{GEL_PYTHON}` in the virtual environment?")
+                    })
+            })?;
+            vec![cmd.into(), generator.into()]
+        } else if let Some(uv) = detect_uv().await? {
+            // We must not use `uv run gel-generate-py` here, because it may
+            // use a global `gel-generate-py` command in $PATH, which is wrong.
+            // Instead, we use `uv run` to run the current executable again
+            // with UseUv::Never, so that it does not try to use uv again.
+            UseUv::Never.set_env(|name, value| {
+                env.insert(name.into(), value.into());
+            });
+            vec![
+                uv.into(),
+                "run".into(),
+                env::current_exe()?.into(),
+                subcommand_name.into(),
+            ]
+            .into_iter()
+            .chain(cmd.arguments.iter().map(Into::into))
+            .collect()
+        } else {
+            Err(anyhow::anyhow!("Cannot find environment to run the Python generator.")).with_hint(
+                || format!(
+                    "run `{BRANDING_CLI_CMD} {subcommand_name}` under your uv project subdirectory \
+                    if you use uv, or in a Python virtual environment with `{GEL_PYTHON}` installed."
+                )
+            )?
         }
     } else if lang == "js" {
         vec!["npx", "@gel/generate", generator]
@@ -138,12 +192,16 @@ pub fn prepare_command(cmd: &Command) -> Result<Vec<OsString>, anyhow::Error> {
         anyhow::bail!("Unknown language {}", lang)
     };
 
-    Ok(commands)
+    Ok((commands, env))
 }
 
-pub async fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> {
+pub async fn run(
+    cmd: &Command,
+    options: &Options,
+    subcommand_name: &str,
+) -> Result<(), anyhow::Error> {
     if cmd.short_help || cmd.long_help || cmd.arguments.is_empty() {
-        return print_help(cmd.short_help || !cmd.long_help);
+        return print_help(cmd.short_help || !cmd.long_help, subcommand_name);
     }
 
     let creds = options.conn_params.get()?.as_credentials()?;
@@ -151,7 +209,7 @@ pub async fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> 
     let mut cred_file = NamedTempFile::new()?;
     write!(cred_file, "{}", json)?;
 
-    let cmdline = prepare_command(cmd)?;
+    let (cmdline, extra_env) = prepare_command(cmd, subcommand_name).await?;
     let mut scmd = process::Command::new(cmdline[0].clone());
     scmd.args(&cmdline[1..])
         .args(cmd.arguments.iter().skip(1).map(|s| s.clone()))
@@ -166,6 +224,9 @@ pub async fn run(cmd: &Command, options: &Options) -> Result<(), anyhow::Error> 
     }
     // Make GEL_CREDENTIALS_FILE our temp credentials.json file
     scmd.env("GEL_CREDENTIALS_FILE", cred_file.path().as_os_str());
+    for (name, value) in extra_env {
+        scmd.env(name, value);
+    }
 
     let cmdline_str = cmdline
         .into_iter()

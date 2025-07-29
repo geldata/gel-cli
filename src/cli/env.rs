@@ -13,9 +13,19 @@ macro_rules! define_env {
             $(#[preprocess=$preprocess:expr])?
             $(#[parse=$parse:expr])?
             $(#[validate=$validate:expr])?
+            $(#[setenv=$setenv:expr])?
             $name:ident: $type:ty
         ),* $(,)?
     ) => {
+        struct EnvNames;
+
+        impl EnvNames {
+            $(
+                #[allow(non_upper_case_globals)]
+                const $name: &[&str] = &[$(stringify!($env_name)),+];
+            )*
+        }
+
         #[derive(Debug, Clone)]
         pub struct Env {
         }
@@ -25,8 +35,7 @@ macro_rules! define_env {
             $(
                 #[doc = $doc]
                 pub fn $name() -> ::std::result::Result<::std::option::Option<$type>, anyhow::Error> {
-                    const ENV_NAMES: &[&str] = &[$(stringify!($env_name)),+];
-                    let Some((name, s)) = $crate::cli::env::get_envs(ENV_NAMES)? else {
+                    let Some((name, s)) = $crate::cli::env::get_envs(EnvNames::$name)? else {
                         return Ok(None);
                     };
                     $(let Some(s) = $preprocess(&s, context)? else {
@@ -52,6 +61,17 @@ macro_rules! define_env {
                 }
             )*
         }
+
+        $(
+            $(
+                impl $type {
+                    pub fn set_env<T>(&self, f: impl FnOnce(&str, &str) -> T) -> T {
+                        let value = self.to_string();
+                        f(EnvNames::$name[$setenv], &value)
+                    }
+                }
+            )?
+        )*
     };
 }
 
@@ -184,6 +204,11 @@ define_env! {
     /// The auto backup mode
     #[env(GEL_AUTO_BACKUP_MODE)]
     auto_backup_mode: AutoBackupMode,
+
+    /// How we should invoke via `uv run` (or not)
+    #[env(GEL_GENERATE_USE_UV)]
+    #[setenv=0]
+    use_uv: UseUv,
 }
 
 pub fn get_envs(names: &[&str]) -> Result<Option<(String, String)>, anyhow::Error> {
@@ -219,6 +244,14 @@ str_enum! {
     #[derive(Debug)]
     pub enum AutoBackupMode {
         Disabled => "disabled",
+    }
+}
+
+str_enum! {
+    #[derive(Debug, Clone, Copy)]
+    pub enum UseUv {
+        Auto => "auto",
+        Never => "never",
     }
 }
 
