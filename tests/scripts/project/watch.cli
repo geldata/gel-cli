@@ -20,6 +20,7 @@ background {
    *
 }
 
+# Watch logs to keep WSL alive
 background {
     $ gel instance logs -I watch_test --follow --tail 10
     %EXIT any

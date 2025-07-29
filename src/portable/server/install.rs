@@ -60,7 +60,8 @@ pub struct Command {
 }
 
 pub fn version(query: &Query) -> anyhow::Result<InstallInfo> {
-    let pkg_info = get_server_package(query)?.context("no package matching your criteria found")?;
+    let pkg_info = get_server_package(query)?
+        .with_context(|| format!("no package matching your criteria found: {query:?}"))?;
     ver::print_version_hint(&pkg_info.version.specific(), query);
     package(&pkg_info)
 }

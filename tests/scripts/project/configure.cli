@@ -35,22 +35,26 @@ repeat {
 
 using tempdir;
 
-$ cp -R $INITIAL_PWD/../../proj/project4 .
-*
+# Bug: Windows doesn't support init in an existing directory
+if TARGET_OS != "windows" {
 
-cd project4;
+    $ cp -R $INITIAL_PWD/../../proj/project4 .
+    *
 
-$ gel project init --non-interactive --no-migrations
-! Found `gel.toml` in %{PATH}
-*
-! Applying configuration...
-*
-! Configuration applied.
-*
+    cd project4;
 
-$ gel configure apply
-*
-! Applying configuration...
-*
-! Configuration applied.
-*
+    $ gel project init --non-interactive --no-migrations
+    ! Found `gel.toml` in %{PATH}
+    *
+    ! Applying configuration...
+    *
+    ! Configuration applied.
+    *
+
+    $ gel configure apply
+    *
+    ! Applying configuration...
+    *
+    ! Configuration applied.
+    *
+}
