@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 use std::env;
 use std::ffi::OsString;
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{LazyLock, Mutex, OnceLock, RwLock};
@@ -16,6 +16,7 @@ use fn_error_context::context;
 use gel_tokio::InstanceName;
 use gel_tokio::dsn::CredentialsFile;
 use log::warn;
+use tempfile::tempfile;
 use url::Url;
 
 use crate::async_util;
@@ -198,6 +199,26 @@ impl Wsl {
     ) -> anyhow::Result<()> {
         unreachable!();
     }
+}
+
+#[cfg(windows)]
+fn copy_in(
+    wsl: &wslapi::Library,
+    distro: &str,
+    src: impl AsRef<Path>,
+    destination: impl AsRef<str>,
+) -> anyhow::Result<()> {
+    let src = path_to_linux(src.as_ref())?;
+    let cmd = format!(
+        "cp {} {}",
+        shell_escape::unix::escape(src.into()),
+        shell_escape::unix::escape(destination.as_ref().into())
+    );
+    let code = wsl.launch_interactive(distro, &cmd, /* current_working_dir */ false)?;
+    if code != 0 {
+        anyhow::bail!("WSL command {:?} exited with exit code: {}", cmd, code);
+    }
+    Ok(())
 }
 
 fn credentials_linux(instance: &str) -> String {
@@ -623,19 +644,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
         ts
     } else {
         msg!("Checking certificate updates...");
-        process::Native::new("update certificates", "apt", "wsl")
-            .arg("--distribution")
-            .arg(&distro)
-            .arg("bash")
-            .arg("-c")
-            .arg(
-                "export DEBIAN_FRONTEND=noninteractive; \
-                  apt-get update -qq && \
-                  apt-get install -y ca-certificates -qq -o=Dpkg::Use-Pty=0 && \
-                  apt-get clean -qq && \
-                  rm -rf /var/lib/apt/lists/*",
-            )
-            .run()?;
+        update_ca_certificates_manually(wsl, &distro)?;
         SystemTime::now()
     };
 
@@ -1216,5 +1225,25 @@ pub fn extension_uninstall(cmd: &extension::ExtensionUninstall) -> anyhow::Resul
         .arg("uninstall")
         .args(cmd)
         .run()?;
+    Ok(())
+}
+
+#[cfg(windows)]
+fn update_ca_certificates_manually(wsl: &wslapi::Library, distro: &str) -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let temp_file = temp_dir.path().join("windows_cert_update.sh");
+    let script = include_str!("windows_cert_update.sh").replace("\r\n", "\n");
+    std::fs::write(&temp_file, script)?;
+
+    copy_in(wsl, distro, temp_file, "/tmp/windows_cert_update.sh")?;
+
+    process::Native::new("update certificates", "certs", "wsl")
+        .arg("--distribution")
+        .arg(distro)
+        .arg("bash")
+        .arg("-c")
+        .arg("chmod a+x /tmp/windows_cert_update.sh && /tmp/windows_cert_update.sh")
+        .run()?;
+
     Ok(())
 }

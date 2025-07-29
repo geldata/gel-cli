@@ -7,6 +7,11 @@ ignore {
     ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
     ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
     ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
+    # Bug: Windows doesn't support backup/restore
+    sequence {
+        ! Automatic backup is disabled because backup/restore is not yet supported on Windows.
+        ! Read more at https://geldata.com/p/localdev
+    }
 }
 
 $ gel instance destroy -I sync_test --force
@@ -19,6 +24,13 @@ using new dir "sync_test";
 
 $ gel project init --instance=sync_test --non-interactive
 *
+
+# Watch logs to keep WSL alive
+background {
+    $ gel instance logs -I sync_test --follow --tail 10
+    %EXIT any
+    *
+}
 
 $ gel sync
 %EXIT 1
@@ -62,7 +74,7 @@ $ gel sync
 ! Done.
 ! 3. Applying config...
 ! > configure current branch reset ext::auth::EmailPasswordProviderConfig;
-! Extension `auth` is required by the config. It's now enabled in dbschema/extensions.gel, please run `gel sync` again.
+? Extension `auth` is required by the config. It's now enabled in dbschema[/\\]extensions.gel, please run `gel sync` again.
 
 $ gel sync
 %EXIT 1
