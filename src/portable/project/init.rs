@@ -638,6 +638,7 @@ fn init_new(
             hooks: None,
             hooks_extend: None,
             watch: Vec::new(),
+            generate: None,
         };
         project::manifest::write(&location.manifest, &manifest)?;
         let ctx = project::Context::new(location, manifest)?;
@@ -704,6 +705,7 @@ fn init_new(
                 hooks: None,
                 hooks_extend: None,
                 watch: Vec::new(),
+                generate: None,
             };
             project::manifest::write(&location.manifest, &manifest)?;
             let ctx = project::Context::new(location, manifest)?;
@@ -771,6 +773,7 @@ fn init_new(
                 hooks: None,
                 hooks_extend: None,
                 watch: Vec::new(),
+                generate: None,
             };
 
             project::manifest::write(&location.manifest, &manifest)?;

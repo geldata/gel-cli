@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::env;
+use std::{env, fs};
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::PathBuf;
@@ -14,6 +14,7 @@ use crate::branding::BRANDING_CLI_CMD;
 use crate::cli::env::{Env, UseUv};
 use crate::commands::options::Options;
 use crate::hint::HintExt;
+use crate::portable::project;
 use crate::print::{self, Highlight};
 
 const GEL_PYTHON: &str = "gel";
@@ -139,7 +140,40 @@ pub async fn prepare_command(
         .split_once('/')
         .context("generator should be of form <lang>/<tool>")?;
 
+    let project = project::ensure_ctx_async(None).await?;
     let mut env = HashMap::new();
+    if let Some(config) = project
+        .manifest
+        .generate
+        .as_ref()
+        .and_then(|d| d.get(lang))
+        .and_then(|d| d.get(generator))
+    {
+        let mut data = HashMap::new();
+        for (k, v) in config {
+            let span = v.span();
+            let span = [span.start, span.end]
+                .iter()
+                .map(|p| (*p).try_into().map(toml::Value::Integer))
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut value = HashMap::new();
+            value.insert("span".to_string(), toml::Value::Array(span));
+            value.insert("value".to_string(), v.get_ref().clone());
+            data.insert(k.clone(), value);
+        }
+        env.insert(
+            OsString::from("GEL_GENERATE_CONFIG"),
+            OsString::from(serde_json::to_string(&data)?),
+        );
+        env.insert(
+            OsString::from("GEL_TOML_CONTENT"),
+            OsString::from(fs::read_to_string(project.location.manifest)?),
+        );
+        print::msg!(
+            "Using generator configuration: {}",
+            serde_json::to_string(&config)?.emphasized(),
+        );
+    }
 
     let commands = if lang == "py" {
         let gen_name = "gel-generate-py";
