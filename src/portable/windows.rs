@@ -1237,13 +1237,19 @@ fn update_ca_certificates_manually(wsl: &wslapi::Library, distro: &str) -> anyho
 
     copy_in(wsl, distro, temp_file, "/tmp/windows_cert_update.sh")?;
 
-    process::Native::new("update certificates", "certs", "wsl")
+    let mut process = process::Native::new("update certificates", "certs", "wsl");
+    process
         .arg("--distribution")
         .arg(distro)
         .arg("bash")
         .arg("-c")
-        .arg("chmod a+x /tmp/windows_cert_update.sh && /tmp/windows_cert_update.sh")
-        .run()?;
+        .arg("chmod a+x /tmp/windows_cert_update.sh && /tmp/windows_cert_update.sh");
+
+    if *Env::in_ci()?.unwrap_or_default() {
+        process.run()?;
+    } else {
+        let output = process.get_stdout_text()?;
+    }
 
     Ok(())
 }
