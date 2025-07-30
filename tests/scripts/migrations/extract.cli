@@ -86,9 +86,18 @@ if TARGET_OS != "windows" {
 }
 
 if TARGET_OS == "windows" {
-    $ attrib +r dbschema/migrations
+    # Remove inheritance and set directory to read-only for everyone
+    $ icacls dbschema\migrations /inheritance:r
     *
- 
+    $ icacls dbschema\migrations /deny Everyone:(OI)(CI)(M,W)
+    *
+
+    defer {
+        # Restore permissions for cleanup
+        $ icacls dbschema\migrations /reset
+        *
+    }
+
     $ gel migration extract --schema-dir=dbschema
     %EXIT 1
     ! Writing: %{GREEDYDATA}
