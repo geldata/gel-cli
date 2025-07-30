@@ -106,6 +106,6 @@ if TARGET_OS == "windows" {
     %EXIT 1
     ! Writing: %{GREEDYDATA}
     ! gel error: Cannot write %{GREEDYDATA}
-    !   Caused by: failed to copy file from %{GREEDYDATA} to %{GREEDYDATA}: Permission denied (os error 13)
+    !   Caused by: failed to copy file from %{GREEDYDATA} to %{GREEDYDATA}: Access is denied. (os error 5)
     *
 }
