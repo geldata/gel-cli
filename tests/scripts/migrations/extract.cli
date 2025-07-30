@@ -1,0 +1,111 @@
+#!/usr/bin/env clitest --v0
+
+pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
+
+ignore {
+    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
+}
+
+$ gel instance destroy -I extract_test --force
+%EXIT any
+*
+
+using tempdir;
+
+using new dir "extract_test";
+
+$ cp -R $INITIAL_PWD/../../proj .
+*
+
+# Initialize a project
+$ gel project init --non-interactive
+! No `gel.toml` (or `edgedb.toml`) found in %{DATA} or above
+! Initializing new project...
+*
+! Initializing Gel instance '%{DATA}'...
+*
+! Applying migrations...
+! Everything is up to date. Revision initial
+! Writing gel.local.toml for configuration
+! Project initialized.
+! To connect to extract_test, run `gel`
+
+# Destroy the instance after the test
+defer {
+    $ gel instance destroy -I extract_test --force
+    %EXIT any
+    *
+}
+
+# Create a branch for testing
+$ gel branch create extract01 --empty
+*
+
+# Create a migration directly in the database
+$ gel query "
+start migration to { module default { type X; } };
+populate migration;
+commit migration;
+"
+*
+
+# Test 1: No migrations dir, needs to create
+$ rm -rf dbschema/migrations
+*
+
+$ gel migration extract
+! Creating directory %{GREEDYDATA}
+! Writing: %{GREEDYDATA}
+*
+
+# Test 2: Base case - extract existing migration
+$ rm dbschema/migrations/00001-*.edgeql
+*
+
+$ gel migration extract
+! Writing: %{GREEDYDATA}
+*
+
+# Test 3: Error case - permission denied
+$ rm dbschema/migrations/00001-*.edgeql
+*
+
+if TARGET_OS != "windows" {
+    $ chmod 444 dbschema/migrations
+    *
+
+    $ gel migration extract
+    %EXIT 1
+    ! Writing: %{GREEDYDATA}
+    ! gel error: Cannot write %{GREEDYDATA}
+    !   Caused by: failed to copy file from %{GREEDYDATA} to %{GREEDYDATA}: Permission denied (os error 13)
+    *
+}
+
+if TARGET_OS == "windows" {
+    # Disable MSYS2 argument conversion
+    set MSYS2_ARG_CONV_EXCL "*";
+
+    # Remove inheritance and set directory to read-only for everyone
+    $ icacls "dbschema\\migrations" /inheritance:r
+    *
+
+    $ icacls "dbschema\\migrations" /deny "Everyone:(OI)(CI)(M,W)"
+    *
+
+    defer {
+        # Restore permissions for cleanup
+        $ icacls "dbschema\\migrations" /reset
+        *
+    }
+
+    $ gel migration extract
+    %EXIT 1
+    ! Writing: %{GREEDYDATA}
+    ! gel error: Cannot write %{GREEDYDATA}
+    !   Caused by: failed to copy file from %{GREEDYDATA} to %{GREEDYDATA}: Access is denied. (os error 5)
+    *
+}

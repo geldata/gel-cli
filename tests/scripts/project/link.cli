@@ -7,6 +7,7 @@ ignore {
     ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
     ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
     ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
+    ! Version %{VERSION} is already downloaded
 }
 
 $ gel instance destroy -I inst1 --force
@@ -40,13 +41,12 @@ repeat {
 ? └%{DATA}┴%{DATA}┴%{DATA}┘
 
 $ gel instance create inst1
-choice {
+optional {
     sequence {
         ? Downloading package...
         ? %{DATA}
         ? Successfully installed %{VERSION}
     }
-    ? Version %{VERSION} is already downloaded
 }
 ! Initializing Gel instance 'inst1'...
 optional {
@@ -134,7 +134,6 @@ repeat {
     ? │%{GREEDYDATA}│
 }
 ? └%{GREEDYDATA}┘
-? Version %{VERSION} is already downloaded
 ! Initializing Gel instance 'project2'...
 optional {
     choice {
@@ -163,13 +162,11 @@ ignore {
 }
 choice {
     sequence {
-        ? Version %{VERSION} is already downloaded
         ! The schema is forward compatible. Ready for upgrade.
         ? Upgrading from %{DATA} to incompatible version %{DATA}
     }
     sequence {
         ? Upgrading from %{DATA} to incompatible version %{DATA}
-        ? Version %{VERSION} is already downloaded
     }
 }
 ! Dumping the database...
@@ -212,7 +209,6 @@ repeat {
     ? │%{GREEDYDATA}│
 }
 ? └%{GREEDYDATA}┘
-? Version %{VERSION} is already downloaded
 ! Initializing Gel instance 'project2'...
 *
 ! Applying migrations...
@@ -223,13 +219,11 @@ repeat {
 $ gel project upgrade --to-latest --force
 choice {
     sequence {
-        ? Version %{VERSION} is already downloaded
         ! The schema is forward compatible. Ready for upgrade.
         ? Upgrading from %{DATA} to incompatible version %{DATA}
     }
     sequence {
         ? Upgrading from %{DATA} to incompatible version %{DATA}
-        ? Version %{VERSION} is already downloaded
     }
 }
 ! Dumping the database...
