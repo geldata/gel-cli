@@ -1,0 +1,99 @@
+#!/usr/bin/env clitest --v0
+
+pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
+
+ignore {
+    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
+    sequence {
+        ! Automatic backup is enabled, see the full backup list with %{GREEDYDATA}
+        ! Read more at https://geldata.com/p/localdev
+        ! Running automatic backup of local instance %{DATA}...
+        ! Created full backup:
+        ! %{DATA} MiB %{PATH}
+    }
+}
+
+set BRANCH "input_required_test";
+set INSTANCE "__shared-test-db__";
+
+$ gel instance create -I $INSTANCE
+%EXIT any
+*
+
+$ gel branch drop $BRANCH --force --non-interactive
+%EXIT any
+*
+
+using tempdir;
+
+using new dir "input_required_test";
+
+# Initialize a project
+$ echo "[instance]" > gel.toml
+$ cp -R $INITIAL_PWD/../../migrations/db3 dbschema
+*
+
+$ gel project init --non-interactive --link --server-instance $INSTANCE --branch $BRANCH
+! Found `gel.toml` in %{PATH}
+! Linking project...
+! Applying migrations...
+*
+! Writing gel.local.toml for configuration
+! Project linked
+! To connect to __shared-test-db__, run `gel`
+
+# Destroy the branch after the test
+defer {
+    $ gel project unlink
+    *
+    $ gel branch drop -I $INSTANCE $BRANCH --force --non-interactive
+    %EXIT any
+    *
+}
+
+$ gel project info
+*
+
+$ gel migration create --non-interactive
+%EXIT 1
+! Input required: Please specify a conversion expression to alter the type of link 'foo'
+! gel error: Cannot apply migration without user input
+
+$ printf "yes\n.foo[IS default::Child2]\n" | gel migration create
+! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
+! Please specify a conversion expression to alter the type of link 'foo':
+! Created %{DATA}, id: %{DATA}
+
+$ cat dbschema/migrations/00002-*.edgeql
+! CREATE MIGRATION %{DATA}
+!     ONTO m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq
+! {
+!   ALTER TYPE default::Base {
+!       ALTER LINK foo {
+!           SET TYPE default::Child2 USING (.foo[IS default::Child2]);
+!       };
+!   };
+! };
+
+$ rm dbschema/migrations/00002-*.edgeql
+*
+
+# Adding a comment to input doesn't affect result
+$ printf "yes\n.foo[IS default::Child2] # comment\n" | gel migration create
+! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
+! Please specify a conversion expression to alter the type of link 'foo':
+! Created %{DATA}, id: %{DATA}
+
+$ cat dbschema/migrations/00002-*.edgeql
+! CREATE MIGRATION %{DATA}
+!     ONTO m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq
+! {
+!   ALTER TYPE default::Base {
+!       ALTER LINK foo {
+!           SET TYPE default::Child2 USING (.foo[IS default::Child2]);
+!       };
+!   };
+! };

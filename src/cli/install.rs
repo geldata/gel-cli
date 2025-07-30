@@ -527,6 +527,7 @@ fn try_project_init(opts: Option<&crate::options::Options>) -> anyhow::Result<In
             server_version: None,
             server_instance: None,
             database: None,
+            branch: None,
             non_interactive: false,
             interactive: true,
             no_migrations: false,
