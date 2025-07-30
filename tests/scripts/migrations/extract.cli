@@ -9,7 +9,14 @@ ignore {
     ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
 }
 
-$ gel instance destroy -I extract_test --force
+set BRANCH "migrations-extract-test";
+set INSTANCE "__shared-test-db__";
+
+$ gel instance create -I $INSTANCE
+%EXIT any
+*
+
+$ gel branch drop $BRANCH --force --non-interactive
 %EXIT any
 *
 
@@ -21,28 +28,25 @@ $ cp -R $INITIAL_PWD/../../proj .
 *
 
 # Initialize a project
-$ gel project init --non-interactive
-! No `gel.toml` (or `edgedb.toml`) found in %{DATA} or above
-! Initializing new project...
-*
-! Initializing Gel instance '%{DATA}'...
-*
+$ echo "[instance]" > gel.toml
+$ mkdir -p dbschema/migrations
+$ gel project init --non-interactive --link --server-instance $INSTANCE --branch $BRANCH
+! Found `gel.toml` in %{PATH}
+! Linking project...
 ! Applying migrations...
-! Everything is up to date. Revision initial
+*
 ! Writing gel.local.toml for configuration
-! Project initialized.
-! To connect to extract_test, run `gel`
+! Project linked
+! To connect to __shared-test-db__, run `gel`
 
-# Destroy the instance after the test
+# Destroy the branch after the test
 defer {
-    $ gel instance destroy -I extract_test --force
+    $ gel project unlink
+    *
+    $ gel branch drop -I $INSTANCE $BRANCH --force --non-interactive
     %EXIT any
     *
 }
-
-# Create a branch for testing
-$ gel branch create extract01 --empty
-*
 
 # Create a migration directly in the database
 $ gel query "
@@ -60,6 +64,13 @@ $ gel migration extract
 ! Creating directory %{GREEDYDATA}
 ! Writing: %{GREEDYDATA}
 *
+
+$ cat dbschema/migrations/00001-*.edgeql
+! CREATE MIGRATION %{DATA}
+!     ONTO initial
+! {
+!   CREATE TYPE default::X;
+! };
 
 # Test 2: Base case - extract existing migration
 $ rm dbschema/migrations/00001-*.edgeql

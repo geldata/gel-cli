@@ -114,6 +114,10 @@ pub struct Command {
     #[arg(long, short = 'd')]
     pub database: Option<String>,
 
+    /// Specify the default branch for the project to use on that instance
+    #[arg(long, short = 'b')]
+    pub branch: Option<String>,
+
     /// Deprecated parameter, does nothing.
     #[arg(long, hide = true)]
     pub server_start_conf: Option<create::StartConf>,
@@ -133,6 +137,17 @@ pub struct Command {
     /// Initialize in interactive mode
     #[arg(long)]
     pub interactive: bool,
+}
+
+impl Command {
+    /// Compatibility with older --database flag
+    pub fn database(&self) -> &Option<String> {
+        if self.branch.is_some() {
+            &self.branch
+        } else {
+            &self.database
+        }
+    }
 }
 
 pub fn init_existing(
@@ -179,7 +194,7 @@ pub fn init_existing(
         if matches!(name, InstanceName::Cloud { .. }) {
             if !cmd.interactive {
                 inst.database = Some(
-                    cmd.database
+                    cmd.database()
                         .clone()
                         .unwrap_or(get_default_branch_or_database(specific_version)),
                 );
@@ -189,7 +204,7 @@ pub fn init_existing(
                     .map(|s| s.to_string());
             }
         } else {
-            inst.database.clone_from(&cmd.database);
+            inst.database.clone_from(&cmd.database());
         }
         return do_link(&inst, &project, cmd, &stash_dir, opts);
     }
@@ -405,7 +420,7 @@ fn do_init(
         project_dir: project.location.root.clone(),
         schema_dir: project.resolve_schema_dir()?,
         instance,
-        database: cmd.database.clone(),
+        database: cmd.database().clone(),
     };
 
     let mut stash = project::StashDir::new(&project.location.root, name);
@@ -518,7 +533,7 @@ fn link(
     if matches!(name, InstanceName::Cloud { .. }) {
         if !cmd.interactive {
             inst.database = Some(
-                cmd.database
+                cmd.database()
                     .clone()
                     .unwrap_or(DEFAULT_DATABASE_NAME.to_string()),
             )
@@ -526,7 +541,7 @@ fn link(
             inst.database = ask_database()?.database().map(|s| s.to_string());
         }
     } else {
-        inst.database.clone_from(&cmd.database);
+        inst.database.clone_from(&cmd.database());
     }
     inst.check_version(ver_query);
     do_link(&inst, &project, cmd, &stash_dir, opts)
@@ -648,7 +663,7 @@ fn init_new(
         if matches!(inst_name, InstanceName::Cloud { .. }) {
             if !cmd.interactive {
                 inst.database = Some(
-                    cmd.database
+                    cmd.database()
                         .clone()
                         .unwrap_or(get_default_branch_or_database(specific_version)),
                 );
@@ -658,7 +673,7 @@ fn init_new(
                     .map(|s| s.to_string());
             }
         } else {
-            inst.database.clone_from(&cmd.database);
+            inst.database.clone_from(&cmd.database());
         }
         return do_link(&inst, &ctx, cmd, &stash_dir, opts);
     };

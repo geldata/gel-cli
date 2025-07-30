@@ -16,7 +16,14 @@ ignore {
     }
 }
 
-$ gel instance destroy -I input_required_test --force
+set BRANCH "input_required_test";
+set INSTANCE "__shared-test-db__";
+
+$ gel instance create -I $INSTANCE
+%EXIT any
+*
+
+$ gel branch drop $BRANCH --force --non-interactive
 %EXIT any
 *
 
@@ -25,42 +32,37 @@ using tempdir;
 using new dir "input_required_test";
 
 # Initialize a project
-$ gel project init --non-interactive
-! No `gel.toml` (or `edgedb.toml`) found in %{DATA} or above
-! Initializing new project...
+$ echo "[instance]" > gel.toml
+$ cp -R $INITIAL_PWD/../../migrations/db3 dbschema
 *
-! Initializing Gel instance '%{DATA}'...
-*
-! Applying migrations...
-! Everything is up to date. Revision initial
-! Writing gel.local.toml for configuration
-! Project initialized.
-! To connect to input_required_test, run `gel`
 
-# Destroy the instance after the test
+$ gel project init --non-interactive --link --server-instance $INSTANCE --branch $BRANCH
+! Found `gel.toml` in %{PATH}
+! Linking project...
+! Applying migrations...
+*
+! Writing gel.local.toml for configuration
+! Project linked
+! To connect to __shared-test-db__, run `gel`
+
+# Destroy the branch after the test
 defer {
-    $ gel instance destroy -I input_required_test --force
+    $ gel project unlink
+    *
+    $ gel branch drop -I $INSTANCE $BRANCH --force --non-interactive
     %EXIT any
     *
 }
 
-$ cp -R $INITIAL_PWD/../../migrations/db3/* dbschema
+$ gel project info
 *
 
-# Create initial migration
-$ gel migrate
-! Applying %{GREEDYDATA} (%{GREEDYDATA})
-! ... parsed
-! ... applied
+$ gel migration create --non-interactive
+%EXIT 1
+! Input required: Please specify a conversion expression to alter the type of link 'foo'
+! gel error: Cannot apply migration without user input
 
-$ gel query "start migration to { module default { type X; } }; POPULATE MIGRATION; DESCRIBE CURRENT MIGRATION AS JSON; commit migration;"
-*
-
-$ exit 1
-
-# Test 1: Interactive migration creation with default value
-$ echo "yes\nyes\n.foo[IS default::Child2]\n" | gel migration create
-! did you create future behavior 'simple_scoping'? [y,n,l,c,b,s,q,?]
+$ echo "yes\n.foo[IS default::Child2]\n" | gel migration create
 ! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
 ! Please specify a conversion expression to alter the type of link 'foo':
 ! Created %{DATA}, id: %{DATA}
@@ -69,7 +71,6 @@ $ cat dbschema/migrations/00002-*.edgeql
 ! CREATE MIGRATION %{DATA}
 !     ONTO m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq
 ! {
-!   CREATE FUTURE simple_scoping;
 !   ALTER TYPE default::Base {
 !       ALTER LINK foo {
 !           SET TYPE default::Child2 USING (.foo[IS default::Child2]);
@@ -80,9 +81,8 @@ $ cat dbschema/migrations/00002-*.edgeql
 $ rm dbschema/migrations/00002-*.edgeql
 *
 
-# Test 2: Interactive migration creation with comment
-$ echo "yes\nyes\n.foo[IS default::Child2] # comment\n" | script gel migration create
-! did you create future behavior 'simple_scoping'? [y,n,l,c,b,s,q,?]
+# Adding a comment to input doesn't affect result
+$ echo "yes\n.foo[IS default::Child2] # comment\n" | gel migration create
 ! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
 ! Please specify a conversion expression to alter the type of link 'foo':
 ! Created %{DATA}, id: %{DATA}
@@ -91,7 +91,6 @@ $ cat dbschema/migrations/00002-*.edgeql
 ! CREATE MIGRATION %{DATA}
 !     ONTO m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq
 ! {
-!   CREATE FUTURE simple_scoping;
 !   ALTER TYPE default::Base {
 !       ALTER LINK foo {
 !           SET TYPE default::Child2 USING (.foo[IS default::Child2]);

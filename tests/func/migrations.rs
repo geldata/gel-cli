@@ -971,55 +971,6 @@ fn prompt_id() {
 }
 
 #[test]
-fn input_required() {
-    crate::rm_migration_files("tests/migrations/db3", &[2]);
-
-    SERVER
-        .admin_cmd()
-        .arg("database")
-        .arg("create")
-        .arg("db3")
-        .assert()
-        .success();
-    SERVER
-        .admin_cmd()
-        .arg("--branch=db3")
-        .arg("migrate")
-        .arg("--schema-dir=tests/migrations/db3")
-        .assert()
-        .success()
-        .stderr(contains(
-            "Applying \
-            m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq \
-            (00001-m1d6kfh.edgeql)\n",
-        ));
-
-    let mut cmd = SERVER.custom_interactive(|cmd| {
-        cmd.arg("--branch=db3");
-        cmd.arg("migration").arg("create");
-        cmd.arg("--schema-dir=tests/migrations/db3");
-    });
-    cmd.exp_string("[y,n,l,c,b,s,q,?]").unwrap();
-    cmd.send_line("yes").unwrap();
-    cmd.exp_string("cast_expr>").unwrap();
-    cmd.send_line("").unwrap(); // default value
-    cmd.exp_string("Created").unwrap();
-
-    crate::rm_migration_files("tests/migrations/db3", &[2]);
-    let mut cmd = SERVER.custom_interactive(|cmd| {
-        cmd.arg("--branch=db3");
-        cmd.arg("migration").arg("create");
-        cmd.arg("--schema-dir=tests/migrations/db3");
-    });
-    cmd.exp_string("[y,n,l,c,b,s,q,?]").unwrap();
-    cmd.send_line("yes").unwrap();
-    cmd.exp_string("cast_expr>").unwrap();
-    // just add a comment to the default value
-    cmd.send_line("# comment").unwrap();
-    cmd.exp_string("Created").unwrap();
-}
-
-#[test]
 fn eof_err() {
     let err = if SERVER.0.version_major.is_at_least(6) {
         format!(
