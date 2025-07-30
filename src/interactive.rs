@@ -633,7 +633,7 @@ async fn _interactive_main(
                         );
                         return Err(ExitCode::new(10))?;
                     } else if let Some(e) = err.downcast_ref::<gel_errors::Error>() {
-                        print::edgedb_error(e, state.verbose_errors);
+                        print::gel_error(e, state.verbose_errors);
                     } else if !err.is::<QueryError>() {
                         print::error!("{err}");
                     }

@@ -62,3 +62,10 @@ pub const REPL_QUERY_TAG: &str = "gel/repl";
 /// The default name of the database user bootstrapped in a new instance.
 pub const BRANDING_DEFAULT_USERNAME: &str = "admin";
 pub const BRANDING_DEFAULT_USERNAME_LEGACY: &str = "edgedb";
+
+/// Name of the server.
+pub const BRANDING_SERVER: &str = if cfg!(feature = "gel") {
+    "edgedb"
+} else {
+    "gel"
+};

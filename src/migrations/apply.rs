@@ -37,8 +37,6 @@ use crate::portable::local::InstanceInfo;
 use crate::portable::ver::{self, Specific};
 use crate::print::{self, Highlight};
 
-const LOCALDEV_URL: &'static str = "https://geldata.com/p/localdev";
-
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
     #[command(flatten)]

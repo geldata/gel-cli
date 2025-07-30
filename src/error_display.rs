@@ -23,7 +23,7 @@ pub fn print_query_error(
     let (pstart, pend) = match (pstart, pend) {
         (Some(s), Some(e)) => (s, e),
         _ => {
-            print::edgedb_error(err, verbose);
+            print::gel_error(err, verbose);
             return Ok(());
         }
     };

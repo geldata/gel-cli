@@ -596,7 +596,7 @@ pub fn write_error(line: impl fmt::Display) {
     }
 }
 
-pub fn edgedb_error(err: &gel_errors::Error, verbose: bool) {
+pub fn gel_error(err: &gel_errors::Error, verbose: bool) {
     // Note: not using `error()` as display_error has markup inside
     msg!("{} {}", err_marker(), display_error(err, verbose));
 }
