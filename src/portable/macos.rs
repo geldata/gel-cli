@@ -7,6 +7,7 @@ use fn_error_context::context;
 use gel_tokio::InstanceName;
 
 use crate::branding::BRANDING;
+use crate::branding::BRANDING_SERVER;
 use crate::commands::ExitCode;
 use crate::platform::{current_exe, detect_ipv6};
 use crate::platform::{data_dir, get_current_uid, home_dir};
@@ -316,7 +317,7 @@ pub fn server_cmd(
     let data_dir = data_dir()?.join(&inst.name);
     let runstate_dir = runstate_dir(&inst.name)?;
     let server_path = inst.server_path()?;
-    let mut pro = process::Native::new("gel-server", "gel-server", server_path);
+    let mut pro = process::Native::new(BRANDING_SERVER, BRANDING_SERVER, server_path);
     pro.env_default("EDGEDB_SERVER_LOG_LEVEL", "warn");
     pro.env_default("EDGEDB_SERVER_HTTP_ENDPOINT_SECURITY", "optional");
     pro.env_default("EDGEDB_SERVER_INSTANCE_NAME", &inst.name);

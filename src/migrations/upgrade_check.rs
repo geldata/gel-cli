@@ -76,7 +76,7 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
 pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Result<()> {
     use const_format::concatcp;
 
-    use crate::branding::BRANDING;
+    use crate::branding::{BRANDING, BRANDING_SERVER};
 
     let (version, _) = Query::from_options(
         repository::QueryOptions {
@@ -96,7 +96,7 @@ pub fn upgrade_check(_options: &Options, options: &UpgradeCheck) -> anyhow::Resu
     // This is run from windows to do the upgrade check
     if let Some(status_path) = &options.run_server_with_status {
         let server_path = info.server_path()?;
-        let mut cmd = process::Native::new("gel-server", "gel-server", server_path);
+        let mut cmd = process::Native::new(BRANDING_SERVER, BRANDING_SERVER, server_path);
         cmd.arg("--temp-dir");
         cmd.arg("--auto-shutdown-after=0");
         cmd.arg("--default-auth-method=Trust");
@@ -151,9 +151,11 @@ fn spawn_and_check(
 ) -> anyhow::Result<()> {
     use tokio::net::UnixDatagram;
 
+    use crate::branding::BRANDING_SERVER;
+
     let server_path = info.server_path()?;
     let status_dir = tempfile::tempdir().context("tempdir failure")?;
-    let mut cmd = process::Native::new("gel-server", "gel-server", server_path);
+    let mut cmd = process::Native::new(BRANDING_SERVER, BRANDING_SERVER, server_path);
     cmd.env("NOTIFY_SOCKET", status_dir.path().join("notify"));
     cmd.quiet();
     cmd.arg("--temp-dir");
