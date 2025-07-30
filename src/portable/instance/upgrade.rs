@@ -639,12 +639,11 @@ pub fn upgrade_inplace(
     pkg: PackageInfo,
 ) -> anyhow::Result<()> {
     msg!(
-        "Upgrading from {} to version {} (strategy: inplace)",
+        "Upgrading from {} to version {}, in-place",
         version,
         pkg.version.to_string().emphasized()
     );
 
-    print::msg!(".. verifying gel-server installation");
     let new_install = install::package(&pkg).context(concatcp!("error installing ", BRANDING))?;
 
     control::do_start(&inst)?;
