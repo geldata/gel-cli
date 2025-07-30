@@ -1,0 +1,100 @@
+#!/usr/bin/env clitest --v0
+
+pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
+
+ignore {
+    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
+    sequence {
+        ! Automatic backup is enabled, see the full backup list with %{GREEDYDATA}
+        ! Read more at https://geldata.com/p/localdev
+        ! Running automatic backup of local instance %{DATA}...
+        ! Created full backup:
+        ! %{DATA} MiB %{PATH}
+    }
+}
+
+$ gel instance destroy -I input_required_test --force
+%EXIT any
+*
+
+using tempdir;
+
+using new dir "input_required_test";
+
+# Initialize a project
+$ gel project init --non-interactive
+! No `gel.toml` (or `edgedb.toml`) found in %{DATA} or above
+! Initializing new project...
+*
+! Initializing Gel instance '%{DATA}'...
+*
+! Applying migrations...
+! Everything is up to date. Revision initial
+! Writing gel.local.toml for configuration
+! Project initialized.
+! To connect to input_required_test, run `gel`
+
+# Destroy the instance after the test
+defer {
+    $ gel instance destroy -I input_required_test --force
+    %EXIT any
+    *
+}
+
+$ cp -R $INITIAL_PWD/../../migrations/db3/* dbschema
+*
+
+# Create initial migration
+$ gel migrate
+! Applying %{GREEDYDATA} (%{GREEDYDATA})
+! ... parsed
+! ... applied
+
+$ gel query "start migration to { module default { type X; } }; POPULATE MIGRATION; DESCRIBE CURRENT MIGRATION AS JSON; commit migration;"
+*
+
+$ exit 1
+
+# Test 1: Interactive migration creation with default value
+$ echo "yes\nyes\n.foo[IS default::Child2]\n" | gel migration create
+! did you create future behavior 'simple_scoping'? [y,n,l,c,b,s,q,?]
+! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
+! Please specify a conversion expression to alter the type of link 'foo':
+! Created %{DATA}, id: %{DATA}
+
+$ cat dbschema/migrations/00002-*.edgeql
+! CREATE MIGRATION %{DATA}
+!     ONTO m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq
+! {
+!   CREATE FUTURE simple_scoping;
+!   ALTER TYPE default::Base {
+!       ALTER LINK foo {
+!           SET TYPE default::Child2 USING (.foo[IS default::Child2]);
+!       };
+!   };
+! };
+
+$ rm dbschema/migrations/00002-*.edgeql
+*
+
+# Test 2: Interactive migration creation with comment
+$ echo "yes\nyes\n.foo[IS default::Child2] # comment\n" | script gel migration create
+! did you create future behavior 'simple_scoping'? [y,n,l,c,b,s,q,?]
+! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
+! Please specify a conversion expression to alter the type of link 'foo':
+! Created %{DATA}, id: %{DATA}
+
+$ cat dbschema/migrations/00002-*.edgeql
+! CREATE MIGRATION %{DATA}
+!     ONTO m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq
+! {
+!   CREATE FUTURE simple_scoping;
+!   ALTER TYPE default::Base {
+!       ALTER LINK foo {
+!           SET TYPE default::Child2 USING (.foo[IS default::Child2]);
+!       };
+!   };
+! };
