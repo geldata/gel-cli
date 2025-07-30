@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use std::{env, fs};
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
+use std::{env, fs};
 
 use anyhow::Context;
 use tempfile::NamedTempFile;
