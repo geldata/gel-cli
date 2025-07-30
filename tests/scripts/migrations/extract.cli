@@ -90,7 +90,7 @@ if TARGET_OS == "windows" {
     $ icacls "dbschema\\migrations" /inheritance:r
     *
 
-    $ icacls "dbschema\\migrations" /deny "Everyone:(OI)(CI)(M,W)"
+    $ cmd /c "icacls dbschema\\migrations /deny Everyone:(OI)(CI)(M,W)"
     *
 
     defer {
