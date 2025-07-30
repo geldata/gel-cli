@@ -86,11 +86,14 @@ if TARGET_OS != "windows" {
 }
 
 if TARGET_OS == "windows" {
+    # Disable MSYS2 argument conversion
+    set MSYS2_ARG_CONV_EXCL "*";
+
     # Remove inheritance and set directory to read-only for everyone
     $ icacls "dbschema\\migrations" /inheritance:r
     *
 
-    $ cmd /c "icacls dbschema\\migrations /deny Everyone:(OI)(CI)(M,W)"
+    $ icacls "dbschema\\migrations" /deny "Everyone:(OI)(CI)(M,W)"
     *
 
     defer {
