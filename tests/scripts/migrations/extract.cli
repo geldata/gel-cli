@@ -56,7 +56,7 @@ commit migration;
 $ rm -rf dbschema/migrations
 *
 
-$ gel migration extract --schema-dir=dbschema
+$ gel migration extract
 ! Creating directory %{GREEDYDATA}
 ! Writing: %{GREEDYDATA}
 *
@@ -65,7 +65,7 @@ $ gel migration extract --schema-dir=dbschema
 $ rm dbschema/migrations/00001-*.edgeql
 *
 
-$ gel migration extract --schema-dir=dbschema
+$ gel migration extract
 ! Writing: %{GREEDYDATA}
 *
 
@@ -77,7 +77,7 @@ if TARGET_OS != "windows" {
     $ chmod 444 dbschema/migrations
     *
 
-    $ gel migration extract --schema-dir=dbschema
+    $ gel migration extract
     %EXIT 1
     ! Writing: %{GREEDYDATA}
     ! gel error: Cannot write %{GREEDYDATA}
@@ -87,19 +87,19 @@ if TARGET_OS != "windows" {
 
 if TARGET_OS == "windows" {
     # Remove inheritance and set directory to read-only for everyone
-    $ icacls "dbschema\migrations" /inheritance:r
+    $ icacls "dbschema\\migrations" /inheritance:r
     *
 
-    $ icacls "dbschema\migrations" /deny "Everyone:(OI)(CI)(M,W)"
+    $ icacls "dbschema\\migrations" /deny "Everyone:(OI)(CI)(M,W)"
     *
 
     defer {
         # Restore permissions for cleanup
-        $ icacls "dbschema\migrations" /reset
+        $ icacls "dbschema\\migrations" /reset
         *
     }
 
-    $ gel migration extract --schema-dir=dbschema
+    $ gel migration extract
     %EXIT 1
     ! Writing: %{GREEDYDATA}
     ! gel error: Cannot write %{GREEDYDATA}
