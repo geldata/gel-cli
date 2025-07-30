@@ -23,6 +23,7 @@ pub struct Manifest {
     pub hooks: Option<Hooks>,
     pub hooks_extend: Option<Hooks>,
     pub watch: Vec<WatchScript>,
+    pub generate: Option<BTreeMap<String, GenerateConfig>>,
 }
 
 impl Manifest {
@@ -114,6 +115,9 @@ pub struct WatchScript {
     pub script: String,
 }
 
+type GeneratorConfig = BTreeMap<String, Spanned<toml::Value>>;
+type GenerateConfig = BTreeMap<String, GeneratorConfig>;
+
 #[context("error reading project config `{}`", path.display())]
 pub fn read(path: &Path) -> anyhow::Result<Manifest> {
     let text = fs::read_to_string(path)?;
@@ -142,6 +146,7 @@ pub fn read(path: &Path) -> anyhow::Result<Manifest> {
         hooks: val.hooks,
         hooks_extend: None,
         watch: val.watch.unwrap_or_default(),
+        generate: val.generate,
     });
 }
 
@@ -263,6 +268,7 @@ pub struct SrcManifest {
     pub project: Option<SrcProject>,
     pub hooks: Option<Hooks>,
     pub watch: Option<Vec<WatchScript>>,
+    pub generate: Option<BTreeMap<String, GenerateConfig>>,
     #[serde(flatten)]
     pub extra: BTreeMap<String, toml::Value>,
 }
