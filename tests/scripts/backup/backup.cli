@@ -20,6 +20,25 @@ if TARGET_OS != "windows" {
     $ gel instance list-backups -I inst1
     ! No backups found.
 
+    $ gel -I inst1 query "CREATE TYPE SpaceFiller { CREATE PROPERTY name: str };"
+    ! OK: CREATE TYPE
+
+    $ gel -I inst1 query "for i in range_unpack(range(0,1000)) union ( insert SpaceFiller { name := str_repeat(<str>i, 1000000) } );" > /dev/null
+    
+    $ gel instance backup -I inst1 --non-interactive
+    *
+    ! Successfully created a backup %{UUID} for Gel instance 'inst1'
+
+    # Ensure that stopping an instance doesn't cause the next backup to fail.
+    $ gel instance stop -I inst1
+    *
+
+    # Damage the WAL
+    $ rm ~/.local/share/edgedb/data/inst1/pg_wal/*
+
+    $ gel instance start -I inst1
+    *
+
     $ gel instance backup -I inst1 --non-interactive
     *
     ! Successfully created a backup %{UUID} for Gel instance 'inst1'
