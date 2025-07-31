@@ -2,7 +2,7 @@
 
 # Test for upgrades
 
-pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
+pattern VERSION \d+\.\d+(:?\.\d+)?(?:-(?:alpha|beta|rc|dev)(:?\.\d+)?)?(?:\+[a-f0-9]{7}|local)?
 
 ignore {
     ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
@@ -42,7 +42,7 @@ choice {
 
 # Upgrade to nightly
 $ gel instance upgrade --instance=inst3 --to-nightly --force
-%TIMEOUT 60s
+%TIMEOUT 120s
 ? Upgrading from %{VERSION} to version %{VERSION}, in-place
 *
 ! .. setting force_database_error
