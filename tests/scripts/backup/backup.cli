@@ -9,48 +9,93 @@ ignore {
     ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
 }
 
+set INSTANCE "backup-test";
+
 if TARGET_OS != "windows" {
-    $ gel instance destroy -I inst1 --force
+    $ gel instance destroy -I $INSTANCE --force
     %EXIT any
     *
 
-    $ gel instance create -I inst1
+    $ gel instance create -I $INSTANCE
     *
 
-    $ gel instance list-backups -I inst1
+    defer {
+        $ gel instance destroy -I $INSTANCE --force
+        %EXIT any
+        *
+    }
+
+    set GEL_INSTANCE $INSTANCE;
+
+    $ gel instance list-backups
     ! No backups found.
 
-    $ gel instance backup -I inst1 --non-interactive
-    *
-    ! Successfully created a backup %{UUID} for Gel instance 'inst1'
-
-    $ gel -I inst1 query "CREATE TYPE user { CREATE PROPERTY name: str };"
+    $ gel query "CREATE TYPE SpaceFiller { CREATE PROPERTY name: str };"
     ! OK: CREATE TYPE
 
-    $ gel -I inst1 query 'INSERT user { name := "John" };'
-    ! {"id": "%{UUID}"}
-
-    $ gel instance backup -I inst1 --non-interactive
+    $ gel query "for i in range_unpack(range(0,10)) union ( insert SpaceFiller { name := str_repeat(<str>i, 1000000) } );" > /dev/null
+    
+    $ gel instance backup --non-interactive
     *
-    ! Successfully created a backup %{UUID} for Gel instance 'inst1'
+    ! Successfully created a backup %{UUID} for Gel instance '%{DATA}'
 
-    $ gel instance list-backups -I inst1
+    $ gel instance backup --non-interactive
+    *
+    ! Successfully created a backup %{UUID} for Gel instance '%{DATA}'
+
+    $ gel query "CREATE TYPE user { CREATE PROPERTY name: str };"
+    ! OK: CREATE TYPE
+
+    $ gel query 'INSERT user { name := "John" };'
+    ! {"id": "%{UUID}"}
+
+    $ gel instance backup --non-interactive
+    *
+    ! Successfully created a backup %{UUID} for Gel instance '%{DATA}'
+
+    $ gel instance list-backups
     *
 
-    $ gel -I inst1 query 'INSERT user { name := "Mary" };'
+    $ gel query 'INSERT user { name := "Mary" };'
     ! {"id": "%{UUID}"}
 
-    $ gel -I inst1 query 'INSERT user { name := "Alice" };'
+    $ gel query 'INSERT user { name := "Alice" };'
     ! {"id": "%{UUID}"}
 
-    $ gel -I inst1 query 'SELECT user { name } ORDER BY .name;'
+    $ gel query 'SELECT user { name } ORDER BY .name;'
     ! {"name": "Alice"}
     ! {"name": "John"}
     ! {"name": "Mary"}
 
-    $ gel instance restore -I inst1 --non-interactive --latest
+    $ gel instance list-backups --json 2>/dev/null | jq -r '.[] | .id' | tail -n 1
+    %SET PREVIOUS_BACKUP_ID
+    ! %{UUID}
+
+    # Take a backup but we're going to restore between here and the next backup.
+    $ gel instance backup --non-interactive
     *
 
-    $ gel -I inst1 query 'SELECT user { name } ORDER BY .name;'
+    $ gel instance restore --non-interactive --backup-id $PREVIOUS_BACKUP_ID
+    *
+
+    $ gel query 'SELECT user { name } ORDER BY .name;'
     ! {"name": "John"}
+
+    $ gel query "for i in range_unpack(range(0,10)) union ( insert SpaceFiller { name := str_repeat(<str>i, 1000000) } );" > /dev/null
+
+    # Make sure we can fall back to a full backup
+    $ gel instance backup --non-interactive
+    *
+    ! %{GREEDYDATA} Incremental backup failed, falling back to full backup...
+    ! %{GREEDYDATA} This may be expected if the database was restored to an old backup.
+    ! Successfully created a backup %{UUID} for Gel instance '%{DATA}'
+
+    $ gel instance list-backups
+    *
+    ! │ %{UUID} │ %{DATA} │ Manual               │ %{GREEDYDATA} │
+    ! │ %{UUID} │ %{DATA} │ Manual (Incremental) │ %{GREEDYDATA} │
+    ! │ %{UUID} │ %{DATA} │ Manual (Incremental) │ %{GREEDYDATA} │
+    ! │ %{UUID} │ %{DATA} │ Manual (Incremental) │ %{GREEDYDATA} │
+    ! │ %{UUID} │ %{DATA} │ Manual               │ %{GREEDYDATA} │
+    *
 }
