@@ -16,6 +16,13 @@ $ gel instance create -I $INSTANCE
 %EXIT any
 *
 
+# Log the instance logs in the background to help debug failures
+background {
+    $ gel instance logs --tail 10 --follow -I $INSTANCE
+    %EXIT any
+    *
+}
+
 $ gel branch drop $BRANCH --force --non-interactive
 %EXIT any
 *
