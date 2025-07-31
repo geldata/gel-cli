@@ -360,31 +360,60 @@ impl InstanceBackup for LocalBackup {
             }
 
             if let Some(parent_record) = &incremental_parent {
-                metadata.incremental = Some(IncrementalMetadata {
-                    parent_backup_id: parent_record.id.clone(),
-                    incremental_generation: parent_record
-                        .metadata
-                        .incremental
-                        .as_ref()
-                        .map_or(0, |i| i.incremental_generation)
-                        + 1,
-                    full_backup_completed_at: parent_record
-                        .metadata
-                        .incremental
-                        .as_ref()
-                        .map_or(parent_record.metadata.completed_at.unwrap(), |i| {
-                            i.full_backup_completed_at
-                        }),
-                });
-                pg_backup
+                let res = pg_backup
                     .pg_basebackup_incremental(
                         &temp_dir.join("data"),
-                        run_dir,
+                        &run_dir,
                         "postgres",
                         parent_record.data_dir.join("backup_manifest"),
-                        callback,
+                        callback.clone(),
                     )
-                    .await?;
+                    .await;
+                match res {
+                    Ok(()) => {
+                        metadata.incremental = Some(IncrementalMetadata {
+                            parent_backup_id: parent_record.id.clone(),
+                            incremental_generation: parent_record
+                                .metadata
+                                .incremental
+                                .as_ref()
+                                .map_or(0, |i| i.incremental_generation)
+                                + 1,
+                            full_backup_completed_at: parent_record
+                                .metadata
+                                .incremental
+                                .as_ref()
+                                .map_or(parent_record.metadata.completed_at.unwrap(), |i| {
+                                    i.full_backup_completed_at
+                                }),
+                        });
+                    }
+                    Err(e) => {
+                        log::warn!("Incremental backup failed, falling back to full backup...");
+                        let error = e.to_string();
+                        log::debug!("Incremental backup failed: {error}");
+                        // Look for a line that matches something like this:
+
+                        // "manifest requires WAL from final timeline 1 ending at 0/C000120, but this backup starts at 0/C000028"
+
+                        // With translations, we just assume that it should be a
+                        // line with at least two slashes. This is not a great heuristic, but hopefully
+                        // it's stable enough.
+                        let has_wal_line = error.lines().any(|s| s.split('/').count() > 2);
+                        if has_wal_line {
+                            log::warn!("This may be expected if the database was restored to an old backup.");
+                        } else {
+                            log::warn!("Please report this error to the Gel team:");
+                            for line in error.lines() {
+                                log::warn!("  {}", line);
+                            }
+                        }
+                        metadata.backup_strategy = BackupStrategy::Full;
+                        pg_backup
+                            .pg_basebackup(&temp_dir.join("data"), run_dir, "postgres", callback)
+                            .await?;
+                    }
+                }
             } else {
                 pg_backup
                     .pg_basebackup(&temp_dir.join("data"), run_dir, "postgres", callback)
