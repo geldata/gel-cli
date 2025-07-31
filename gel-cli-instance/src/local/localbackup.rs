@@ -403,7 +403,7 @@ impl InstanceBackup for LocalBackup {
                         if has_wal_line {
                             log::warn!("This may be expected if the database was restored to an old backup.");
                         } else {
-                            log::warn!("Please report this error to the Gel team:");
+                            log::warn!("Please report this error at https://github.com/geldata/gel-cli:");
                             for line in error.lines() {
                                 log::warn!("  {}", line);
                             }
