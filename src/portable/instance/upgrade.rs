@@ -12,7 +12,7 @@ use gel_tokio::dsn::DEFAULT_DATABASE_NAME;
 use gel_tokio::{CloudName, InstanceName};
 use tempfile::NamedTempFile;
 
-use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
+use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, BRANDING_SERVER, QUERY_TAG};
 use crate::commands::{self, ExitCode};
 use crate::connect::{Connection, Connector};
 use crate::hint::HintExt;
@@ -724,7 +724,7 @@ fn prepare_upgrade(
     inst.upgrade_state = Some(UpgradeState::PrepareStarted);
     save_instance_info(inst)?;
 
-    let status = process::Native::new("gel-server", "gel-server", new_install.server_path()?)
+    let status = process::Native::new(BRANDING_SERVER, BRANDING_SERVER, new_install.server_path()?)
         .arg("--backend-dsn")
         .arg(&postgres_dsn)
         .arg("--tls-cert-file")
@@ -772,7 +772,7 @@ fn server_cmd_alongside_running(
         urlencoding::encode(&postgres_run_state_dir.display().to_string())
     );
 
-    let mut native = process::Native::new("gel-server", "gel-server", install.server_path()?);
+    let mut native = process::Native::new(BRANDING_SERVER, BRANDING_SERVER, install.server_path()?);
     native
         .arg("--backend-dsn")
         .arg(&postgres_dsn)
