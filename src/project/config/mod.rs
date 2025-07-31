@@ -112,7 +112,7 @@ pub async fn validate_scoped_config(
     };
 
     // validate
-    let commands = validation::validate(config, &schema)?;
+    let commands = validation::validate(config, schema)?;
     if commands.is_empty() {
         return Ok(None);
     }
@@ -196,7 +196,7 @@ async fn execute_configure(
         let regex = regex::Regex::new("unrecognized configuration (parameter|object)")?;
         if e.is::<gel_errors::ConfigurationError>()
             && e.initial_message()
-                .map(|m| regex.is_match(&m))
+                .map(|m| regex.is_match(m))
                 .unwrap_or(false)
         {
             if let Some(name) = extension_name {

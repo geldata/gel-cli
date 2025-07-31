@@ -246,7 +246,7 @@ pub async fn run(
     let (cmdline, extra_env) = prepare_command(cmd, subcommand_name).await?;
     let mut scmd = process::Command::new(cmdline[0].clone());
     scmd.args(&cmdline[1..])
-        .args(cmd.arguments.iter().skip(1).map(|s| s.clone()))
+        .args(cmd.arguments.iter().skip(1).cloned())
         .stdin(Stdio::null())
         .stdout(Stdio::inherit());
     // Strip out all gel config env vars from the environment, since

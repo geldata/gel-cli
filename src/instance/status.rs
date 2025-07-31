@@ -29,7 +29,6 @@ use crate::cloud::client::CloudClient;
 use crate::collect::Collector;
 use crate::commands::ExitCode;
 use crate::credentials;
-use crate::format;
 use crate::instance::control;
 use crate::instance::upgrade::{BackupMeta, UpgradeMeta};
 use crate::platform::data_dir;
