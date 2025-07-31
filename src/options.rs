@@ -27,8 +27,8 @@ use crate::hint::HintExt;
 use crate::markdown;
 use crate::portable;
 use crate::portable::local::runstate_dir;
-use crate::portable::project;
 use crate::print::{self, AsRelativeToCurrentDir, Highlight, err_marker};
+use crate::project;
 use crate::repl::{InputLanguage, OutputFormat};
 use crate::tty_password;
 

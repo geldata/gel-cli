@@ -29,7 +29,7 @@ use crate::portable::instance::create;
 use crate::portable::local::{InstanceInfo, Paths, allocate_port};
 use crate::portable::options::{CloudInstanceBillables, CloudInstanceParams};
 use crate::portable::platform::optional_docker_check;
-use crate::portable::project::{self, get_stash_path};
+use crate::project::{self, get_stash_path};
 use crate::portable::repository::{self, Channel, PackageInfo, Query};
 use crate::portable::server::install;
 use crate::portable::ver;

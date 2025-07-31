@@ -46,6 +46,7 @@ mod platform;
 mod portable;
 mod print;
 mod process;
+mod project;
 mod prompt;
 mod question;
 mod repl;

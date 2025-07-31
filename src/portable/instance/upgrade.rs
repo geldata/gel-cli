@@ -21,7 +21,7 @@ use crate::options::{CloudOptions, InstanceOptionsLegacy};
 use crate::portable::instance::control;
 use crate::portable::instance::create;
 use crate::portable::local::{InstallInfo, InstanceInfo, Paths, UpgradeState, write_json};
-use crate::portable::project;
+use crate::project;
 use crate::portable::repository::{self, Channel, PackageInfo, Query, QueryOptions};
 use crate::portable::server::install;
 use crate::portable::ver;

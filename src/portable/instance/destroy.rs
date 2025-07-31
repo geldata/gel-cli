@@ -11,7 +11,7 @@ use crate::options::{CloudOptions, InstanceOptionsLegacy, Options};
 use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::local;
-use crate::portable::project;
+use crate::project;
 use crate::portable::windows;
 use crate::print::{self, Highlight, msg};
 use crate::{credentials, question};

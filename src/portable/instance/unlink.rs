@@ -9,7 +9,7 @@ use crate::locking::LockManager;
 use crate::options::InstanceOptionsLegacy;
 use crate::portable::instance::destroy::with_projects;
 use crate::portable::local::InstanceInfo;
-use crate::portable::project;
+use crate::project;
 
 pub fn run(cmd: &Command) -> anyhow::Result<()> {
     let instance = cmd.instance_opts.instance()?;

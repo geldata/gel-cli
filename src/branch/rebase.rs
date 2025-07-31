@@ -5,7 +5,7 @@ use crate::connect::Connection;
 use crate::migrations::rebase::{
     do_rebase, get_diverging_migrations, write_rebased_migration_files,
 };
-use crate::portable::project;
+use crate::project;
 use crate::print::Highlight;
 use crate::{migrations, print};
 use uuid::Uuid;

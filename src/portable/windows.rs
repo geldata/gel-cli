@@ -37,7 +37,7 @@ use crate::portable::instance::destroy;
 use crate::portable::instance::status::{self, status_str};
 use crate::portable::local::{InstanceInfo, NonLocalInstance, Paths, write_json};
 use crate::portable::options;
-use crate::portable::project;
+use crate::project;
 use crate::portable::repository::{self, PackageHash, PackageInfo, download};
 use crate::portable::server;
 use crate::portable::ver;

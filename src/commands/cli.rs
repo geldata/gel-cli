@@ -1,22 +1,16 @@
 use std::io::IsTerminal;
 
-use crate::cli;
 use crate::cloud::main::cloud_main;
-use crate::commands;
-use crate::commands::parser::Common;
-use crate::migrations;
 use crate::migrations::options::{Migration, MigrationCmd as M};
-use crate::non_interactive;
 use crate::options::{Command, Options};
-use crate::portable;
 use crate::print::style::Styler;
-use crate::watch;
+use crate::{cli, commands, migrations, non_interactive, portable, project, watch};
 
 #[tokio::main(flavor = "current_thread")]
 async fn common_cmd(
     _options: &Options,
     cmdopt: commands::Options,
-    cmd: &Common,
+    cmd: &commands::parser::Common,
 ) -> Result<(), anyhow::Error> {
     Box::pin(commands::execute::common(None, cmd, &cmdopt)).await?;
     Ok(())
@@ -47,10 +41,10 @@ pub fn main(options: &Options) -> Result<(), anyhow::Error> {
         Command::Server(cmd) => portable::server::run(cmd),
         Command::Extension(cmd) => portable::extension::run(cmd, options),
         Command::Instance(cmd) => portable::instance::run(cmd, options),
-        Command::Project(cmd) => portable::project::run(cmd, options),
+        Command::Project(cmd) => project::run(cmd, options),
         Command::Query(q) => non_interactive::noninteractive_main(q, options),
-        Command::Init(cmd) => portable::project::init::run(cmd, options),
-        Command::Sync(cmd) => portable::project::sync::run(cmd, options),
+        Command::Init(cmd) => project::init::run(cmd, options),
+        Command::Sync(cmd) => project::sync::run(cmd, options),
         Command::_SelfInstall(s) => cli::install::run(s, Some(options)),
         Command::_GenCompletions(s) => cli::gen_completions::run(s),
         Command::Cli(c) => cli::run(c, options),

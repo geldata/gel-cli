@@ -12,7 +12,7 @@ use serde_json::json;
 
 use crate::cli::env::Env;
 use crate::portable::exit_codes;
-use crate::portable::project::get_stash_path;
+use crate::project::get_stash_path;
 
 const LOCK_FILE_NAME: &str = "gel-cli.lock";
 const SLOW_LOCK_WARNING: Duration = Duration::from_millis(500);

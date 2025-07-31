@@ -14,7 +14,7 @@ use crate::branding::BRANDING_CLI_CMD;
 use crate::cli::env::{Env, UseUv};
 use crate::commands::options::Options;
 use crate::hint::HintExt;
-use crate::portable::project;
+use crate::project;
 use crate::print::{self, Highlight};
 
 const GEL_PYTHON: &str = "gel";

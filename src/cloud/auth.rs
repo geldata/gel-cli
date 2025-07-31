@@ -15,7 +15,7 @@ use crate::commands::ExitCode;
 use crate::options::CloudOptions;
 use crate::portable::exit_codes;
 use crate::portable::local::write_json;
-use crate::portable::project::{find_project_stash_dirs, read_project_path};
+use crate::project::{find_project_stash_dirs, read_project_path};
 use crate::print;
 use crate::question;
 use gel_cli_instance::cloud::{

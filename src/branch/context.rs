@@ -6,7 +6,7 @@ use crate::connect::Connection;
 use crate::credentials;
 use crate::locking::{InstanceLock, LockManager};
 use crate::platform::tmp_file_path;
-use crate::portable::project::{self, get_stash_path};
+use crate::project;
 use std::fs;
 use std::sync::Mutex;
 
@@ -89,7 +89,7 @@ impl Context {
         // find the project and use it's instance name and branch
         ctx.project = project::find_project_async(None).await?;
         if let Some(location) = &ctx.project {
-            let stash_dir = get_stash_path(&location.root)?;
+            let stash_dir = project::get_stash_path(&location.root)?;
             ctx.instance_name = project::instance_name(&stash_dir).ok();
             if let Some(instance_name) = &ctx.instance_name {
                 ctx.instance_lock = Some(
@@ -133,7 +133,7 @@ impl Context {
     pub async fn update_current_branch(&self, branch: &str) -> anyhow::Result<()> {
         // If we are in a project, update the stash/database
         if let Some(project) = &self.project {
-            let stash_path = get_stash_path(&project.root)?.join("database");
+            let stash_path = project::get_stash_path(&project.root)?.join("database");
 
             // ensure that the temp file is created in the same directory as the 'database' file
             let tmp = tmp_file_path(&stash_path);

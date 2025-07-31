@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use crate::migrations::apply::AutoBackup;
 use crate::migrations::options::MigrationConfig;
-use crate::portable::project::{self};
+use crate::project::{self};
 
 #[derive(Debug, Clone)]
 pub struct Context {

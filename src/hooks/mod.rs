@@ -1,6 +1,6 @@
 use std::path;
 
-use crate::portable::project;
+use crate::project;
 use crate::print::{self, Highlight};
 
 /// Runs project hooks of the given action.

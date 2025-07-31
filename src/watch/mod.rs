@@ -18,7 +18,7 @@ use tokio::task::JoinSet;
 use crate::branding::{BRANDING_CLI_CMD, MANIFEST_FILE_DISPLAY_NAME};
 use crate::hint::HintExt;
 use crate::options::Options;
-use crate::portable::project;
+use crate::project;
 use crate::print::{self, AsRelativeToCurrentDir, Highlight};
 
 #[derive(clap::Args, Debug, Clone)]
