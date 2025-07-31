@@ -1,8 +1,8 @@
 use crate::cli;
 use crate::commands::parser::Common;
+use crate::instance;
 use crate::migrations::options::MigrationCmd;
 use crate::options::{Command, Options};
-use crate::instance;
 use crate::portable::server::Subcommands as Server;
 use crate::project::Subcommands as Project;
 use std::io::Write;

@@ -21,21 +21,21 @@ use crate::commands::ExitCode;
 use crate::connect::Connection;
 use crate::connect::Connector;
 use crate::credentials;
+use crate::instance::control;
+use crate::instance::create;
 use crate::migrations;
 use crate::options::CloudOptions;
 use crate::portable::exit_codes;
-use crate::instance::control;
-use crate::instance::create;
 use crate::portable::local::{InstanceInfo, Paths, allocate_port};
 use crate::portable::options::{CloudInstanceBillables, CloudInstanceParams};
 use crate::portable::platform::optional_docker_check;
-use crate::project::{self, get_stash_path};
 use crate::portable::repository::{self, Channel, PackageInfo, Query};
 use crate::portable::server::install;
 use crate::portable::ver;
 use crate::portable::ver::Specific;
 use crate::portable::windows;
 use crate::print::{self, Highlight, msg};
+use crate::project::{self, get_stash_path};
 use crate::question;
 use crate::table;
 use crate::{cloud, hooks};
@@ -204,7 +204,7 @@ pub fn init_existing(
                     .map(|s| s.to_string());
             }
         } else {
-            inst.database.clone_from(&cmd.database());
+            inst.database.clone_from(cmd.database());
         }
         return do_link(&inst, &project, cmd, &stash_dir, opts);
     }
@@ -543,7 +543,7 @@ fn link(
             inst.database = ask_database()?.database().map(|s| s.to_string());
         }
     } else {
-        inst.database.clone_from(&cmd.database());
+        inst.database.clone_from(cmd.database());
     }
     inst.check_version(ver_query);
     do_link(&inst, &project, cmd, &stash_dir, opts)
@@ -675,7 +675,7 @@ fn init_new(
                     .map(|s| s.to_string());
             }
         } else {
-            inst.database.clone_from(&cmd.database());
+            inst.database.clone_from(cmd.database());
         }
         return do_link(&inst, &ctx, cmd, &stash_dir, opts);
     };

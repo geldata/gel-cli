@@ -3,9 +3,9 @@ use gel_cli_derive::IntoArgs;
 use std::collections::BTreeMap;
 
 use crate::commands::ExitCode;
+use crate::instance;
 use crate::platform::{data_dir, portable_dir, tmp_file_path};
 use crate::portable::exit_codes;
-use crate::instance;
 use crate::portable::local;
 use crate::portable::local::InstanceInfo;
 use crate::portable::repository::{Channel, Query};

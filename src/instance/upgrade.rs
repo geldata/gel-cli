@@ -16,18 +16,18 @@ use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, BRANDING_SERVE
 use crate::commands::{self, ExitCode};
 use crate::connect::{Connection, Connector};
 use crate::hint::HintExt;
-use crate::locking::LockManager;
-use crate::options::{CloudOptions, InstanceOptionsLegacy};
 use crate::instance::control;
 use crate::instance::create;
+use crate::locking::LockManager;
+use crate::options::{CloudOptions, InstanceOptionsLegacy};
 use crate::portable::local::{InstallInfo, InstanceInfo, Paths, UpgradeState, write_json};
-use crate::project;
 use crate::portable::repository::{self, Channel, PackageInfo, Query, QueryOptions};
 use crate::portable::server::install;
 use crate::portable::ver;
 use crate::portable::windows;
 use crate::portable::{exit_codes, local};
 use crate::print::{self, Highlight, msg};
+use crate::project;
 use crate::{cloud, credentials};
 use crate::{process, question};
 

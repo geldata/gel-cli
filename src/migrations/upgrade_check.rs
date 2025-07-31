@@ -19,11 +19,11 @@ use crate::migrations::migration;
 use crate::migrations::options::UpgradeCheck;
 use crate::migrations::timeout;
 use crate::portable::local::InstallInfo;
-use crate::project;
 use crate::portable::repository::{self, PackageInfo, Query};
 use crate::portable::server::install;
 use crate::print::{self, Highlight, msg};
 use crate::process;
+use crate::project;
 use crate::watch::{self, WatchOptions};
 
 #[derive(Debug, serde::Deserialize)]

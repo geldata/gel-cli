@@ -1,7 +1,7 @@
 use std::path;
 
-use crate::project;
 use crate::print::{self, Highlight};
+use crate::project;
 
 /// Runs project hooks of the given action.
 /// Must not be called if --skip-hooks or GEL_SKIP_HOOKS is set.

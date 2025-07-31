@@ -31,6 +31,7 @@ mod git;
 mod highlight;
 mod hint;
 mod hooks;
+mod instance;
 mod interactive;
 mod interrupt;
 mod locking;
@@ -54,8 +55,6 @@ mod tty_password;
 mod variables;
 mod version_check;
 mod watch;
-mod instance;
-
 
 fn main() {
     match _main() {

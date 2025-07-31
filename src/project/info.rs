@@ -8,8 +8,8 @@ use gel_tokio::dsn::{DatabaseBranch, ProjectDir};
 use crate::branding::BRANDING_CLI_CMD;
 use crate::branding::BRANDING_CLOUD;
 use crate::commands::ExitCode;
-use crate::project::manifest;
 use crate::print::{self, Highlight, msg};
+use crate::project::manifest;
 use crate::table;
 
 pub fn run(options: &Command) -> anyhow::Result<()> {

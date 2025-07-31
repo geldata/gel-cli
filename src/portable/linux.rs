@@ -8,10 +8,10 @@ use gel_tokio::InstanceName;
 
 use crate::branding::BRANDING_CLOUD;
 use crate::commands::ExitCode;
-use crate::platform::{current_exe, detect_ipv6, home_dir};
 use crate::instance::control;
 use crate::instance::destroy::InstanceNotFound;
 use crate::instance::status;
+use crate::platform::{current_exe, detect_ipv6, home_dir};
 use crate::portable::local::{InstanceInfo, log_file, runstate_dir};
 use crate::print;
 use crate::process;
