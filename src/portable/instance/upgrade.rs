@@ -15,6 +15,7 @@ use tempfile::NamedTempFile;
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
 use crate::commands::{self, ExitCode};
 use crate::connect::{Connection, Connector};
+use crate::hint::HintExt;
 use crate::locking::LockManager;
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
 use crate::portable::instance::control;
@@ -233,10 +234,22 @@ fn upgrade_local_cmd(
     if inst_ver.is_compatible(&pkg_ver) && !(cmd.force && ver_option) && !cmd.force_dump_restore {
         upgrade_compatible(inst, pkg)
     } else {
-        let has_compatible_pg = true;
+        let compatible_pg = true;
+        let compatible_in_place = compatible_pg
+            && inst_ver.major >= 6
+            && pkg_ver.major >= 6
+            && inst_ver.major != pkg_ver.major;
 
-        if has_compatible_pg || cmd.force_in_place {
-            upgrade_inplace(inst, inst_ver, pkg)
+        if cmd.force_in_place && !compatible_in_place {
+            return Err(anyhow::anyhow!(
+                "These two versions are not compatible for in-place upgrade"
+            )
+            .hint("Remove --force-in-place flag")
+            .into());
+        }
+
+        if (compatible_in_place || cmd.force_in_place) && !cmd.force && !cmd.force_dump_restore {
+            upgrade_in_place(inst, inst_ver, pkg)
         } else {
             upgrade_incompatible(inst, inst_ver, pkg, cmd.non_interactive, opts.skip_hooks)
         }
@@ -633,7 +646,7 @@ async fn restore_instance(
     Ok(())
 }
 
-pub fn upgrade_inplace(
+pub fn upgrade_in_place(
     mut inst: InstanceInfo,
     version: ver::Specific,
     pkg: PackageInfo,

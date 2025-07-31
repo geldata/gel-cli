@@ -341,7 +341,7 @@ fn upgrade_local(
 
                 let has_compatible_pg_versions = true;
                 if has_compatible_pg_versions || cmd.force_in_place {
-                    upgrade::upgrade_inplace(inst, inst_ver.clone(), pkg)?;
+                    upgrade::upgrade_in_place(inst, inst_ver.clone(), pkg)?;
                 } else {
                     upgrade::upgrade_incompatible(
                         inst,
