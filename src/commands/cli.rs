@@ -4,7 +4,7 @@ use crate::cloud::main::cloud_main;
 use crate::migrations::options::{Migration, MigrationCmd as M};
 use crate::options::{Command, Options};
 use crate::print::style::Styler;
-use crate::{cli, commands, migrations, non_interactive, portable, project, watch};
+use crate::{cli, commands, instance, migrations, non_interactive, portable, project, watch};
 
 #[tokio::main(flavor = "current_thread")]
 async fn common_cmd(
@@ -40,7 +40,7 @@ pub fn main(options: &Options) -> Result<(), anyhow::Error> {
         }
         Command::Server(cmd) => portable::server::run(cmd),
         Command::Extension(cmd) => portable::extension::run(cmd, options),
-        Command::Instance(cmd) => portable::instance::run(cmd, options),
+        Command::Instance(cmd) => instance::run(cmd, options),
         Command::Project(cmd) => project::run(cmd, options),
         Command::Query(q) => non_interactive::noninteractive_main(q, options),
         Command::Init(cmd) => project::init::run(cmd, options),
@@ -53,7 +53,10 @@ pub fn main(options: &Options) -> Result<(), anyhow::Error> {
         Command::Cloud(c) => cloud_main(c, &options.cloud_options),
         Command::Watch(c) => watch::run(options, c),
         Command::HashPassword(cmd) => {
-            println!("{}", portable::password_hash(&cmd.password_to_hash));
+            println!(
+                "{}",
+                instance::reset_password::password_hash(&cmd.password_to_hash)
+            );
             Ok(())
         }
     }

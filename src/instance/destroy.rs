@@ -9,7 +9,7 @@ use crate::commands::ExitCode;
 use crate::locking::LockManager;
 use crate::options::{CloudOptions, InstanceOptionsLegacy, Options};
 use crate::portable::exit_codes;
-use crate::portable::instance::control;
+use crate::instance::control;
 use crate::portable::local;
 use crate::project;
 use crate::portable::windows;

@@ -10,7 +10,4 @@ pub mod macos;
 pub mod windows;
 
 pub mod extension;
-pub mod instance;
 pub mod server;
-
-pub use instance::reset_password::password_hash;

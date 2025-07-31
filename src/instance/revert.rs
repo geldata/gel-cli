@@ -6,19 +6,19 @@ use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING, BRANDING_CLOUD};
 use crate::commands::ExitCode;
+use crate::credentials;
+use crate::instance::control;
+use crate::instance::create;
+use crate::instance::status::{BackupStatus, DataDirectory, instance_status};
 use crate::locking::LockManager;
 use crate::options::InstanceOptionsLegacy;
 use crate::platform::tmp_file_path;
 use crate::portable::exit_codes;
-use crate::portable::instance::control;
-use crate::portable::instance::create;
-use crate::portable::instance::status::{BackupStatus, DataDirectory, instance_status};
 use crate::portable::local::Paths;
 use crate::portable::server::install;
 use crate::print::{self, Highlight, msg};
 use crate::process;
 use crate::question;
-use crate::{credentials, format};
 
 pub fn run(options: &Command) -> anyhow::Result<()> {
     use BackupStatus::*;
@@ -68,7 +68,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     msg!(
         "Backup timestamp: {} {}",
         humantime::format_rfc3339(backup_info.timestamp),
-        format!("({})", format::done_before(backup_info.timestamp))
+        format!("({})", print::done_before(backup_info.timestamp))
     );
     if !options.ignore_pid_check {
         match status.data_status {

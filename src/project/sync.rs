@@ -10,7 +10,7 @@ use crate::cloud::client::CloudClient;
 use crate::commands::{ExitCode, Options};
 use crate::connect::Connector;
 use crate::hint::{HintExt, HintedError};
-use crate::portable::instance::control;
+use crate::instance::control;
 use crate::portable::windows;
 use crate::print::AsRelativeToCurrentDir;
 use crate::{migrations, msg, print, project, question};

@@ -7,7 +7,7 @@ use crate::credentials;
 use crate::hint::HintExt;
 use crate::locking::LockManager;
 use crate::options::InstanceOptionsLegacy;
-use crate::portable::instance::destroy::with_projects;
+use crate::instance::destroy::with_projects;
 use crate::portable::local::InstanceInfo;
 use crate::project;
 

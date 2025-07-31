@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use crate::commands::ExitCode;
 use crate::platform::{data_dir, portable_dir, tmp_file_path};
 use crate::portable::exit_codes;
-use crate::portable::instance::status;
+use crate::instance;
 use crate::portable::local;
 use crate::portable::local::InstanceInfo;
 use crate::portable::repository::{Channel, Query};
@@ -35,7 +35,7 @@ pub fn run(options: &Command) -> anyhow::Result<()> {
     let mut used_versions = BTreeMap::new();
     let data_dir = data_dir()?;
     if data_dir.exists() {
-        for pair in status::list_local(&data_dir)? {
+        for pair in instance::status::list_local(&data_dir)? {
             let (name, _) = pair?;
             if let Some(info) = InstanceInfo::try_read(&name)? {
                 used_versions.insert(info.get_version()?.specific(), info.name);

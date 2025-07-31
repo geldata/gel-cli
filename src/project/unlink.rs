@@ -8,7 +8,7 @@ use crate::branding::MANIFEST_FILE_DISPLAY_NAME;
 use crate::commands::ExitCode;
 use crate::options::CloudOptions;
 use crate::portable::exit_codes;
-use crate::portable::instance::destroy;
+use crate::instance::destroy;
 use crate::project;
 use crate::print::{self, Highlight, msg};
 use crate::question;

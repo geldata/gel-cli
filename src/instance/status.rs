@@ -30,10 +30,10 @@ use crate::collect::Collector;
 use crate::commands::ExitCode;
 use crate::credentials;
 use crate::format;
+use crate::instance::control;
+use crate::instance::upgrade::{BackupMeta, UpgradeMeta};
 use crate::platform::data_dir;
 use crate::portable::exit_codes;
-use crate::portable::instance::control;
-use crate::portable::instance::upgrade::{BackupMeta, UpgradeMeta};
 use crate::portable::local::{InstanceInfo, Paths};
 use crate::portable::local::{lock_file, read_ports};
 use crate::portable::{linux, macos, windows};
@@ -846,7 +846,7 @@ impl FullStatus {
                 BackupStatus::Exists {
                     backup_meta: Ok(b), ..
                 } => {
-                    format!("present, {}", format::done_before(b.timestamp))
+                    format!("present, {}", print::done_before(b.timestamp))
                 }
             }
         );

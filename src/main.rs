@@ -56,6 +56,8 @@ mod tty_password;
 mod variables;
 mod version_check;
 mod watch;
+mod instance;
+
 
 fn main() {
     match _main() {
