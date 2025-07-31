@@ -19,7 +19,6 @@ use crate::branding::BRANDING_CLI_CMD;
 use crate::classify;
 use crate::commands::ExitCode;
 use crate::connect::Connection;
-use crate::error_display::print_query_error;
 use crate::options::Options;
 use crate::options::Query;
 use crate::outputs::tab_separated;
@@ -137,7 +136,7 @@ async fn run_query(
         .await
         .map_err(|err| {
             if let Some(err) = err.downcast_ref::<gel_errors::Error>() {
-                match print_query_error(err, stmt, false, "<query>") {
+                match print::query_error(err, stmt, false, "<query>") {
                     Ok(()) => ExitCode::new(1).into(),
                     Err(e) => e,
                 }
@@ -178,7 +177,7 @@ async fn _run_query(
         .execute_stream(&flags, stmt, &data_description, &())
         .await?;
 
-    print::warnings(items.warnings(), stmt)?;
+    print::query_warnings(items.warnings(), stmt)?;
 
     if !items.can_contain_data() {
         let res = items.complete().await?;

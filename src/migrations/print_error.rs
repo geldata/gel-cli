@@ -109,13 +109,13 @@ pub fn print_warnings(
             w.start = Some(start);
             w.end = Some(end);
 
-            print::warning(&w, &source, path.to_str())?;
+            print::query_warning(&w, &source, path.to_str())?;
         } else {
             // we don't know which file this warning originated from
             // print a "plain" warning (single line)
             w.start = None;
             w.end = None;
-            print::warning(&w, "", None)?;
+            print::query_warning(&w, "", None)?;
         }
     }
     Ok(())

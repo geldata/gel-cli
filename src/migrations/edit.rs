@@ -7,13 +7,12 @@ use tokio::task::spawn_blocking as unblock;
 use crate::branding::BRANDING_CLI_CMD;
 use crate::commands::Options;
 use crate::connect::Connection;
-use crate::error_display::print_query_error;
 use crate::migrations::context::Context;
 use crate::migrations::grammar::parse_migration;
 use crate::migrations::migration::{file_num, read_names};
 use crate::migrations::options::MigrationEdit;
 use crate::platform::{spawn_editor, tmp_file_path};
-use crate::print::{Highlight, err_marker, msg};
+use crate::print::{self, err_marker, msg, Highlight};
 use crate::question::Choice;
 
 #[derive(Copy, Clone)]
@@ -108,7 +107,7 @@ async fn check_migration(cli: &mut Connection, text: &str, path: &Path) -> anyho
     cli.execute("START TRANSACTION", &()).await?;
     let res = cli.execute(text, &()).await.map_err(|err| {
         let fname = path.display().to_string();
-        match print_query_error(&err, text, false, &fname) {
+        match print::query_error(&err, text, false, &fname) {
             Ok(()) => err.into(),
             Err(err) => err,
         }

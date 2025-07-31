@@ -27,8 +27,6 @@ mod config;
 mod connect;
 mod credentials;
 mod docker;
-mod error_display;
-mod format;
 mod git;
 mod highlight;
 mod hint;
