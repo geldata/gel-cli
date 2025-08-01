@@ -476,8 +476,9 @@ pub fn do_stop(name: &str) -> anyhow::Result<()> {
     }
 }
 
-pub fn stop(options: &Stop) -> anyhow::Result<()> {
-    let name = match options.instance_opts.instance()? {
+#[tokio::main(flavor = "current_thread")]
+pub async fn stop(options: &Stop) -> anyhow::Result<()> {
+    let name = match options.instance_opts.instance().await? {
         InstanceName::Local(name) => {
             if cfg!(windows) {
                 return windows::stop(options, &name);
@@ -586,8 +587,9 @@ pub fn do_restart(inst: &InstanceInfo) -> anyhow::Result<()> {
     }
 }
 
-pub fn restart(cmd: &Restart, options: &crate::Options) -> anyhow::Result<()> {
-    match cmd.instance_opts.instance()? {
+#[tokio::main(flavor = "current_thread")]
+pub async fn restart(cmd: &Restart, options: &crate::Options) -> anyhow::Result<()> {
+    match cmd.instance_opts.instance().await? {
         InstanceName::Local(name) => {
             let meta = InstanceInfo::read(&name)?;
             do_restart(&meta)

@@ -134,8 +134,3 @@ pub async fn has_docker() -> bool {
     }
     false
 }
-
-#[tokio::main]
-pub async fn has_docker_blocking() -> bool {
-    has_docker().await
-}
