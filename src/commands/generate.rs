@@ -1,9 +1,9 @@
 use std::collections::HashMap;
+use std::env;
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::Stdio;
-use std::{env, fs};
 
 use anyhow::Context;
 use tempfile::NamedTempFile;
@@ -149,29 +149,38 @@ pub async fn prepare_command(
         .and_then(|d| d.get(lang))
         .and_then(|d| d.get(generator))
     {
-        let mut data = HashMap::new();
+        let mut generate_config = toml::map::Map::new();
         for (k, v) in config {
             let span = v.span();
             let span = [span.start, span.end]
                 .iter()
                 .map(|p| (*p).try_into().map(toml::Value::Integer))
                 .collect::<Result<Vec<_>, _>>()?;
-            let mut value = HashMap::new();
-            value.insert("span".to_string(), toml::Value::Array(span));
-            value.insert("value".to_string(), v.get_ref().clone());
-            data.insert(k.clone(), value);
+            let source = toml::map::Map::from_iter([
+                ("span".into(), span.into()),
+                ("manifest".into(), "project".into()),
+            ]);
+            let value = toml::map::Map::from_iter([
+                ("source".into(), source.into()),
+                ("value".into(), v.get_ref().clone()),
+            ]);
+            generate_config.insert(k.clone(), value.into());
         }
+        let manifests = toml::map::Map::from_iter([(
+            "project".into(),
+            project.location.manifest.display().to_string().into(),
+        )]);
+        let manifest = toml::map::Map::from_iter([
+            ("generate-config".into(), generate_config.into()),
+            ("manifests".into(), manifests.into()),
+        ]);
         env.insert(
-            OsString::from("GEL_GENERATE_CONFIG"),
-            OsString::from(serde_json::to_string(&data)?),
-        );
-        env.insert(
-            OsString::from("GEL_TOML_CONTENT"),
-            OsString::from(fs::read_to_string(project.location.manifest)?),
+            OsString::from("_GEL_MANIFEST"),
+            OsString::from(serde_json::to_string(&manifest)?),
         );
         print::msg!(
-            "Using generator configuration: {}",
-            serde_json::to_string(&config)?.emphasized(),
+            "Using generator configuration from project manifest: {}",
+            serde_json::to_string_pretty(&config)?.emphasized(),
         );
     }
 
