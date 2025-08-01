@@ -16,6 +16,10 @@ if TARGET_OS != "windows" {
     %EXIT any
     *
 
+    $ gel instance list-backups
+    %EXIT 2
+    ! gel error: Instance name argument is required, use '-I name'
+
     $ gel instance create -I $INSTANCE
     *
 
@@ -34,7 +38,7 @@ if TARGET_OS != "windows" {
     ! OK: CREATE TYPE
 
     $ gel query "for i in range_unpack(range(0,10)) union ( insert SpaceFiller { name := str_repeat(<str>i, 1000000) } );" > /dev/null
-    
+
     $ gel instance backup --non-interactive
     *
     ! Successfully created a backup %{UUID} for Gel instance '%{DATA}'

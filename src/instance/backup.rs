@@ -138,7 +138,7 @@ pub async fn list(cmd: &ListBackups, opts: &crate::options::Options) -> anyhow::
         bail!("Instance backup/restore is not yet supported on Windows");
     }
 
-    let inst_name = cmd.instance_opts.instance()?;
+    let inst_name = cmd.instance_opts.instance().await?;
     let _lock = LockManager::lock_read_instance_async(&inst_name).await?;
     let instance = get_instance(opts, &inst_name)?.backup()?;
     let backups = instance.list_backups().await?;
@@ -186,7 +186,7 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
         bail!("Instance backup/restore is not yet supported on Windows");
     }
 
-    let inst_name = cmd.instance_opts.instance()?;
+    let inst_name = cmd.instance_opts.instance().await?;
     let _lock = LockManager::lock_read_instance_async(&inst_name).await?;
     let backup = get_instance(opts, &inst_name)?.backup()?;
 
@@ -243,7 +243,7 @@ pub async fn restore(cmd: &Restore, opts: &crate::options::Options) -> anyhow::R
         bail!("Instance backup/restore is not yet supported on Windows");
     }
 
-    let inst_name = cmd.instance_opts.instance()?;
+    let inst_name = cmd.instance_opts.instance().await?;
     let _lock = LockManager::lock_instance_async(&inst_name).await?;
     let backup = get_instance(opts, &inst_name)?.backup()?;
 

@@ -15,7 +15,7 @@ use tokio::task::spawn_blocking as unblock;
 
 use gel_cli_derive::IntoArgs;
 
-use crate::docker::{DockerMode, has_docker_blocking, try_docker, try_docker_fallback};
+use crate::docker::{DockerMode, has_docker, try_docker, try_docker_fallback};
 use crate::{cli, instance, msg, watch};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, MANIFEST_FILE_DISPLAY_NAME};
@@ -312,7 +312,7 @@ impl From<InstanceName> for InstanceOptionsLegacy {
 }
 
 impl InstanceOptions {
-    pub fn instance(&self) -> anyhow::Result<InstanceName> {
+    pub async fn instance(&self) -> anyhow::Result<InstanceName> {
         if let Some(name) = &self.instance {
             return Ok(name.clone());
         }
@@ -330,7 +330,7 @@ impl InstanceOptions {
         };
 
         // if we have docker, suggest linking it for this command
-        if has_docker_blocking() {
+        if has_docker().await {
             msg!(
                 "{} Instance name argument is required, use '-I name'.",
                 err_marker()
@@ -355,7 +355,8 @@ impl InstanceOptions {
 }
 
 impl InstanceOptionsLegacy {
-    pub fn instance(&self) -> anyhow::Result<InstanceName> {
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn instance(&self) -> anyhow::Result<InstanceName> {
         if let Some(name) = &self.name {
             print::error!(
                 "Support for specifying an instance name as a positional argument has been removed. \
@@ -364,16 +365,17 @@ impl InstanceOptionsLegacy {
             return Err(ExitCode::new(1).into());
         }
 
-        self.instance_opts.instance()
+        self.instance_opts.instance().await
     }
 
-    pub fn instance_allow_legacy(&self) -> anyhow::Result<InstanceName> {
+    #[tokio::main(flavor = "current_thread")]
+    pub async fn instance_allow_legacy(&self) -> anyhow::Result<InstanceName> {
         if let Some(name) = &self.name {
             warn!("Instance name as a positional argument is deprecated, use '-I {name}' instead");
             return Ok(name.clone());
         }
 
-        self.instance_opts.instance()
+        self.instance_opts.instance().await
     }
 }
 

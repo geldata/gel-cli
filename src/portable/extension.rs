@@ -156,8 +156,9 @@ fn list(_: &ExtensionList, options: &Options) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-fn uninstall(cmd: &ExtensionUninstall, _options: &Options) -> Result<(), anyhow::Error> {
-    let inst = get_local_instance(cmd.instance_opts.instance()?)?;
+#[tokio::main(flavor = "current_thread")]
+async fn uninstall(cmd: &ExtensionUninstall, _options: &Options) -> Result<(), anyhow::Error> {
+    let inst = get_local_instance(cmd.instance_opts.instance().await?)?;
 
     if cfg!(windows) {
         return windows::extension_uninstall(cmd);
@@ -171,8 +172,9 @@ fn uninstall(cmd: &ExtensionUninstall, _options: &Options) -> Result<(), anyhow:
     Ok(())
 }
 
-fn install(cmd: &ExtensionInstall, _options: &Options) -> Result<(), anyhow::Error> {
-    let inst = get_local_instance(cmd.instance_opts.instance()?)?;
+#[tokio::main(flavor = "current_thread")]
+async fn install(cmd: &ExtensionInstall, _options: &Options) -> Result<(), anyhow::Error> {
+    let inst = get_local_instance(cmd.instance_opts.instance().await?)?;
 
     if cfg!(windows) {
         return windows::extension_install(cmd);
@@ -262,12 +264,16 @@ fn run_extension_loader(
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-fn list_available(list: &ExtensionListAvailable, _options: &Options) -> Result<(), anyhow::Error> {
-    let inst = get_local_instance(list.instance_opts.instance()?)?;
+#[tokio::main(flavor = "current_thread")]
+async fn list_available(
+    cmd: &ExtensionListAvailable,
+    _options: &Options,
+) -> Result<(), anyhow::Error> {
+    let inst = get_local_instance(cmd.instance_opts.instance().await?)?;
 
     let version = inst.get_version()?.specific();
-    let channel = list.channel.unwrap_or(Channel::Stable);
-    let slot = list.slot.clone().unwrap_or(version.extension_server_slot());
+    let channel = cmd.channel.unwrap_or(Channel::Stable);
+    let slot = cmd.slot.clone().unwrap_or(version.extension_server_slot());
     debug!("Instance: {version} {channel:?} {slot}");
     let packages = get_platform_extension_packages(channel, &slot, get_server()?)?;
 
