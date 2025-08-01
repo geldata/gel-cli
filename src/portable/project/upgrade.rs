@@ -7,6 +7,7 @@ use gel_tokio::CloudName;
 use crate::branding::{BRANDING, BRANDING_CLI_CMD};
 use crate::cloud;
 use crate::cloud::client::CloudClient;
+use crate::hint::HintExt;
 use crate::migrations;
 use crate::portable::instance;
 use crate::portable::instance::upgrade;
@@ -339,8 +340,24 @@ fn upgrade_local(
             } else {
                 migrations::upgrade_check::to_version(&pkg, project)?;
 
-                let has_compatible_pg_versions = true;
-                if has_compatible_pg_versions || cmd.force_in_place {
+                let compatible_pg = true;
+                let compatible_in_place = compatible_pg
+                    && inst_ver.major >= 6
+                    && pkg_ver.major >= 6
+                    && inst_ver.major != pkg_ver.major;
+
+                if cmd.force_in_place && !compatible_in_place {
+                    return Err(anyhow::anyhow!(
+                        "These two versions are not compatible for in-place upgrade"
+                    )
+                    .hint("Remove --force-in-place flag")
+                    .into());
+                }
+
+                if (compatible_in_place || cmd.force_in_place)
+                    && !cmd.force
+                    && !cmd.force_dump_restore
+                {
                     upgrade::upgrade_in_place(inst, inst_ver.clone(), pkg)?;
                 } else {
                     upgrade::upgrade_incompatible(
