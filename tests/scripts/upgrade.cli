@@ -1,0 +1,72 @@
+#!/usr/bin/env clitest --v0
+
+# Test for upgrades
+
+pattern VERSION \d+\.\d+(:?\.\d+)?(?:-(?:alpha|beta|rc|dev)(:?\.\d+)?)?(?:\+[a-f0-9]{7}|local)?
+
+ignore {
+    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
+    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
+    ! Connecting to Gel instance %{GREEDYDATA}
+}
+
+# Clean up any existing instances
+$ gel instance destroy -I inst3 --force
+%EXIT any
+*
+
+# Test version command
+$ gel --version
+? Gel CLI %{VERSION}
+
+# Test server version listing
+$ gel server list-versions
+*
+
+# Test instance creation
+$ gel instance create inst3
+choice {
+    sequence {
+        ? Downloading package...
+        *
+        ? Successfully installed %{VERSION}
+    }
+    ? Version %{VERSION} is already downloaded
+}
+! Initializing Gel instance 'inst3'...
+*
+! Instance inst3 is up and running.
+! To connect to the instance run:
+!   gel -I inst3
+
+if TARGET_OS != "windows" {
+    $ gel instance backup --instance=inst3 --non-interactive
+    ? Successfully created a backup [a-z0-9-]+ for Gel instance 'inst3'
+}
+
+# Upgrade to nightly, in-place
+$ gel instance upgrade --instance=inst3 --to-nightly
+%TIMEOUT 120s
+? Upgrading from %{VERSION} to version %{VERSION}, in-place
+*
+! .. setting force_database_error
+! .. collecting database information
+! .. preparing upgrade
+*
+! .. stopping old gel-server
+*
+! .. finalizing upgrade
+*
+! .. starting new gel-server
+*
+! .. resetting force_database_error
+? Instance inst3 successfully upgraded to %{VERSION}
+
+if TARGET_OS != "windows" {
+    $ gel instance restore --latest --instance=inst3 --non-interactive
+    *
+    ! Gel instance 'inst3' has been restored successfully.
+    ! To connect to the instance run:
+    !   gel -I inst3
+}

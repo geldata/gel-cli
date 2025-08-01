@@ -379,6 +379,7 @@ fn do_init(
             instance_name: inst_name.clone(),
             installation: None,
             port,
+            upgrade_state: None,
         })?;
         project::InstanceKind::Wsl
     } else {
@@ -389,6 +390,7 @@ fn do_init(
             instance_name: inst_name.clone(),
             installation: Some(inst),
             port,
+            upgrade_state: None,
         };
         create::bootstrap(
             &paths,

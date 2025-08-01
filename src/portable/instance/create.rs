@@ -133,6 +133,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
             instance_name: inst_name,
             installation: None,
             port,
+            upgrade_state: None,
         }
     } else {
         let (query, _) = Query::from_options(
@@ -152,6 +153,7 @@ pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> 
             instance_name: inst_name,
             installation: Some(inst),
             port,
+            upgrade_state: None,
         };
         bootstrap(
             &paths,

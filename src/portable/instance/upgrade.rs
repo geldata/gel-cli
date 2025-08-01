@@ -10,24 +10,26 @@ use gel_cli_derive::IntoArgs;
 use gel_cli_instance::cloud::CloudInstanceUpgrade;
 use gel_tokio::dsn::DEFAULT_DATABASE_NAME;
 use gel_tokio::{CloudName, InstanceName};
+use tempfile::NamedTempFile;
 
-use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, QUERY_TAG};
+use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, BRANDING_SERVER, QUERY_TAG};
 use crate::commands::{self, ExitCode};
 use crate::connect::{Connection, Connector};
+use crate::hint::HintExt;
 use crate::locking::LockManager;
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
-use crate::portable::exit_codes;
 use crate::portable::instance::control;
 use crate::portable::instance::create;
-use crate::portable::local::{InstallInfo, InstanceInfo, Paths, write_json};
+use crate::portable::local::{InstallInfo, InstanceInfo, Paths, UpgradeState, write_json};
 use crate::portable::project;
 use crate::portable::repository::{self, Channel, PackageInfo, Query, QueryOptions};
 use crate::portable::server::install;
 use crate::portable::ver;
 use crate::portable::windows;
+use crate::portable::{exit_codes, local};
 use crate::print::{self, Highlight, msg};
-use crate::question;
 use crate::{cloud, credentials};
+use crate::{process, question};
 
 pub fn run(cmd: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     let _lock = LockManager::lock_instance(&cmd.instance_opts.instance()?)?;
@@ -225,7 +227,6 @@ fn upgrade_local_cmd(
     }
     ver::print_version_hint(&pkg_ver, &ver_query);
 
-    let inst = InstanceInfo::read(name)?;
     // When force is used we might upgrade to the same version, so
     // we rely on presence of the version specifying options instead to
     // define how we want upgrade to be performed. This is mostly useful
@@ -233,7 +234,25 @@ fn upgrade_local_cmd(
     if inst_ver.is_compatible(&pkg_ver) && !(cmd.force && ver_option) && !cmd.force_dump_restore {
         upgrade_compatible(inst, pkg)
     } else {
-        upgrade_incompatible(inst, inst_ver, pkg, cmd.non_interactive, opts.skip_hooks)
+        let compatible_pg = true;
+        let compatible_in_place = compatible_pg
+            && inst_ver.major >= 6
+            && pkg_ver.major >= 6
+            && inst_ver.major != pkg_ver.major;
+
+        if cmd.force_in_place && !compatible_in_place {
+            return Err(anyhow::anyhow!(
+                "These two versions are not compatible for in-place upgrade"
+            )
+            .hint("Remove --force-in-place flag")
+            .into());
+        }
+
+        if (compatible_in_place || cmd.force_in_place) && !cmd.force && !cmd.force_dump_restore {
+            upgrade_in_place(inst, inst_ver, pkg)
+        } else {
+            upgrade_incompatible(inst, inst_ver, pkg, cmd.non_interactive, opts.skip_hooks)
+        }
     }
 }
 
@@ -624,5 +643,198 @@ async fn restore_instance(
         },
     ))
     .await?;
+    Ok(())
+}
+
+pub fn upgrade_in_place(
+    mut inst: InstanceInfo,
+    version: ver::Specific,
+    pkg: PackageInfo,
+) -> anyhow::Result<()> {
+    msg!(
+        "Upgrading from {} to version {}, in-place",
+        version,
+        pkg.version.to_string().emphasized()
+    );
+
+    let new_install = install::package(&pkg).context(concatcp!("error installing ", BRANDING))?;
+
+    control::do_start(&inst)?;
+
+    if inst.upgrade_state.is_some() {
+        print::msg!(".. found prepared upgrade");
+        rollback_upgrade(&mut inst, &new_install)?;
+    }
+
+    // 1. & 2.
+    let upgrade_data_file = set_force_error_and_dump_info(&inst)?;
+
+    // 3. Prepare the upgrade.
+    prepare_upgrade(&mut inst, &new_install, upgrade_data_file)?;
+
+    // 4. Stop the old gel server.
+    print::msg!(".. stopping old gel-server");
+    control::do_stop(&inst.name)?;
+
+    // 4.5. Make a backup
+    // TODO
+
+    // 5. Finalize the upgrade.
+    print::msg!(".. finalizing upgrade");
+    inst.installation = Some(new_install);
+    let status = control::get_server_cmd(&inst, false)?
+        .arg("--inplace-upgrade-finalize")
+        .set_proxy(true)
+        .status()?;
+    if !status.success() {
+        return Err(anyhow::anyhow!("Cannot finalize upgrade: {status}"));
+    }
+    inst.upgrade_state = None;
+    save_instance_info(&inst)?;
+
+    // 6. Start the new server.
+    print::msg!(".. starting new gel-server");
+    control::do_start(&inst)?;
+
+    // 7. configure instance reset force_database_error
+    clear_force_error(&inst)?;
+
+    msg!(
+        "Instance {} successfully upgraded to {}",
+        inst.name.emphasized(),
+        pkg.version.to_string().emphasized()
+    );
+
+    Ok(())
+}
+
+fn prepare_upgrade(
+    inst: &mut InstanceInfo,
+    new_install: &InstallInfo,
+    upgrade_data_file: NamedTempFile,
+) -> Result<(), anyhow::Error> {
+    print::msg!(".. preparing upgrade");
+
+    let postgres_run_state_dir = local::runstate_dir(&inst.name)?;
+    let postgres_dsn = format!(
+        "postgres://{}",
+        urlencoding::encode(&postgres_run_state_dir.display().to_string())
+    );
+
+    inst.upgrade_state = Some(UpgradeState::PrepareStarted);
+    save_instance_info(inst)?;
+
+    let status = process::Native::new(BRANDING_SERVER, BRANDING_SERVER, new_install.server_path()?)
+        .arg("--backend-dsn")
+        .arg(&postgres_dsn)
+        .arg("--tls-cert-file")
+        .arg(inst.data_dir()?.join("edbtlscert.pem"))
+        .arg("--tls-key-file")
+        .arg(inst.data_dir()?.join("edbprivkey.pem"))
+        .arg("--inplace-upgrade-prepare")
+        .arg(upgrade_data_file.path())
+        .status()?;
+
+    if !status.success() {
+        print::msg!(".. prepare failed: {status}");
+
+        // fail, revert prepare
+        rollback_upgrade(inst, new_install)?;
+        return Err(anyhow::anyhow!("Upgrade prepare failed"));
+    }
+
+    inst.upgrade_state = Some(UpgradeState::Prepared);
+    save_instance_info(inst)?;
+    Ok(())
+}
+
+fn rollback_upgrade(inst: &mut InstanceInfo, install: &InstallInfo) -> Result<(), anyhow::Error> {
+    print::msg!(".. rolling back prepared upgrade");
+
+    server_cmd_alongside_running(inst, install)?
+        .arg("--inplace-upgrade-rollback")
+        .status()?;
+    // don't check status, we don't care if it fails
+    // it will clean up prepared upgrade or fail if there is nothing prepared
+
+    inst.upgrade_state = None;
+    save_instance_info(inst)?;
+    Ok(())
+}
+
+fn server_cmd_alongside_running(
+    inst: &mut InstanceInfo,
+    install: &InstallInfo,
+) -> Result<process::Native, anyhow::Error> {
+    let postgres_run_state_dir = local::runstate_dir(&inst.name)?;
+    let postgres_dsn = format!(
+        "postgres://{}",
+        urlencoding::encode(&postgres_run_state_dir.display().to_string())
+    );
+
+    let mut native = process::Native::new(BRANDING_SERVER, BRANDING_SERVER, install.server_path()?);
+    native
+        .arg("--backend-dsn")
+        .arg(&postgres_dsn)
+        .arg("--tls-cert-file")
+        .arg(inst.data_dir()?.join("edbtlscert.pem"))
+        .arg("--tls-key-file")
+        .arg(inst.data_dir()?.join("edbprivkey.pem"))
+        .set_proxy(true);
+    Ok(native)
+}
+
+fn save_instance_info(inst: &InstanceInfo) -> Result<(), anyhow::Error> {
+    let metapath = inst.data_dir()?.join("instance_info.json");
+    write_json(&metapath, "new instance metadata", inst)?;
+    Ok(())
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn set_force_error_and_dump_info(inst: &InstanceInfo) -> anyhow::Result<NamedTempFile> {
+    let config = inst.admin_conn_params()?;
+
+    print::msg!(".. setting force_database_error");
+
+    let mut conn = Connection::connect(&config, QUERY_TAG).await?;
+
+    // 1. configure instance set force_database_error
+    conn.execute(r#"
+        configure instance set force_database_error :=
+        $${"type": "AvailabilityError", "message": "DDL is disabled due to in-place upgrade.", "_scopes": ["ddl"]}$$;
+    "#, &()).await?;
+
+    // 2. Dump the information needed for upgrade. tests/inplace-testing/prep-upgrades.py > "upgrade.json"
+    print::msg!(".. collecting database information");
+    let branches: Vec<String> = conn.query("select sys::Database.name", &()).await?;
+    drop(conn);
+
+    let mut datas = serde_json::map::Map::new();
+    for branch in branches {
+        let config = config.with_branch(&branch);
+        let mut conn = Connection::connect(&config, QUERY_TAG).await?;
+        let data: gel_protocol::model::Json = conn
+            .query_required_single("administer prepare_upgrade()", &())
+            .await?;
+
+        datas.insert(branch, serde_json::from_str::<serde_json::Value>(&data)?);
+    }
+
+    let mut file = tempfile::NamedTempFile::new()?;
+    let writer = std::io::BufWriter::new(file.as_file_mut());
+    serde_json::to_writer(writer, &serde_json::Value::Object(datas))?;
+
+    Ok(file)
+}
+
+#[tokio::main(flavor = "current_thread")]
+async fn clear_force_error(inst: &InstanceInfo) -> anyhow::Result<()> {
+    let config = inst.admin_conn_params()?;
+
+    print::msg!(".. resetting force_database_error");
+    let mut conn = Connection::connect(&config, QUERY_TAG).await?;
+
+    conn.execute("configure instance reset force_database_error;", &())
+        .await?;
     Ok(())
 }

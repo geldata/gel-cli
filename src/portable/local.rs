@@ -42,12 +42,22 @@ pub struct InstanceInfo {
     pub instance_name: InstanceName,
     pub installation: Option<InstallInfo>,
     pub port: u16,
+
+    /// The state of this instance during an in-place upgrade.
+    pub upgrade_state: Option<UpgradeState>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum UpgradeState {
+    PrepareStarted,
+    Prepared,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 struct PartialInstanceInfo {
     pub installation: Option<InstallInfo>,
     pub port: u16,
+    pub upgrade_state: Option<UpgradeState>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -341,6 +351,7 @@ impl InstanceInfo {
                 instance_name: InstanceName::Local(name.to_string()),
                 installation: data.installation,
                 port: data.port,
+                upgrade_state: data.upgrade_state,
             }))
         } else {
             let mut path = instance_data_dir(name)?;
@@ -364,6 +375,7 @@ impl InstanceInfo {
                 instance_name: InstanceName::Local(name.to_string()),
                 installation: data.installation,
                 port: data.port,
+                upgrade_state: data.upgrade_state,
             })
         } else {
             InstanceInfo::read_at(name, &instance_data_dir(name)?.join("instance_info.json"))
@@ -379,6 +391,7 @@ impl InstanceInfo {
             instance_name: InstanceName::Local(name.to_string()),
             installation: data.installation,
             port: data.port,
+            upgrade_state: data.upgrade_state,
         })
     }
 
