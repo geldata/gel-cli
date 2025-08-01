@@ -264,6 +264,20 @@ impl Filter {
         }
     }
 
+    /// If minor is not specified, match only on major, otherwise use specific
+    /// match
+    pub fn matches_loose(&self, spec: &Specific) -> bool {
+        if self.exact {
+            self.matches_exact(spec)
+        } else {
+            if self.minor.is_none() {
+                spec.major == self.major
+            } else {
+                self.matches_specific(spec)
+            }
+        }
+    }
+
     pub fn matches_specific(&self, spec: &Specific) -> bool {
         use FilterMinor as Q;
         use MinorVersion as M;

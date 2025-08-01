@@ -1,0 +1,29 @@
+#!/usr/bin/env clitest --v0
+ignore {
+    ! Newer version of gel tool exists %{GREEDYDATA}
+}
+
+$ gel server list-versions
+reject {
+    ! testing
+    ! nightly
+}
+! Listing %{DATA}current, stable channel%{DATA} versions of %{DATA}Gel%{DATA}:
+*
+
+$ gel server list-versions --installed-only
+! Listing %{DATA}installed%{DATA} versions of %{DATA}Gel%{DATA}:
+*
+
+$ gel server list-versions --installed-only --channel=stable
+! Listing %{DATA}installed, stable channel%{DATA} versions of %{DATA}Gel%{DATA}:
+*
+
+$ gel server list-versions --channel=nightly
+! Listing %{DATA}nightly channel%{DATA} versions of %{DATA}Gel%{DATA}:
+*
+
+$ gel server list-versions --version=1.0
+! Listing %{DATA}matching, stable channel%{DATA} versions of %{DATA}Gel%{DATA}:
+*
+
