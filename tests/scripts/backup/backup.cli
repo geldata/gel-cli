@@ -39,11 +39,11 @@ if TARGET_OS != "windows" {
 
     $ gel query "for i in range_unpack(range(0,10)) union ( insert SpaceFiller { name := str_repeat(<str>i, 1000000) } );" > /dev/null
 
-    $ gel instance backup --non-interactive
+    $ gel instance backup
     *
     ! Successfully created a backup %{UUID} for Gel instance '%{DATA}'
 
-    $ gel instance backup --non-interactive
+    $ gel instance backup
     *
     ! Successfully created a backup %{UUID} for Gel instance '%{DATA}'
 
@@ -53,7 +53,7 @@ if TARGET_OS != "windows" {
     $ gel query 'INSERT user { name := "John" };'
     ! {"id": "%{UUID}"}
 
-    $ gel instance backup --non-interactive
+    $ gel instance backup
     *
     ! Successfully created a backup %{UUID} for Gel instance '%{DATA}'
 
@@ -76,7 +76,7 @@ if TARGET_OS != "windows" {
     ! %{UUID}
 
     # Take a backup but we're going to restore between here and the next backup.
-    $ gel instance backup --non-interactive
+    $ gel instance backup
     *
 
     $ gel instance restore --non-interactive --backup-id $PREVIOUS_BACKUP_ID
@@ -88,7 +88,7 @@ if TARGET_OS != "windows" {
     $ gel query "for i in range_unpack(range(0,10)) union ( insert SpaceFiller { name := str_repeat(<str>i, 1000000) } );" > /dev/null
 
     # Make sure we can fall back to a full backup
-    $ gel instance backup --non-interactive
+    $ gel instance backup
     *
     ! %{GREEDYDATA} Incremental backup failed, falling back to full backup...
     ! %{GREEDYDATA} This may be expected if the database was restored to an old backup.
