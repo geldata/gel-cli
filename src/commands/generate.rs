@@ -75,24 +75,27 @@ fn detect_venv() -> anyhow::Result<Option<PathBuf>> {
     if let Some(env) = env::var_os("VIRTUAL_ENV") {
         Ok(Some(env.into()))
     } else {
-        env::current_exe()?
-            .parent()
-            .and_then(|p| p.parent())
-            .filter(|p| p.join("pyvenv.cfg").exists())
-            .map(|p| Ok(p.into()))
-            .transpose()
+        get_venv_root(&env::current_exe()?)
     }
 }
 
-async fn detect_uv() -> anyhow::Result<Option<PathBuf>> {
-    match Env::use_uv()?.unwrap_or(UseUv::Auto) {
-        UseUv::Never => return Ok(None),
-        UseUv::Auto => {}
-    }
-    let Ok(uv) = which("uv") else {
-        return Ok(None);
-    };
-    let out = process::Command::new(&uv)
+fn get_venv_root(exec: &PathBuf) -> anyhow::Result<Option<PathBuf>> {
+    exec.parent()
+        .and_then(|p| p.parent())
+        .filter(|p| p.join("pyvenv.cfg").exists())
+        .map(|p| Ok(p.into()))
+        .transpose()
+}
+
+fn detect_uv() -> anyhow::Result<Option<PathBuf>> {
+    Ok(match Env::use_uv()?.unwrap_or(UseUv::Auto) {
+        UseUv::Never => None,
+        UseUv::Auto => which("uv").ok(),
+    })
+}
+
+async fn detect_uv_project(uv: &PathBuf) -> anyhow::Result<bool> {
+    let out = process::Command::new(uv)
         .arg("version")
         .arg("--output-format")
         .arg("json")
@@ -123,10 +126,54 @@ async fn detect_uv() -> anyhow::Result<Option<PathBuf>> {
             })?
             .emphasized();
         print::msg!("Detected uv project: {package_name}",);
-        Ok(Some(uv))
+        Ok(true)
     } else {
-        Ok(None)
+        Ok(false)
     }
+}
+
+async fn detect_uv_project_venv(
+    uv: &PathBuf,
+    project_path: &PathBuf,
+) -> anyhow::Result<Option<PathBuf>> {
+    let out = process::Command::new(uv)
+        .env("RUST_LOG", "debug")
+        .arg("run")
+        .arg("--project")
+        .arg(project_path)
+        .arg("--verbose")
+        .arg("--no-sync")
+        .output()
+        .await?;
+    let stderr = std::str::from_utf8(&out.stderr)?;
+    let project_match = regex::Regex::new("Discovered project `(.*)` at: (.*)")?
+        .captures(stderr)
+        .map(|c| c.iter().skip(1).flatten().map(|m| m.as_str()).collect::<Vec<_>>());
+    let Some([project_name, workspace_root]) = project_match.as_deref() else {
+        return Ok(None);
+    };
+    print::msg!(
+        "Discovered uv project `{}` at: {}",
+        project_name.emphasized(),
+        workspace_root.emphasized()
+    );
+    let python_match = regex::Regex::new("Using (.*) (.*) interpreter at: (.*)")?
+        .captures(stderr)
+        .map(|c| c.iter().skip(1).flatten().map(|m| m.as_str()).collect::<Vec<_>>());
+    let Some([python, version, path]) = python_match.as_deref() else {
+        print::warn!("Cannot detect the Python environment, run `uv run -v` to diagnose the issue");
+        return Ok(None);
+    };
+    print::msg!(
+        "Found {python} {} interpreter at: {}",
+        version.emphasized(),
+        path.emphasized(),
+    );
+    let rv = get_venv_root(&PathBuf::from(path))?;
+    if rv.is_none() {
+        print::warn!("Not a Python virtual environment, skipping.");
+    };
+    Ok(rv)
 }
 
 pub async fn prepare_command(
@@ -192,30 +239,59 @@ pub async fn prepare_command(
                     })
             })?;
             vec![cmd.into(), generator.into()]
-        } else if let Some(uv) = detect_uv().await? {
-            // We must not use `uv run gel-generate-py` here, because it may
-            // use a global `gel-generate-py` command in $PATH, which is wrong.
-            // Instead, we use `uv run` to run the current executable again
-            // with UseUv::Never, so that it does not try to use uv again.
-            UseUv::Never.set_env(|name, value| {
-                env.insert(name.into(), value.into());
-            });
-            vec![
-                uv.into(),
-                "run".into(),
-                env::current_exe()?.into(),
-                subcommand_name.into(),
-            ]
-            .into_iter()
-            .chain(cmd.arguments.iter().map(Into::into))
-            .collect()
+        } else if let Some(uv) = detect_uv()? {
+            if let Some(venv) = detect_uv_project_venv(&uv, &env::current_dir()?).await? {
+                print::msg!(
+                    "Using uv-managed virtual environment: {}",
+                    venv.display().to_string().emphasized()
+                );
+                let cmd = venv.join("bin").join(gen_name);
+                which(&cmd).map_err(|e| {
+                    anyhow::anyhow!(e)
+                        .context(format!("cannot execute {}", cmd.display()))
+                        .with_hint(|| format!("run `uv add {GEL_PYTHON}` or `uv sync` first"))
+                })?;
+                vec![cmd.into(), generator.into()]
+            } else if detect_uv_project(&uv).await? {
+                print::warn!(
+                    "The uv version is incompatible, falling back to rerun \
+                    `{BRANDING_CLI_CMD} {subcommand_name}` under `uv run`"
+                );
+                // We must not use `uv run gel-generate-py` here, because it may
+                // use a global `gel-generate-py` command in $PATH, which is wrong.
+                // Instead, we use `uv run` to run the current executable again
+                // with UseUv::Never, so that it does not try to use uv again.
+                UseUv::Never.set_env(|name, value| {
+                    env.insert(name.into(), value.into());
+                });
+                vec![
+                    uv.into(),
+                    "run".into(),
+                    "--no-sync".into(),
+                    env::current_exe()?.into(),
+                    subcommand_name.into(),
+                ]
+                .into_iter()
+                .chain(cmd.arguments.iter().map(Into::into))
+                .collect()
+            } else {
+                Err(anyhow::anyhow!("Cannot find environment to run the Python generator.")).with_hint(
+                    || format!(
+                        "run `{BRANDING_CLI_CMD} {subcommand_name}` under your uv project subdirectory, \
+                        or in a Python virtual environment with `{GEL_PYTHON}` installed."
+                    )
+                )?
+            }
         } else {
-            Err(anyhow::anyhow!("Cannot find environment to run the Python generator.")).with_hint(
-                || format!(
-                    "run `{BRANDING_CLI_CMD} {subcommand_name}` under your uv project subdirectory \
-                    if you use uv, or in a Python virtual environment with `{GEL_PYTHON}` installed."
+            Err(anyhow::anyhow!(
+                "Cannot find environment to run the Python generator."
+            ))
+            .with_hint(|| {
+                format!(
+                    "run `{BRANDING_CLI_CMD} {subcommand_name}` in a Python virtual environment \
+                    with `{GEL_PYTHON}` installed."
                 )
-            )?
+            })?
         }
     } else if lang == "js" {
         vec!["npx", "@gel/generate", generator]
