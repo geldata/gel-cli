@@ -66,10 +66,6 @@ pub struct Backup {
 
     #[command(flatten)]
     pub instance_opts: InstanceOptions,
-
-    /// Do not ask questions.
-    #[arg(long)]
-    pub non_interactive: bool,
 }
 
 #[derive(clap::Args, IntoArgs, Clone, Debug)]
@@ -189,15 +185,6 @@ pub async fn backup(cmd: &Backup, opts: &crate::options::Options) -> anyhow::Res
     let inst_name = cmd.instance_opts.instance().await?;
     let _lock = LockManager::lock_read_instance_async(&inst_name).await?;
     let backup = get_instance(opts, &inst_name)?.backup()?;
-
-    let prompt = format!(
-        "Will create a backup for {inst_name:#}.\
-        \n\nContinue?",
-    );
-
-    if !cmd.non_interactive && !question::Confirm::new(prompt).ask()? {
-        return Ok(());
-    }
 
     let progress_bar = ProgressBar::default();
 
