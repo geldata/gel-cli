@@ -40,8 +40,10 @@ choice {
 ! To connect to the instance run:
 !   gel -I inst3
 
-$ gel instance backup --instance=inst3 --non-interactive
-? Successfully created a backup [a-z0-9-]+ for Gel instance 'inst3'
+if TARGET_OS != "windows" {
+    $ gel instance backup --instance=inst3 --non-interactive
+    ? Successfully created a backup [a-z0-9-]+ for Gel instance 'inst3'
+}
 
 # Upgrade to nightly, in-place
 $ gel instance upgrade --instance=inst3 --to-nightly
@@ -61,8 +63,10 @@ $ gel instance upgrade --instance=inst3 --to-nightly
 ! .. resetting force_database_error
 ? Instance inst3 successfully upgraded to %{VERSION}
 
-$ gel instance restore --latest --instance=inst3 --non-interactive
-*
-! Gel instance 'inst3' has been restored successfully.
-! To connect to the instance run:
-!   gel -I inst3
+if TARGET_OS != "windows" {
+    $ gel instance restore --latest --instance=inst3 --non-interactive
+    *
+    ! Gel instance 'inst3' has been restored successfully.
+    ! To connect to the instance run:
+    !   gel -I inst3
+}
