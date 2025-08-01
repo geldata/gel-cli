@@ -1,5 +1,6 @@
 mod buffer;
 mod color;
+mod error;
 mod formatter;
 mod json;
 mod native;
@@ -8,17 +9,20 @@ pub mod style;
 #[cfg(test)]
 mod tests;
 
-pub use crate::error_display::print_query_warning as warning;
-pub use crate::error_display::print_query_warnings as warnings;
-pub use crate::msg;
+pub use crate::{error, msg, success, warn};
 pub use color::Highlight;
 pub use color::TERMINAL_LUMA;
+pub use error::print_query_error as query_error;
+pub use error::print_query_warning as query_warning;
+pub use error::print_query_warnings as query_warnings;
 
+use std::borrow::Cow;
 use std::convert::Infallible;
 use std::error::Error;
 use std::fmt;
 use std::io;
 use std::sync::OnceLock;
+use std::time;
 
 use const_format::concatcp;
 use futures_util::{Stream, StreamExt};
@@ -664,4 +668,12 @@ pub fn init_colors() {
     std::sync::LazyLock::force(&TERMINAL_LUMA);
 }
 
-pub use crate::{error, success, warn};
+pub fn done_before(timestamp: time::SystemTime) -> impl fmt::Display {
+    timestamp
+        .elapsed()
+        .map(|duration| {
+            let min = time::Duration::new(duration.as_secs() / 60 * 60, 0);
+            Cow::Owned(format!("done {} ago", humantime::format_duration(min)))
+        })
+        .unwrap_or_else(|_| Cow::Borrowed("done just now"))
+}

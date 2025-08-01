@@ -20,11 +20,11 @@ use crate::cli::upgrade;
 use crate::commands::ExitCode;
 use crate::platform::{binary_path, config_dir, current_exe, home_dir};
 use crate::portable::platform;
-use crate::portable::project;
-use crate::portable::project::get_stash_path;
 use crate::print::{self, msg};
 use crate::print_markdown;
 use crate::process;
+use crate::project;
+use crate::project::get_stash_path;
 use crate::question::{self, read_choice};
 use crate::table;
 

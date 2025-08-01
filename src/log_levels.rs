@@ -1,10 +1,10 @@
 use crate::cli;
 use crate::commands::parser::Common;
+use crate::instance;
 use crate::migrations::options::MigrationCmd;
 use crate::options::{Command, Options};
-use crate::portable::instance;
-use crate::portable::project::Subcommands as Project;
 use crate::portable::server::Subcommands as Server;
+use crate::project::Subcommands as Project;
 use std::io::Write;
 
 pub fn init(builder: &mut env_logger::Builder, opt: &Options) {

@@ -10,10 +10,10 @@ use crate::cloud::client::CloudClient;
 use crate::commands::{ExitCode, Options};
 use crate::connect::Connector;
 use crate::hint::{HintExt, HintedError};
-use crate::portable::instance::control;
-use crate::portable::{project, windows};
+use crate::instance::control;
+use crate::portable::windows;
 use crate::print::AsRelativeToCurrentDir;
-use crate::{migrations, msg, print, question};
+use crate::{migrations, msg, print, project, question};
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct Command {

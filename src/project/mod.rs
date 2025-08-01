@@ -36,7 +36,7 @@ use crate::print;
 use crate::print::AsRelativeToCurrentDir;
 
 pub fn run(cmd: &Command, options: &crate::options::Options) -> anyhow::Result<()> {
-    use crate::portable::project::Subcommands::*;
+    use crate::project::Subcommands::*;
 
     match &cmd.subcommand {
         Init(c) => init::run(c, options),

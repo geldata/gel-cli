@@ -24,7 +24,6 @@ use crate::classify;
 use crate::cli::logo::print_logo;
 use crate::commands::{ExitCode, backslash};
 use crate::config::Config;
-use crate::error_display::print_query_error;
 use crate::interrupt::{Interrupt, InterruptError};
 use crate::options::Options;
 use crate::outputs::tab_separated;
@@ -353,7 +352,7 @@ async fn execute_query(
                         return Err(RetryStateError)?;
                     }
                     Err(e) => {
-                        print_query_error(&e, statement, state.verbose_errors, "<query>")?;
+                        print::query_error(&e, statement, state.verbose_errors, "<query>")?;
                         return Err(QueryError)?;
                     }
                 }
@@ -363,13 +362,13 @@ async fn execute_query(
                 cli.clear_watch_error().await;
             }
             Err(e) => {
-                print_query_error(&e, statement, state.verbose_errors, "<query>")?;
+                print::query_error(&e, statement, state.verbose_errors, "<query>")?;
                 return Err(QueryError)?;
             }
         }
     };
 
-    print::warnings(items.warnings(), statement)?;
+    print::query_warnings(items.warnings(), statement)?;
 
     if !items.can_contain_data() {
         match items.complete().await {
@@ -434,7 +433,7 @@ async fn execute_query(
                         PrintError::StreamErr {
                             source: ref error, ..
                         } => {
-                            print_query_error(error, statement, state.verbose_errors, "<query>")?;
+                            print::query_error(error, statement, state.verbose_errors, "<query>")?;
                         }
                         _ => eprintln!("{e:#?}"),
                     }
@@ -452,7 +451,7 @@ async fn execute_query(
                         PrintError::StreamErr {
                             source: ref error, ..
                         } => {
-                            print_query_error(error, statement, state.verbose_errors, "<query>")?;
+                            print::query_error(error, statement, state.verbose_errors, "<query>")?;
                         }
                         _ => eprintln!("{e:#?}"),
                     }

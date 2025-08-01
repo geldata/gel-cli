@@ -28,21 +28,21 @@ use crate::collect::Collector;
 use crate::commands::ExitCode;
 use crate::credentials;
 use crate::hint::HintExt;
+use crate::instance;
+use crate::instance::control;
+use crate::instance::create;
+use crate::instance::destroy;
+use crate::instance::status::{self, status_str};
 use crate::platform::{cache_dir, config_dir, tmp_file_path, wsl_dir};
 use crate::portable::exit_codes;
-use crate::portable::instance;
-use crate::portable::instance::control;
-use crate::portable::instance::create;
-use crate::portable::instance::destroy;
-use crate::portable::instance::status::{self, status_str};
 use crate::portable::local::{InstanceInfo, NonLocalInstance, Paths, write_json};
 use crate::portable::options;
-use crate::portable::project;
 use crate::portable::repository::{self, PackageHash, PackageInfo, download};
 use crate::portable::server;
 use crate::portable::ver;
 use crate::print::{self, Highlight, msg};
 use crate::process;
+use crate::project;
 
 use super::extension;
 

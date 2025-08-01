@@ -15,8 +15,8 @@ use tokio::time::{sleep, timeout};
 use crate::branding::{BRANDING, BRANDING_CLOUD};
 use crate::cloud::client::CloudClient;
 use crate::collect::Collector;
+use crate::instance::status::{RemoteStatus, RemoteType};
 use crate::options::CloudOptions;
-use crate::portable::instance::status::{RemoteStatus, RemoteType};
 use crate::question;
 
 const OPERATION_WAIT_TIME: Duration = Duration::from_secs(20 * 60);

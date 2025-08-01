@@ -18,7 +18,7 @@ pub async fn run(
     use Subcommand as C;
     use ValueParameter as S;
     match &cmd.command {
-        C::Apply(cmd) => crate::portable::project::config::run(cmd, options).await,
+        C::Apply(cmd) => crate::project::config::run(cmd, options).await,
 
         C::Insert(Ins {
             parameter: I::Auth(param),
@@ -276,7 +276,7 @@ pub struct Command {
 #[derive(clap::Subcommand, Clone, Debug)]
 pub enum Subcommand {
     /// Reads gel.local.toml from project directory and applies it to the instance.
-    Apply(crate::portable::project::config::Command),
+    Apply(crate::project::config::Command),
     /// Insert another configuration entry to the list setting
     Insert(ConfigureInsert),
     /// Reset configuration entry (empty the list for list settings)

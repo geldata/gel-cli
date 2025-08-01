@@ -16,7 +16,7 @@ use tokio::task::spawn_blocking as unblock;
 use gel_cli_derive::IntoArgs;
 
 use crate::docker::{DockerMode, has_docker_blocking, try_docker, try_docker_fallback};
-use crate::{cli, msg, watch};
+use crate::{cli, instance, msg, watch};
 
 use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, MANIFEST_FILE_DISPLAY_NAME};
 use crate::cloud::options::CloudCommand;
@@ -27,8 +27,8 @@ use crate::hint::HintExt;
 use crate::markdown;
 use crate::portable;
 use crate::portable::local::runstate_dir;
-use crate::portable::project;
 use crate::print::{self, AsRelativeToCurrentDir, Highlight, err_marker};
+use crate::project;
 use crate::repl::{InputLanguage, OutputFormat};
 use crate::tty_password;
 
@@ -499,7 +499,7 @@ pub enum Command {
     /// Manage project installation
     Project(project::Command),
     /// Manage local [`BRANDING`] instances
-    Instance(portable::instance::Command),
+    Instance(instance::Command),
     /// Manage local [`BRANDING`] installations
     Server(portable::server::Command),
     /// Manage extensions of local instances

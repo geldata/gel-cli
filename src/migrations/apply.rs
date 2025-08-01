@@ -21,7 +21,6 @@ use crate::bug;
 use crate::commands::ExitCode;
 use crate::commands::Options;
 use crate::connect::{Connection, ResponseStream};
-use crate::error_display::print_query_error;
 use crate::hint::HintExt;
 use crate::hooks;
 use crate::migrations;
@@ -35,7 +34,7 @@ use crate::migrations::timeout;
 use crate::options::ConnectionOptions;
 use crate::portable::local::InstanceInfo;
 use crate::portable::ver::{self, Specific};
-use crate::print::{self, Highlight};
+use crate::print::{self, Highlight, error};
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -754,7 +753,7 @@ pub async fn apply_migration(
 
     res.map_err(|err| {
         let fname = migration.path.display().to_string();
-        match print_query_error(&err, &data, false, &fname) {
+        match print::query_error(&err, &data, false, &fname) {
             Ok(()) => ApplyMigrationError.into(),
             Err(err) => err,
         }

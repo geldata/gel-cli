@@ -24,7 +24,6 @@ use crate::branding::{BRANDING, BRANDING_CLI_CMD};
 use crate::bug;
 use crate::commands::{ExitCode, Options};
 use crate::connect::Connection;
-use crate::error_display::print_query_error;
 use crate::highlight;
 use crate::migrations;
 use crate::migrations::context::Context;
@@ -765,7 +764,7 @@ impl InteractiveMigration<'_> {
                 Ok(()) => {}
                 Err(e) => {
                     if e.is::<QueryError>() {
-                        print_query_error(&e, &text, false, "<statement>")?;
+                        print::query_error(&e, &text, false, "<statement>")?;
                     } else {
                         print::msg!(
                             "{}: {:#}",

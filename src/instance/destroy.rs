@@ -6,14 +6,14 @@ use gel_tokio::InstanceName;
 
 use crate::branding::{BRANDING_CLI_CMD, BRANDING_CLOUD};
 use crate::commands::ExitCode;
+use crate::instance::control;
 use crate::locking::LockManager;
 use crate::options::{CloudOptions, InstanceOptionsLegacy, Options};
 use crate::portable::exit_codes;
-use crate::portable::instance::control;
 use crate::portable::local;
-use crate::portable::project;
 use crate::portable::windows;
 use crate::print::{self, Highlight, msg};
+use crate::project;
 use crate::{credentials, question};
 
 pub fn run(options: &Command, opts: &Options) -> anyhow::Result<()> {

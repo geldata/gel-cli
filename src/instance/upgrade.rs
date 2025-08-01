@@ -16,18 +16,18 @@ use crate::branding::{BRANDING, BRANDING_CLI_CMD, BRANDING_CLOUD, BRANDING_SERVE
 use crate::commands::{self, ExitCode};
 use crate::connect::{Connection, Connector};
 use crate::hint::HintExt;
+use crate::instance::control;
+use crate::instance::create;
 use crate::locking::LockManager;
 use crate::options::{CloudOptions, InstanceOptionsLegacy};
-use crate::portable::instance::control;
-use crate::portable::instance::create;
 use crate::portable::local::{InstallInfo, InstanceInfo, Paths, UpgradeState, write_json};
-use crate::portable::project;
 use crate::portable::repository::{self, Channel, PackageInfo, Query, QueryOptions};
 use crate::portable::server::install;
 use crate::portable::ver;
 use crate::portable::windows;
 use crate::portable::{exit_codes, local};
 use crate::print::{self, Highlight, msg};
+use crate::project;
 use crate::{cloud, credentials};
 use crate::{process, question};
 
@@ -352,7 +352,7 @@ pub fn upgrade_cloud(
     } else {
         let request = CloudInstanceUpgrade {
             version: target_ver.to_string(),
-            use_dump_restore: use_dump_restore,
+            use_dump_restore,
         };
 
         cloud::ops::upgrade_cloud_instance(client, name, request)?;
