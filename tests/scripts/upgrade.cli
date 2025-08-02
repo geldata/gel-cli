@@ -41,7 +41,7 @@ choice {
 !   gel -I inst3
 
 if TARGET_OS != "windows" {
-    $ gel instance backup --instance=inst3 --non-interactive
+    $ gel instance backup --instance=inst3
     ? Successfully created a backup [a-z0-9-]+ for Gel instance 'inst3'
 }
 
