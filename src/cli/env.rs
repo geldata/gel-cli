@@ -205,9 +205,8 @@ define_env! {
     #[env(GEL_AUTO_BACKUP_MODE)]
     auto_backup_mode: AutoBackupMode,
 
-    /// How we should invoke via `uv run` (or not)
+    /// How we should detect uv project
     #[env(GEL_GENERATE_USE_UV)]
-    #[setenv=0]
     use_uv: UseUv,
 }
 
