@@ -1,6 +1,6 @@
 #!/usr/bin/env clitest --v0
 
-include "_include/common.cli.inc";
+include "../_include/common.cli.inc";
 
 set INSTANCE "backup-test";
 
