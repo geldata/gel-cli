@@ -30,6 +30,7 @@ use super::LocalInstanceHandle;
 
 const BACKUP_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const BACKUP_LIVENESS_INTERVAL: Duration = Duration::from_secs(60);
+const BACKUP_TMP_SUFFIX: &str = ".tmp";
 
 #[derive(Clone)]
 pub struct LocalBackup {
@@ -177,8 +178,15 @@ impl BackupRecord {
     fn latest(backups_dir: impl AsRef<Path>) -> Result<Option<BackupId>, anyhow::Error> {
         // Try to read the latest backup id, if it exists.
         if let Ok(id) = std::fs::read_to_string(backups_dir.as_ref().join("latest")) {
-            if let Ok(id) = Uuid::parse_str(&id) {
-                return Ok(Some(BackupId::new(id.to_string())));
+            if std::fs::exists(backups_dir.as_ref().join(&id)).unwrap_or(false) {
+                if let Ok(id) = Uuid::parse_str(&id) {
+                    return Ok(Some(BackupId::new(id.to_string())));
+                }
+            } else {
+                warn!(
+                    "latest backup file {} exists but the backup directory does not",
+                    id
+                );
             }
         }
 
@@ -268,7 +276,7 @@ impl InstanceBackup for LocalBackup {
         let target_dir = backups_dir.join(&backup_id);
         let latest_backup = backups_dir.join("latest");
         let latest_backup_temp = backups_dir.join(".latest.tmp");
-        let temp_dir = backups_dir.join(format!(".{backup_id}.tmp"));
+        let temp_dir = backups_dir.join(format!(".{backup_id}{BACKUP_TMP_SUFFIX}"));
         let run_dir = self.handle.paths.runstate_path.clone();
 
         tokio::spawn(async move {
@@ -626,14 +634,33 @@ impl InstanceBackup for LocalBackup {
                     to_remove.pop();
                     continue;
                 }
-                let Ok(uuid) = Uuid::parse_str(&entry.file_name().to_string_lossy()) else {
+
+                // List all the backup directories, including the temporary ones.
+                let name = entry.file_name().to_string_lossy().to_string();
+                let uuid = if name.starts_with('.') && name.ends_with(BACKUP_TMP_SUFFIX) {
+                    let no_period = name.strip_prefix('.').unwrap();
+                    let no_suffix = no_period.strip_suffix(BACKUP_TMP_SUFFIX).unwrap();
+                    Uuid::parse_str(no_suffix)
+                } else {
+                    Uuid::parse_str(&name)
+                };
+                let Ok(uuid) = uuid else {
+                    warn!("Invalid backup directory name: {}", name);
                     continue;
                 };
 
                 let path = entry.path();
                 let metadata_file = path.join("backup.json");
-                let Ok(metadata) = BackupMetadata::from_file(&metadata_file) else {
-                    continue;
+                let metadata = match BackupMetadata::from_file(&metadata_file) {
+                    Ok(metadata) => metadata,
+                    Err(e) => {
+                        warn!(
+                            "Error reading backup metadata file {}: {}",
+                            metadata_file.display(),
+                            e
+                        );
+                        continue;
+                    }
                 };
                 to_remove.pop();
 
@@ -759,10 +786,14 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         cmd.arg("--checkpoint=fast");
         cmd.arg("--progress");
         cmd.arg("--compress=client-gzip");
-        // Slows it down
-        // cmd.arg("-r 1000");
+
+        // Slows it down if you run with RUSTC_FLAGS='--cfg slowdown'
+        if cfg!(slowdown) {
+            cmd.arg("--max-rate=1000");
+        }
 
         debug!("Running {cmd:?}");
+        callback.progress(None, "starting pg_basebackup");
         self.runner
             .run_lines(cmd, move |line| {
                 callback.progress(None, &format!("running pg_basebackup: {}", line.trim()));
@@ -790,10 +821,14 @@ impl<P: ProcessRunner> PgBackupCommands<P> {
         cmd.arg("--compress=client-gzip");
         cmd.arg("--incremental");
         cmd.arg(incremental.as_ref());
-        // Slows it down
-        // cmd.arg("-r 1000");
+
+        // Slows it down if you run with RUSTC_FLAGS='--cfg slowdown'
+        if cfg!(slowdown) {
+            cmd.arg("--max-rate=1000");
+        }
 
         debug!("Running {cmd:?}");
+        callback.progress(None, "starting pg_basebackup");
         self.runner
             .run_lines(cmd, move |line| {
                 callback.progress(None, &format!("running pg_basebackup: {}", line.trim()));
