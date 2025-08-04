@@ -28,18 +28,6 @@ cd proj;
 $ gel --version
 ? Gel CLI %{VERSION}
 
-$ gel server list-versions
-? ┌%{DATA}┬%{DATA}┬%{DATA}┐
-? │%{DATA}│%{DATA}│%{DATA}│
-repeat {
-    choice {
-        ? │ stable %{DATA}
-        ? │ nightly %{DATA}
-        ? │ testing %{DATA}
-    }
-}
-? └%{DATA}┴%{DATA}┴%{DATA}┘
-
 $ gel instance create inst1
 optional {
     sequence {
