@@ -3,14 +3,7 @@
 # Smoke tests for basic CLI functionality
 # These tests cover core functionality that should work in any environment
 
-pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
-
-ignore {
-    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
-    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
-    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
-    ! Connecting to Gel instance %{GREEDYDATA}
-}
+include "_include/common.cli.inc";
 
 # Clean up any existing instances
 $ gel instance destroy -I inst1 --force
@@ -31,13 +24,12 @@ $ gel server list-versions
 
 # Test instance creation
 $ gel instance create inst1 my-branch
-choice {
+optional {
     sequence {
         ? Downloading package...
         *
         ? Successfully installed %{VERSION}
     }
-    ? Version %{VERSION} is already downloaded
 }
 ! Initializing Gel instance 'inst1'...
 *
@@ -47,13 +39,12 @@ choice {
 
 # Test instance creation with nightly
 $ gel instance create second --nightly
-choice {
+optional {
     sequence {
         ! Downloading package...
         *
         ! Successfully installed %{VERSION}
     }
-    ? Version %{VERSION} is already downloaded
 }
 ! Initializing Gel instance 'second'...
 *

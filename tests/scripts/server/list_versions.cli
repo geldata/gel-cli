@@ -1,0 +1,33 @@
+#!/usr/bin/env clitest --v0
+pattern ESC \x1b\[\w+;
+
+include "../_include/common.cli.inc";
+
+$ gel server list-versions
+! Listing %{ESC}installed and stable%{ESC} versions of %{ESC}Gel%{ESC}:
+*
+! HINT: %{NUMBER} versions were hidden. To list all available versions, use the %{ESC}--all%{ESC} flag.
+
+$ gel server list-versions --installed-only
+! Listing %{ESC}installed%{ESC} versions of %{ESC}Gel%{ESC}:
+*
+
+$ gel server list-versions --installed-only --channel=stable
+! Listing %{ESC}installed, stable channel%{ESC} versions of %{ESC}Gel%{ESC}:
+*
+
+$ gel server list-versions --channel=nightly
+reject {
+    ! %{DATA}stable%{DATA}
+    ! %{DATA}testing%{DATA}
+}
+! Listing %{ESC}nightly channel%{ESC} versions of %{ESC}Gel%{ESC}:
+*
+
+$ gel server list-versions --version=1.0
+reject {
+    ! %{DATA}nightly%{DATA}
+    ! %{DATA}testing%{DATA}
+}
+! Listing %{ESC}matching, stable channel%{ESC} versions of %{ESC}Gel%{ESC}:
+*
