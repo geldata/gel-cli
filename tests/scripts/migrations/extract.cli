@@ -2,7 +2,6 @@
 
 include "../_include/common.cli.inc";
 
-
 set BRANCH "migrations-extract-test";
 set INSTANCE "__shared-test-db__";
 

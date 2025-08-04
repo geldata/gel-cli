@@ -2,8 +2,7 @@
 
 # Test dump and restore functionality
 
-include "_include/common.cli.inc";
-
+include "../_include/common.cli.inc";
 
 using tempdir;
 
