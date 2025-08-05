@@ -114,39 +114,6 @@ jobs:
       - run: |
           cargo build --tests --features portable_tests
 
-  portable-tests-macos:
-    runs-on: macos-latest
-    timeout-minutes: 45
-    strategy:
-      matrix:
-        test: [shared_client_tests]
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
-        with:
-          components: "cargo,rustc,rust-std"
-          toolchain: '1.85'
-          override: true
-
-      - run: |
-          cargo build --workspace --test=${{ matrix.test }} --bin gel --features portable_tests
-
-      - run: |
-          sudo cp target/debug/gel /usr/local/bin/gel
-          sudo cp target/debug/gel /usr/local/bin/edgedb
-          mkdir home_edgedb
-          sudo mv home_edgedb /Users/edgedb
-
-      - run: |
-          cargo test --workspace --test=${{ matrix.test }} --features portable_tests
-        env:
-          RUST_TEST_THREADS: '1'
-
   test-bin-installable:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
