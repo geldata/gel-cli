@@ -4,6 +4,12 @@
 
 include "../_include/common.cli.inc";
 
+# TODO: remove these once we've migrated to branch
+ignore {
+    ! database connection argument is deprecated in favor of 'branch'
+    ! 'database create' is deprecated in Gel 5+. Please use 'branch create'
+}
+
 using tempdir;
 
 for INSTANCE in "dump_restore" "dump_restore2" {

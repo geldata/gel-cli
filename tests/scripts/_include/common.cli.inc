@@ -9,4 +9,3 @@ ignore {
     ! Connecting to Gel instance %{GREEDYDATA}
     ! Version %{VERSION} is already downloaded
 }
-
