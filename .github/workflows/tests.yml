@@ -187,9 +187,8 @@ jobs:
       - run: |
           echo "$HOME\\AppData\\Roaming\\bin" >> $GITHUB_PATH
 
-      - uses: Vampire/setup-wsl@v1
-        with:
-            distribution: Debian
+      - run: |
+          _GEL_WSL_LINUX_BINARY=linux-binary/gel target/debug/gel cli init-wsl
 
       - run: |
           cargo test --workspace --test=${{ matrix.test }} --features portable_tests -- --test-threads=1
