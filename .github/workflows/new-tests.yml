@@ -147,3 +147,60 @@ jobs:
             echo "::endgroup::"
           done
         shell: bash
+
+  dsn-tests:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, large-win-x64]
+      fail-fast: false
+    env:
+      CI: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        with:
+          components: '${{ env.RUST_COMPONENTS }}'
+          toolchain: '${{ env.RUST_VERSION }}'
+
+      - name: Write .cargo/config.toml
+        if: runner.os == 'Windows'
+        run: |
+          # Use rust-lld as linker for Windows for faster builds
+          echo '[target.x86_64-pc-windows-msvc]' > ${{ env.CARGO_HOME }}/config.toml
+          echo 'linker = "rust-lld.exe"' >> ${{ env.CARGO_HOME }}/config.toml
+
+          # Use opt-level 1 to avoid smashing the stack with large futures
+          echo '[profile.dev]' >> ${{ env.CARGO_HOME }}/config.toml
+          echo 'opt-level = 1' >> ${{ env.CARGO_HOME }}/config.toml
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: debug-*
+          path: artifacts
+
+      - name: List artifacts
+        if: runner.os != 'Windows'
+        run: |
+          ls -lR artifacts
+
+      - name: Copy artifacts to PATH
+        run: |
+          cp artifacts/debug-gel-cli-${{ runner.os }}/gel* ${{ env.CARGO_HOME }}/bin/
+
+      - name: Set executable permissions
+        if: runner.os != 'Windows'
+        run: |
+          chmod +x ${{ env.CARGO_HOME }}/bin/*
+
+      - name: Run DSN tests
+        run: |
+          cargo test -p shared-client-tests
+        shell: bash
