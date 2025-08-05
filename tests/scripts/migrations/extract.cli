@@ -1,13 +1,6 @@
 #!/usr/bin/env clitest --v0
 
-pattern VERSION (\d+\.\d+(?:\.\d+)?(?:-(?:alpha|beta|rc|dev)\.\d+)?\+(?:[a-f0-9]{7}|local))|\d+\.\d+\.\d+(-dev)?
-
-ignore {
-    ? Newer version of gel tool exists %{VERSION} \(current %{VERSION}\). To upgrade run `gel cli upgrade`
-    ! WARNING %{GREEDYDATA} postgres: %{GREEDYDATA}
-    ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
-    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
-}
+include "../_include/common.cli.inc";
 
 set BRANCH "migrations-extract-test";
 set INSTANCE "__shared-test-db__";

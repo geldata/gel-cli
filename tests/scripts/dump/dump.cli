@@ -2,26 +2,15 @@
 
 # Test dump and restore functionality
 
+include "../_include/common.cli.inc";
+
+# TODO: remove these once we've migrated to branch
 ignore {
-    ? Newer version of gel tool exists %{GREEDYDATA}
     ! database connection argument is deprecated in favor of 'branch'
     ! 'database create' is deprecated in Gel 5+. Please use 'branch create'
-    ! Connecting to Gel instance '%{DATA}' at %{HOSTPORT}...
 }
 
 using tempdir;
-
-if TARGET_OS == "Windows" {
-    $ wsl -l -v
-    *
-}
-
-defer {
-    if TARGET_OS == "Windows" {
-        $ wsl -l -v
-        *
-    }
-}
 
 for INSTANCE in "dump_restore" "dump_restore2" {
     $ gel instance destroy -I $INSTANCE --force
