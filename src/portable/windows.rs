@@ -540,11 +540,30 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
 
             let download_path = download_dir.join("debian.zip");
             download(&download_path, &DISTRO_URL, false)?;
+
             msg!("Unpacking WSL distribution...");
-            let appx_path = download_dir.join("debian.appx");
-            unpack_appx(&download_path, &appx_path)?;
+            let file_format = detect_file_format(&download_path)?;
+
             let root_path = download_dir.join("install.tar");
-            unpack_root(&appx_path, &root_path)?;
+            match file_format {
+                FileFormat::TarGz => {
+                    // For .tar.gz files, we can directly extract the root filesystem
+                    // without needing to unpack an appx first
+                    msg!("Extracting root filesystem (tar.gz)...");
+                    let mut file = fs::File::open(&download_path)?;
+                    let mut out = fs::File::create(&root_path)?;
+                    let mut decoder = libflate::gzip::Decoder::new(io::BufReader::new(file))?;
+                    io::copy(&mut decoder, &mut out)?;
+                }
+                FileFormat::Zip => {
+                    // For .zip files, we need to unpack the appx first, then extract the root
+                    msg!("Extracting root filesystem (appx)...");
+                    let appx_path = download_dir.join("debian.appx");
+                    unpack_appx(&download_path, &appx_path)?;
+                    unpack_root(&appx_path, &root_path)?;
+                    fs::remove_file(&appx_path)?;
+                }
+            }
 
             let distro_path = wsl_dir()?.join(CURRENT_DISTRO);
             fs::create_dir_all(&distro_path)?;
@@ -600,7 +619,6 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
             }
 
             fs::remove_file(&download_path)?;
-            fs::remove_file(&appx_path)?;
             fs::remove_file(&root_path)?;
 
             distro = CURRENT_DISTRO.into();
@@ -1252,4 +1270,24 @@ fn update_ca_certificates_manually(wsl: &wslapi::Library, distro: &str) -> anyho
     }
 
     Ok(())
+}
+
+fn detect_file_format(file_path: &Path) -> anyhow::Result<FileFormat> {
+    let mut file = fs::File::open(file_path)?;
+    let mut buffer = [0u8; 2];
+    file.read_exact(&mut buffer)?;
+
+    // Check for gzip magic number (0x1f 0x8b)
+    if buffer == [0x1f, 0x8b] {
+        Ok(FileFormat::TarGz)
+    } else {
+        // Assume it's a zip file (PK header)
+        Ok(FileFormat::Zip)
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum FileFormat {
+    TarGz,
+    Zip,
 }
