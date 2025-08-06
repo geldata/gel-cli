@@ -393,7 +393,7 @@ mod test {
     ";
 
     fn set_toml_version(data: &str, version: &super::Query) -> anyhow::Result<Option<String>> {
-        let toml = toml::de::Deserializer::new(data);
+        let toml = toml::de::Deserializer::parse(data)?;
         let parsed: super::SrcManifest = serde_path_to_error::deserialize(toml)?;
 
         super::modify(

@@ -1483,6 +1483,8 @@ dependencies = [
 [[package]]
 name = "gel-auth"
 version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac4f89ce9bbff96ca4594e09b58fde785507a81aa6c979b2794ef0a2c570f3bd"
 dependencies = [
  "base64 0.22.1",
  "constant_time_eq 0.4.2",
@@ -1660,6 +1662,8 @@ dependencies = [
 [[package]]
 name = "gel-config"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7040e36652b930701339b11e569f28555ac77a615e0019296372130861e7be7"
 dependencies = [
  "derive_more",
  "indexmap",
@@ -1670,6 +1674,8 @@ dependencies = [
 [[package]]
 name = "gel-db-protocol"
 version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42e863db4641624ffdbc53fd3f002a621c28d2483417c919deb51045893bc199"
 dependencies = [
  "derive_more",
  "gel-protogen",
@@ -1679,6 +1685,8 @@ dependencies = [
 [[package]]
 name = "gel-derive"
 version = "0.7.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9154a66df92262e21e77343bb8e97942b3a4ac7153b153fefd688ba6a23f4f93"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1689,6 +1697,8 @@ dependencies = [
 [[package]]
 name = "gel-dsn"
 version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8985330a0932d11ee8570574f57a8151c621bcdfcc38abca5c3a8379c7bd7a05"
 dependencies = [
  "base64 0.22.1",
  "crc16",
@@ -1712,6 +1722,8 @@ dependencies = [
 [[package]]
 name = "gel-errors"
 version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5ec3314e56070c87b0d8106055b626c93e7cea5022baa72c45d81c303efafaf"
 dependencies = [
  "bytes",
 ]
@@ -1751,6 +1763,8 @@ dependencies = [
 [[package]]
 name = "gel-protocol"
 version = "0.9.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8133b5ad6193dc7e9ceabaeb34651f23ac9aa3412d308f328210ce5dd928eec"
 dependencies = [
  "bigdecimal",
  "bitflags 2.9.0",
@@ -1771,6 +1785,8 @@ dependencies = [
 [[package]]
 name = "gel-protogen"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c0d9c5d727c9f6759f2a6427a1a1a8e137568b7f76e859f777562e48868c839"
 dependencies = [
  "const-str",
  "derive_more",
@@ -1783,6 +1799,8 @@ dependencies = [
 [[package]]
 name = "gel-protogen-proc-macros"
 version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96142ced7c548c3cf42ec29ba1d0a48a74ce748b781b1610f0a7d086f136bdc9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1792,6 +1810,8 @@ dependencies = [
 [[package]]
 name = "gel-stream"
 version = "0.4.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "320a1c3087b45ecfe5eece9d40412bf2b4fe6f7254bc35a4f151b77a61fd8951"
 dependencies = [
  "derive-io",
  "derive_more",
@@ -1813,6 +1833,8 @@ dependencies = [
 [[package]]
 name = "gel-tokio"
 version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "791e9fe05ac93bd37cc16afa8dde36b489c7833e5d3eb3b29ef95cbf4870e535"
 dependencies = [
  "anyhow",
  "arc-swap",
