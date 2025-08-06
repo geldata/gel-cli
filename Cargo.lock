@@ -1483,8 +1483,6 @@ dependencies = [
 [[package]]
 name = "gel-auth"
 version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac4f89ce9bbff96ca4594e09b58fde785507a81aa6c979b2794ef0a2c570f3bd"
 dependencies = [
  "base64 0.22.1",
  "constant_time_eq 0.4.2",
@@ -1540,6 +1538,7 @@ dependencies = [
  "gel-auth",
  "gel-cli-derive",
  "gel-cli-instance",
+ "gel-config",
  "gel-derive",
  "gel-errors",
  "gel-jwt",
@@ -1601,7 +1600,7 @@ dependencies = [
  "textwrap",
  "thiserror 2.0.12",
  "tokio",
- "toml",
+ "toml 0.9.5",
  "tracing",
  "unicode-segmentation",
  "unicode-width 0.1.14",
@@ -1659,10 +1658,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gel-config"
+version = "0.1.0"
+dependencies = [
+ "derive_more",
+ "indexmap",
+ "serde",
+ "toml 0.9.5",
+]
+
+[[package]]
 name = "gel-db-protocol"
 version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42e863db4641624ffdbc53fd3f002a621c28d2483417c919deb51045893bc199"
 dependencies = [
  "derive_more",
  "gel-protogen",
@@ -1672,8 +1679,6 @@ dependencies = [
 [[package]]
 name = "gel-derive"
 version = "0.7.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9154a66df92262e21e77343bb8e97942b3a4ac7153b153fefd688ba6a23f4f93"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1684,8 +1689,6 @@ dependencies = [
 [[package]]
 name = "gel-dsn"
 version = "0.2.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8985330a0932d11ee8570574f57a8151c621bcdfcc38abca5c3a8379c7bd7a05"
 dependencies = [
  "base64 0.22.1",
  "crc16",
@@ -1709,8 +1712,6 @@ dependencies = [
 [[package]]
 name = "gel-errors"
 version = "0.5.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d5ec3314e56070c87b0d8106055b626c93e7cea5022baa72c45d81c303efafaf"
 dependencies = [
  "bytes",
 ]
@@ -1750,8 +1751,6 @@ dependencies = [
 [[package]]
 name = "gel-protocol"
 version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8133b5ad6193dc7e9ceabaeb34651f23ac9aa3412d308f328210ce5dd928eec"
 dependencies = [
  "bigdecimal",
  "bitflags 2.9.0",
@@ -1772,8 +1771,6 @@ dependencies = [
 [[package]]
 name = "gel-protogen"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c0d9c5d727c9f6759f2a6427a1a1a8e137568b7f76e859f777562e48868c839"
 dependencies = [
  "const-str",
  "derive_more",
@@ -1786,8 +1783,6 @@ dependencies = [
 [[package]]
 name = "gel-protogen-proc-macros"
 version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "96142ced7c548c3cf42ec29ba1d0a48a74ce748b781b1610f0a7d086f136bdc9"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1797,8 +1792,6 @@ dependencies = [
 [[package]]
 name = "gel-stream"
 version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "320a1c3087b45ecfe5eece9d40412bf2b4fe6f7254bc35a4f151b77a61fd8951"
 dependencies = [
  "derive-io",
  "derive_more",
@@ -1820,8 +1813,6 @@ dependencies = [
 [[package]]
 name = "gel-tokio"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "791e9fe05ac93bd37cc16afa8dde36b489c7833e5d3eb3b29ef95cbf4870e535"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -4317,6 +4308,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_spanned"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40734c41988f7306bb04f0ecf60ec0f3f1caa34290e4e8ea471dcd3346483b83"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_urlencoded"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4930,9 +4930,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd87a5cdd6ffab733b2f74bc4fd7ee5fff6634124999ac278c35fc78c6120148"
 dependencies = [
  "serde",
- "serde_spanned",
- "toml_datetime",
+ "serde_spanned 0.6.8",
+ "toml_datetime 0.6.8",
  "toml_edit",
+]
+
+[[package]]
+name = "toml"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75129e1dc5000bfbaa9fee9d1b21f974f9fbad9daec557a521ee6e080825f6e8"
+dependencies = [
+ "indexmap",
+ "serde",
+ "serde_spanned 1.0.0",
+ "toml_datetime 0.7.0",
+ "toml_parser",
+ "toml_writer",
+ "winnow",
 ]
 
 [[package]]
@@ -4945,6 +4960,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "toml_datetime"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bade1c3e902f58d73d3f294cd7f20391c1cb2fbcb643b73566bc773971df91e3"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "toml_edit"
 version = "0.22.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4952,10 +4976,25 @@ checksum = "17b4795ff5edd201c7cd6dca065ae59972ce77d1b80fa0a84d94950ece7d1474"
 dependencies = [
  "indexmap",
  "serde",
- "serde_spanned",
- "toml_datetime",
+ "serde_spanned 0.6.8",
+ "toml_datetime 0.6.8",
  "winnow",
 ]
+
+[[package]]
+name = "toml_parser"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b551886f449aa90d4fe2bdaa9f4a2577ad2dde302c61ecf262d80b116db95c10"
+dependencies = [
+ "winnow",
+]
+
+[[package]]
+name = "toml_writer"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fcc842091f2def52017664b53082ecbbeb5c7731092bad69d2c63050401dfd64"
 
 [[package]]
 name = "tower"
@@ -5064,7 +5103,7 @@ dependencies = [
  "serde_json",
  "target-triple",
  "termcolor",
- "toml",
+ "toml 0.8.20",
 ]
 
 [[package]]
@@ -5895,9 +5934,9 @@ checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 
 [[package]]
 name = "winnow"
-version = "0.7.6"
+version = "0.7.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63d3fcd9bba44b03821e7d699eeee959f3126dcc4aa8e4ae18ec617c2a5cea10"
+checksum = "f3edebf492c8125044983378ecb5766203ad3b4c2f7a922bd7dd207f6d443e95"
 dependencies = [
  "memchr",
 ]
