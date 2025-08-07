@@ -1,5 +1,7 @@
-mod schema;
-mod validation;
+use gel_config::Value;
+use gel_config::current::default_schema;
+use gel_config::schema::Schema;
+use gel_config::validation::{Commands, ConfigureInsert, ConfigureSet, validate};
 
 use clap::ValueHint;
 use gel_protocol::value::Value as GelValue;
@@ -13,8 +15,6 @@ use crate::commands::{ExitCode, Options};
 use crate::connect::Connection;
 use crate::hint::HintExt;
 use crate::print::{self, Highlight};
-use schema::Schema;
-use validation::{Commands, ConfigureInsert, ConfigureSet};
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -57,11 +57,11 @@ pub async fn apply(project_root: &path::Path, quiet: bool) -> anyhow::Result<boo
         return Ok(false);
     }
 
-    let schema = schema::default_schema();
+    let schema = default_schema();
 
     // read toml
     let local_conf = tokio::fs::read_to_string(local_toml).await?;
-    let toml = toml::de::Deserializer::new(&local_conf);
+    let toml = toml::de::Deserializer::parse(&local_conf)?;
     let local_conf: ProjectManifestLocal = serde_path_to_error::deserialize(toml)?;
 
     let branch = validate_scoped_config(local_conf.branch, &schema).await?;
@@ -112,7 +112,7 @@ pub async fn validate_scoped_config(
     };
 
     // validate
-    let commands = validation::validate(config, schema)?;
+    let commands = validate(config, schema)?;
     if commands.is_empty() {
         return Ok(None);
     }
@@ -286,27 +286,6 @@ pub struct ProjectManifestLocal {
 #[serde(deny_unknown_fields)]
 pub struct ScopedConfig {
     config: Option<TomlValue>,
-}
-
-/// A value of a configuration option.
-#[derive(Debug)]
-#[allow(dead_code)]
-pub enum Value {
-    /// Use this string verbatim in EdgeQL source
-    Injected(String),
-
-    /// An array of values
-    // array is not really used, we don't have such config, right?
-    Array(Vec<Value>),
-
-    /// An set of values (for multi properties)
-    Set(Vec<Value>),
-
-    /// Nested insert (not to be confused with top-level `configure insert`)
-    Insert {
-        typ: String,
-        values: IndexMap<String, Value>,
-    },
 }
 
 pub const INITIAL_CONFIG: &str = r###"

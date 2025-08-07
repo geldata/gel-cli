@@ -29,7 +29,7 @@ pub struct Manifest {
 impl Manifest {
     pub fn read_extended(self, path: &Path) -> anyhow::Result<Manifest> {
         let text = fs::read_to_string(path)?;
-        let toml = toml::de::Deserializer::new(&text);
+        let toml = toml::de::Deserializer::parse(&text)?;
         let ExtendManifest { hooks } = serde_path_to_error::deserialize(toml)?;
         Ok(Manifest {
             hooks_extend: hooks,
@@ -121,7 +121,7 @@ type GenerateConfig = BTreeMap<String, GeneratorConfig>;
 #[context("error reading project config `{}`", path.display())]
 pub fn read(path: &Path) -> anyhow::Result<Manifest> {
     let text = fs::read_to_string(path)?;
-    let toml = toml::de::Deserializer::new(&text);
+    let toml = toml::de::Deserializer::parse(&text)?;
     let val: SrcManifest = serde_path_to_error::deserialize(toml)?;
     warn_extra(&val.extra, "");
     warn_extra(&val.instance.extra, "instance.");
@@ -214,7 +214,7 @@ where
     ToStr: FnOnce(&Val) -> String,
 {
     let input = fs::read_to_string(path)?;
-    let deserializer = toml::de::Deserializer::new(&input);
+    let deserializer = toml::de::Deserializer::parse(&input)?;
     let parsed: Cfg = serde_path_to_error::deserialize(deserializer)?;
 
     if let Some(new_contents) = modify(&parsed, &input, selector, field_name, value, to_str)? {
@@ -393,7 +393,7 @@ mod test {
     ";
 
     fn set_toml_version(data: &str, version: &super::Query) -> anyhow::Result<Option<String>> {
-        let toml = toml::de::Deserializer::new(data);
+        let toml = toml::de::Deserializer::parse(data)?;
         let parsed: super::SrcManifest = serde_path_to_error::deserialize(toml)?;
 
         super::modify(
