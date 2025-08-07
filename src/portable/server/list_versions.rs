@@ -1,86 +1,186 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use color_print::cprintln;
 use gel_cli_derive::IntoArgs;
 
+use crate::branding::BRANDING;
 use crate::portable::local::{self, InstallInfo};
 use crate::portable::repository::{Channel, PackageInfo, get_server_packages};
-use crate::portable::ver;
+use crate::portable::ver::{self};
 use crate::table::{self, Cell, Row, Table};
 
 pub fn run(cmd: &Command) -> Result<(), anyhow::Error> {
-    let mut installed = local::get_installed()?;
-    if cmd.installed_only {
-        if cmd.json {
-            print!(
-                "{}",
-                serde_json::to_string_pretty(
-                    &installed
-                        .into_iter()
-                        .map(|v| JsonVersionInfo {
-                            channel: Channel::from_version(&v.version.specific())
-                                .unwrap_or(Channel::Nightly),
-                            version: v.version.clone(),
-                            installed: true,
-                            debug_info: DebugInfo {
-                                install: Some(DebugInstall::from(v)),
-                                package: None,
-                            },
-                        })
-                        .collect::<Vec<_>>()
-                )?
-            );
-        } else {
-            installed.sort_by(|a, b| a.version.specific().cmp(&b.version.specific()));
-            print_table(installed.into_iter().map(|p| (p.version, true)));
-        }
+    let mut channel = cmd.channel;
+    if channel.is_none() && !cmd.installed_only {
+        channel = Some(Channel::Stable);
+    }
+
+    let no_opts = cmd.version.is_none() && cmd.channel.is_none() && !cmd.installed_only && !cmd.all;
+
+    // Combine the channel, version and installed_only into a single string of plain english:
+    if no_opts {
+        cprintln!("Listing <bold>installed and stable</bold> versions of <bold>{BRANDING}</bold>:");
+    } else if cmd.all {
+        cprintln!(
+            "Listing <bold>all available</bold> versions and channels of <bold>{BRANDING}</bold>:"
+        );
     } else {
-        let mut version_set = BTreeMap::new();
-        for package in all_packages() {
-            version_set.insert(
-                package.version.specific(),
-                Pair {
-                    package: Some(package),
-                    install: None,
-                },
-            );
-        }
-        for install in installed {
-            let _ = version_set
-                .entry(install.version.specific())
-                .or_insert_with(|| Pair {
-                    package: None,
-                    install: None,
-                })
-                .install
-                .insert(install);
-        }
-        if cmd.json {
-            print!(
-                "{}",
-                serde_json::to_string_pretty(
-                    &version_set
-                        .into_iter()
-                        .map(|(ver, vp)| JsonVersionInfo {
-                            channel: Channel::from_version(&ver).unwrap_or(Channel::Nightly),
-                            version: vp.install.as_ref().map_or_else(
-                                || vp.package.as_ref().unwrap().version.clone(),
-                                |v| v.version.clone(),
-                            ),
-                            installed: vp.install.is_some(),
-                            debug_info: DebugInfo {
-                                install: vp.install.map(DebugInstall::from),
-                                package: vp.package,
-                            },
-                        })
-                        .collect::<Vec<_>>()
-                )?
-            );
+        let filter = if cmd.installed_only {
+            let mut filter = "installed".to_string();
+            if cmd.version.is_some() {
+                filter.push_str(&format!(", matching"));
+            }
+            if let Some(channel) = channel {
+                filter.push_str(&format!(", {channel:?} channel").to_lowercase());
+            }
+            filter
         } else {
-            print_table(version_set.into_values().map(|vp| match vp.install {
-                Some(v) => (v.version, true),
-                None => (vp.package.unwrap().version, false),
-            }));
+            let mut filter = if cmd.version.is_some() {
+                "matching, "
+            } else if channel == Some(Channel::Stable) {
+                "current, "
+            } else {
+                ""
+            }
+            .to_string();
+            if let Some(channel) = channel {
+                filter.push_str(&format!("{channel:?} channel").to_lowercase());
+            }
+            filter
+        };
+
+        cprintln!("Listing <bold>{filter}</bold> versions of <bold>{BRANDING}</bold>:");
+    }
+
+    let installed = local::get_installed()?;
+    let installed_count = installed.len();
+    let all_packages = all_packages();
+    let all_package_count = all_packages.len();
+
+    // Determine the latest stable version
+    let latest_stable = all_packages
+        .iter()
+        .filter(|p| {
+            let channel = Channel::from_version(&p.version.specific()).unwrap_or(Channel::Nightly);
+            channel == Channel::Stable
+        })
+        .max_by_key(|p| p.version.specific())
+        .map(|p| p.version.specific())
+        .expect("No stable version found");
+
+    let mut version = cmd.version.clone();
+    if version.is_none() && !cmd.installed_only {
+        version = Some(ver::Filter {
+            major: latest_stable.major,
+            minor: None,
+            exact: false,
+        })
+    }
+
+    log::debug!(
+        "channel: {:?}, version: {:?}, installed_only: {:?}",
+        channel,
+        version,
+        cmd.installed_only
+    );
+
+    let mut packages = if cmd.installed_only {
+        installed
+            .into_iter()
+            .map(|v| JsonVersionInfo {
+                channel: Channel::from_version(&v.version.specific()).unwrap_or(Channel::Nightly),
+                version: v.version.clone(),
+                installed: true,
+                debug_info: DebugInfo {
+                    package: None,
+                    install: Some(DebugInstall::from(v)),
+                },
+            })
+            .collect::<Vec<_>>()
+    } else {
+        let mut installed = installed
+            .into_iter()
+            .map(|v| (v.version.specific(), v))
+            .collect::<BTreeMap<_, _>>();
+        all_packages
+            .into_iter()
+            .map(|p| {
+                let installed = installed.remove(&p.version.specific());
+                JsonVersionInfo {
+                    channel: Channel::from_version(&p.version.specific())
+                        .unwrap_or(Channel::Nightly),
+                    version: p.version.clone(),
+                    installed: installed.is_some(),
+                    debug_info: DebugInfo {
+                        package: Some(p),
+                        install: if let Some(v) = installed {
+                            Some(DebugInstall::from(v))
+                        } else {
+                            None
+                        },
+                    },
+                }
+            })
+            .collect::<Vec<_>>()
+    };
+
+    if !cmd.all {
+        packages = packages
+            .into_iter()
+            .filter(|p| {
+                // DX: This is most useful for users: if no options, union the
+                // stable/current-version results with the installed versions.
+                if no_opts && p.installed {
+                    return true;
+                }
+                if let Some(channel) = channel {
+                    let package_channel =
+                        Channel::from_version(&p.version.specific()).unwrap_or(Channel::Nightly);
+                    if package_channel != channel {
+                        return false;
+                    }
+                }
+                if let Some(version) = &version {
+                    if channel == Some(Channel::Stable) || cmd.version.is_some() {
+                        version.matches_loose(&p.version.specific())
+                    } else {
+                        // Dx: For testing/nightly without a specific version,
+                        // show the next version as well.
+                        version.matches_loose(&p.version.specific())
+                            || ver::Filter {
+                                major: version.major + 1,
+                                minor: None,
+                                exact: false,
+                            }
+                            .matches_loose(&p.version.specific())
+                    }
+                } else {
+                    true
+                }
+            })
+            .collect::<Vec<_>>();
+    }
+    packages.sort_by(|a, b| a.version.specific().cmp(&b.version.specific()));
+
+    if cmd.json {
+        print!("{}", serde_json::to_string_pretty(&packages)?);
+    } else {
+        let count = packages.len();
+        let count_installed = packages.iter().filter(|p| p.installed).count();
+        print_table(packages.into_iter().map(|p| (p.version, p.installed)));
+
+        if no_opts {
+            let hidden = all_package_count - count;
+            cprintln!(
+                "HINT: {hidden} versions were hidden. To list all available versions, use the <bold>--all</bold> flag."
+            );
+        }
+        if count_installed < installed_count {
+            let hidden = installed_count - count_installed;
+            cprintln!(
+                "HINT: {hidden} installed versions were hidden. To list all installed versions, use the <bold>--installed-only</bold> flag."
+            );
         }
     }
     Ok(())
@@ -88,8 +188,21 @@ pub fn run(cmd: &Command) -> Result<(), anyhow::Error> {
 
 #[derive(clap::Args, IntoArgs, Debug, Clone)]
 pub struct Command {
-    #[arg(long)]
+    #[arg(long, conflicts_with_all=&["all"])]
     pub installed_only: bool,
+
+    /// Show all versions including older and non-stable channels.
+    #[arg(long)]
+    pub all: bool,
+
+    /// Show only versions for the specified channel.
+    #[arg(long, conflicts_with_all=&["all"])]
+    #[arg(value_enum)]
+    pub channel: Option<Channel>,
+
+    /// Show only versions matching the specified version.
+    #[arg(long, conflicts_with_all=&["all"])]
+    pub version: Option<ver::Filter>,
 
     /// Single column output.
     #[arg(long, value_parser=[
@@ -116,11 +229,6 @@ pub struct DebugInfo {
     package: Option<PackageInfo>,
     #[serde(skip_serializing_if = "Option::is_none")]
     install: Option<DebugInstall>,
-}
-
-pub struct Pair {
-    package: Option<PackageInfo>,
-    install: Option<InstallInfo>,
 }
 
 #[derive(serde::Serialize)]
