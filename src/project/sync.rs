@@ -5,7 +5,7 @@ use clap::ValueHint;
 use edgeql_parser::helpers::quote_name;
 use gel_tokio::InstanceName;
 
-use crate::branding::{BRANDING_CLI_CMD, BRANDING_SCHEMA_FILE_EXT};
+use crate::branding::{BRANDING_CLI_CMD, BRANDING_SCHEMA_FILE_EXT, MANIFEST_FILE_DISPLAY_NAME};
 use crate::cloud::client::CloudClient;
 use crate::commands::{ExitCode, Options};
 use crate::connect::Connector;
@@ -26,7 +26,11 @@ pub struct Command {
 pub async fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     let client = CloudClient::new(&opts.cloud_options)?;
     let inst = {
-        let project = project::ensure_ctx_async(options.project_dir.as_deref()).await?;
+        let project = project::load_ctx(options.project_dir.as_deref(), true).await?.ok_or_else(|| {
+            anyhow::anyhow!(
+                "`{MANIFEST_FILE_DISPLAY_NAME}` not found, unable to perform this action without an initialized project."
+            )
+        })?;
         let stash_dir = project::get_stash_path(&project.location.root)?;
         if !stash_dir.exists() {
             anyhow::bail!("No instance initialized.");
