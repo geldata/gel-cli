@@ -16,6 +16,8 @@ use crate::connect::Connection;
 use crate::hint::HintExt;
 use crate::print::{self, Highlight};
 
+pub const LOCAL_CONFIG_FILE: &str = "gel.local.toml";
+
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
     #[arg(long, value_hint=ValueHint::DirPath)]
@@ -49,10 +51,10 @@ pub async fn apply_sync(project_root: &path::Path) -> anyhow::Result<()> {
 }
 
 pub async fn apply(project_root: &path::Path, quiet: bool) -> anyhow::Result<bool> {
-    let local_toml = project_root.join("gel.local.toml");
+    let local_toml = project_root.join(LOCAL_CONFIG_FILE);
 
     if !tokio::fs::try_exists(&local_toml).await? {
-        print::msg!("Writing gel.local.toml for configuration");
+        print::msg!("Writing {LOCAL_CONFIG_FILE} for configuration");
         tokio::fs::write(&local_toml, INITIAL_CONFIG).await?;
         return Ok(false);
     }

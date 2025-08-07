@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use clap::ValueHint;
@@ -180,52 +180,62 @@ async fn sync(
         Ok(false) => {
             msg!(
                 "No config to apply, run `{BRANDING_CLI_CMD} sync` again \
-                after modifying `gel.local.toml`."
+                after modifying `{}`.",
+                project::config::LOCAL_CONFIG_FILE,
             );
         }
         Err(err) => {
-            let mut e = &err;
-            if let Some(err) = err.downcast_ref::<HintedError>() {
-                e = &err.error;
-            }
-            if let Some(project::config::MissingExtension(extension_name)) = e.downcast_ref() {
-                let extensions_gel = inst
-                    .schema_dir
-                    .join(format!("extensions.{BRANDING_SCHEMA_FILE_EXT}"));
-                if extensions_gel.exists() {
-                    let content = std::fs::read_to_string(&extensions_gel)?;
-                    let pattern = format!("#using extension {};", extension_name);
-                    let mut enabled = false;
-                    let uncommented = content
-                        .lines()
-                        .map(|line| {
-                            if line.trim_start().starts_with(&pattern) {
-                                enabled = true;
-                                line.replacen("#using", "using", 1)
-                            } else {
-                                line.to_string()
-                            }
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
-                    if enabled {
-                        let tmp_file = extensions_gel
-                            .with_extension(format!("{BRANDING_SCHEMA_FILE_EXT}.tmp"));
-                        std::fs::write(&tmp_file, uncommented)?;
-                        std::fs::rename(&tmp_file, &extensions_gel)?;
-                        print::warn!(
-                            "Extension `{extension_name}` is required by the config. \
-                            It's now enabled in {}, please run `{BRANDING_CLI_CMD} sync` again.",
-                            extensions_gel.as_relative().display()
-                        );
-                        return Err(ExitCode::new(1))?;
-                    }
-                }
-            }
-            return Err(err);
+            let extensions_gel = inst
+                .schema_dir
+                .join(format!("extensions.{BRANDING_SCHEMA_FILE_EXT}"));
+            let extension_name = maybe_enable_missing_extension(err, &inst.schema_dir)?;
+            print::warn!(
+                "Extension `{extension_name}` is required by the config. \
+                        It's now enabled in {}, please run `{BRANDING_CLI_CMD} sync` again.",
+                extensions_gel.as_relative().display()
+            );
+            return Err(ExitCode::new(1))?;
         }
     }
     Ok(())
+}
+
+pub fn maybe_enable_missing_extension(
+    err: anyhow::Error,
+    schema_dir: &Path,
+) -> anyhow::Result<String> {
+    let mut e = &err;
+    if let Some(err) = err.downcast_ref::<HintedError>() {
+        e = &err.error;
+    }
+    if let Some(project::config::MissingExtension(extension_name)) = e.downcast_ref() {
+        let extensions_gel = schema_dir.join(format!("extensions.{BRANDING_SCHEMA_FILE_EXT}"));
+        if extensions_gel.exists() {
+            let content = std::fs::read_to_string(&extensions_gel)?;
+            let pattern = format!("#using extension {};", extension_name);
+            let mut enabled = false;
+            let uncommented = content
+                .lines()
+                .map(|line| {
+                    if line.trim_start().starts_with(&pattern) {
+                        enabled = true;
+                        line.replacen("#using", "using", 1)
+                    } else {
+                        line.to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            if enabled {
+                let tmp_file =
+                    extensions_gel.with_extension(format!("{BRANDING_SCHEMA_FILE_EXT}.tmp"));
+                std::fs::write(&tmp_file, uncommented)?;
+                std::fs::rename(&tmp_file, &extensions_gel)?;
+                return Ok(extension_name.clone());
+            }
+        }
+    }
+    Err(err)
 }
 
 fn run_and_sync(info: &project::Handle, skip_hooks: bool) -> anyhow::Result<()> {
