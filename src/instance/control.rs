@@ -274,16 +274,12 @@ fn run_server_by_cli(_meta: &InstanceInfo) -> anyhow::Result<()> {
 }
 
 #[cfg(unix)]
-fn set_inheritable(file: &impl std::os::unix::io::AsRawFd) -> anyhow::Result<()> {
+fn set_inheritable(file: &impl std::os::unix::io::AsFd) -> anyhow::Result<()> {
     use nix::fcntl::{FcntlArg, FdFlag, fcntl};
 
-    let flags = fcntl(file.as_raw_fd(), FcntlArg::F_GETFD).context("get FD flags")?;
+    let flags = fcntl(file, FcntlArg::F_GETFD).context("get FD flags")?;
     let flags = FdFlag::from_bits(flags).context("bad FD flags")?;
-    fcntl(
-        file.as_raw_fd(),
-        FcntlArg::F_SETFD(flags & !FdFlag::FD_CLOEXEC),
-    )
-    .context("set FD flags")?;
+    fcntl(file, FcntlArg::F_SETFD(flags & !FdFlag::FD_CLOEXEC)).context("set FD flags")?;
     Ok(())
 }
 
