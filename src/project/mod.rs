@@ -199,7 +199,7 @@ impl<'a> StashDir<'a> {
         let lnk = tmp.join("project-link");
         symlink_dir(self.project_dir, &lnk)
             .map_err(|e| {
-                log::info!("Error symlinking project at {:?}: {}", lnk, e);
+                log::info!("Error symlinking project at {lnk:?}: {e}");
             })
             .ok();
         fs::rename(&tmp, dir)?;
@@ -288,7 +288,7 @@ impl Handle<'_> {
                 );
             }
             Err(e) => {
-                log::warn!("Could not check instance's version: {:#}", e);
+                log::warn!("Could not check instance's version: {e:#}");
             }
         }
     }
@@ -589,7 +589,7 @@ pub fn find_project_stash_dirs(
             Ok(value) => value.trim().to_string(),
             Err(e) => {
                 if verbose {
-                    log::warn!("Error reading {:?}: {}", path, e);
+                    log::warn!("Error reading {path:?}: {e}");
                 }
                 continue;
             }

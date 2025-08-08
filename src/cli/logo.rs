@@ -128,6 +128,6 @@ pub fn print_logo(allow_animation: bool, small: bool) {
             write_ansi!("\n");
         }
     } else {
-        println!("{}", logo);
+        println!("{logo}");
     }
 }

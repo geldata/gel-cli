@@ -224,7 +224,7 @@ fn _save_history<H: Helper, I: History>(
 pub fn save_history<H: Helper, I: History>(ed: &mut Editor<H, I>, name: &str) {
     _save_history(ed, name)
         .map_err(|e| {
-            log::warn!("Cannot save history: {:#}", e);
+            log::warn!("Cannot save history: {e:#}");
         })
         .ok();
 }
@@ -240,7 +240,7 @@ pub fn create_editor(config: &ConfigBuilder) -> anyhow::Result<Editor<EdgeqlHelp
     editor.bind_sequence(KeyEvent::new('\r', Modifiers::ALT), Cmd::AcceptLine);
     load_history(&mut editor, "edgeql")
         .map_err(|e| {
-            log::warn!("Cannot load history: {:#}", e);
+            log::warn!("Cannot load history: {e:#}");
         })
         .ok();
     editor.set_helper(Some(EdgeqlHelper {
@@ -259,7 +259,7 @@ pub fn var_editor(
     let history_name = format!("var_{}", var_type.type_name());
     load_history(&mut editor, &history_name)
         .map_err(|e| {
-            log::warn!("Cannot load history: {:#}", e);
+            log::warn!("Cannot load history: {e:#}");
         })
         .ok();
     Ok(editor)

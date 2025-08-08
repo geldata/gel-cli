@@ -108,13 +108,13 @@ pub fn with_projects(
 
 fn destroy_local(name: &str) -> anyhow::Result<bool> {
     let paths = local::Paths::get(name)?;
-    log::debug!("Paths {:?}", paths);
+    log::debug!("Paths {paths:?}");
     let mut found = false;
     match control::stop_and_disable(name) {
         Ok(f) => found = f,
         Err(e) if e.is::<InstanceNotFound>() => {}
         Err(e) => {
-            log::warn!("Error unloading service: {:#}", e);
+            log::warn!("Error unloading service: {e:#}");
         }
     }
     if paths.runstate_dir.exists() {
@@ -131,7 +131,7 @@ fn destroy_local(name: &str) -> anyhow::Result<bool> {
     for path in &paths.service_files {
         if path.exists() {
             found = true;
-            log::info!("Removing service file {:?}", path);
+            log::info!("Removing service file {path:?}");
             fs::remove_file(path)?;
         }
     }
@@ -173,7 +173,7 @@ fn do_destroy(options: &Command, opts: &Options, instance: &InstanceName) -> any
             } else {
                 // Only warn if we actually found any instance data.
                 if found {
-                    log::warn!("Credentials unexpectedly missing for {:#}", instance);
+                    log::warn!("Credentials unexpectedly missing for {instance:#}");
                 }
             }
             if !found {

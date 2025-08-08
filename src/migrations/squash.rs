@@ -310,7 +310,7 @@ async fn test_two_stage_remove() -> anyhow::Result<()> {
     let migrations_dir = tmp.path().join("migrations");
     fs::create_dir(&migrations_dir).await?;
     for i in 0..2000 {
-        fs::write(migrations_dir.join(format!("{:05}-mXXXXXX.edgeql", i)), "").await?;
+        fs::write(migrations_dir.join(format!("{i:05}-mXXXXXX.edgeql")), "").await?;
     }
 
     // Run rename + removal
@@ -325,8 +325,7 @@ async fn test_two_stage_remove() -> anyhow::Result<()> {
         let name = file_name.to_string_lossy();
         assert!(
             !name.ends_with(".edgeql") && !name.ends_with(".edgeql.old"),
-            "Found unexpected file: {}",
-            name
+            "Found unexpected file: {name}"
         );
     }
 

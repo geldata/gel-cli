@@ -274,7 +274,7 @@ pub async fn run(
     let creds = options.conn_params.get()?.as_credentials()?;
     let json = serde_json::to_string(&creds)?;
     let mut cred_file = NamedTempFile::new()?;
-    write!(cred_file, "{}", json)?;
+    write!(cred_file, "{json}")?;
 
     let (cmdline, extra_env) = prepare_command(cmd, subcommand_name).await?;
     let mut scmd = process::Command::new(cmdline[0].clone());

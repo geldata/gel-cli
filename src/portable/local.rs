@@ -177,21 +177,21 @@ pub fn allocate_port(name: &str) -> anyhow::Result<u16> {
         match TcpListener::bind(("127.0.0.1", port)) {
             Ok(_) => {}
             Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
-                log::debug!("Address 127.0.0.1:{} is already in use", port);
+                log::debug!("Address 127.0.0.1:{port} is already in use");
                 continue;
             }
             Err(e) => {
-                log::warn!("Error checking port 127.0.0.1:{}: {:#}", port, e);
+                log::warn!("Error checking port 127.0.0.1:{port}: {e:#}");
             }
         }
         match TcpListener::bind(("::1", port)) {
             Ok(_) => {}
             Err(e) if e.kind() == io::ErrorKind::AddrInUse => {
-                log::debug!("Address [::1]:{} is already in use", port);
+                log::debug!("Address [::1]:{port} is already in use");
                 continue;
             }
             Err(e) => {
-                log::warn!("Error checking port [::1]:{}: {:#}", port, e);
+                log::warn!("Error checking port [::1]:{port}: {e:#}");
             }
         }
         port_map.insert(name.to_string(), port);
@@ -264,7 +264,7 @@ pub fn get_installed() -> anyhow::Result<Vec<InstallInfo>> {
                 continue;
             }
             Ok(info) => installed.push(info),
-            Err(e) => log::warn!("Skipping {:?}: {:#}", path, e),
+            Err(e) => log::warn!("Skipping {path:?}: {e:#}"),
         }
     }
     Ok(installed)
@@ -341,7 +341,7 @@ impl InstanceInfo {
                 Ok(data) => data,
                 Err(e) => {
                     // TODO(tailhook) better differentiate the error
-                    log::info!("Reading instance info failed with {:#}", e);
+                    log::info!("Reading instance info failed with {e:#}");
                     return Ok(None);
                 }
             };

@@ -55,7 +55,7 @@ pub fn create_service(info: &InstanceInfo) -> anyhow::Result<()> {
             .arg("--user")
             .arg("daemon-reload")
             .run()
-            .map_err(|e| log::warn!("failed to reload systemd daemon: {}", e))
+            .map_err(|e| log::warn!("failed to reload systemd daemon: {e}"))
             .ok();
         start_service(name)?;
     } else {
@@ -129,7 +129,7 @@ pub fn stop_and_disable(name: &str) -> anyhow::Result<bool> {
     let mut found = false;
     let svc_name = unit_name(name);
     let socket_name = socket_name(name);
-    log::info!("Stopping service {}", svc_name);
+    log::info!("Stopping service {svc_name}");
     let mut not_found_error = None;
     let mut cmd = process::Native::new("stop service", "systemctl", "systemctl");
     cmd.arg("--user");

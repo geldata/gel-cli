@@ -117,6 +117,7 @@ pub enum DataDirectory {
 }
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum BackupStatus {
     Absent,
     Exists {
@@ -592,9 +593,8 @@ fn list_local_status(visited: &mut BTreeSet<InstanceName>) -> anyhow::Result<Vec
                 // consider deprecated instances remote,
                 // i.e. not adding them in "visited"
                 log::debug!(
-                    "Instance {:?} has deprecated install method. \
-                            Skipping.",
-                    name
+                    "Instance {name:?} has deprecated install method. \
+                            Skipping."
                 );
             } else {
                 visited.insert(InstanceName::Local(name.clone()));

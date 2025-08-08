@@ -492,10 +492,7 @@ pub fn dump_and_stop(inst: &InstanceInfo, path: &Path, skip_hooks: bool) -> anyh
     log::info!("Ensuring instance is started");
     let res = control::do_start(inst);
     if let Err(err) = res {
-        log::warn!(
-            "Error starting service: {:#}. Trying to start manually.",
-            err
-        );
+        log::warn!("Error starting service: {err:#}. Trying to start manually.");
         control::ensure_runstate_dir(&inst.name)?;
         let mut cmd = control::get_server_cmd(inst, false)?;
         cmd.background_for(|| Ok(dump_instance(inst, path, skip_hooks)))?;

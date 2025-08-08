@@ -35,7 +35,7 @@ async fn log_execute(
     source_map: Option<&SourceMap<SourceName>>,
 ) -> Result<(), Error> {
     let text = text.as_ref();
-    log::debug!(target: "edgedb::migrations::query", "Executing `{}`", text);
+    log::debug!(target: "edgedb::migrations::query", "Executing `{text}`");
     let (_status, warnings) = cli.execute(text, &()).await?;
     super::print_error::print_warnings(warnings, source_map)?;
     Ok(())
@@ -45,7 +45,7 @@ pub async fn query_row<R>(cli: &mut Connection, text: &str) -> Result<R, Error>
 where
     R: Queryable,
 {
-    log::debug!(target: "edgedb::migrations::query", "Executing `{}`", text);
+    log::debug!(target: "edgedb::migrations::query", "Executing `{text}`");
     let (data, _warnings) = cli.query_single(text, &()).await?;
     data.ok_or_else(|| NoDataError::with_message("query row returned zero results"))
 }

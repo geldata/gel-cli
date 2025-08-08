@@ -38,7 +38,7 @@ impl ProgressCallbackListener for ProgressBar {
             self.bar.set_position(progress as u64);
         }
         self.bar
-            .set_message(format!("Current operation: {}...", message));
+            .set_message(format!("Current operation: {message}..."));
     }
 
     fn println(&self, msg: &str) {

@@ -50,10 +50,10 @@ impl Migrator {
         loop {
             if let Some(git_branch) = &self.git_branch {
                 let mut first_detatched = true;
-                debug!("Expecting git branch: {}", git_branch);
+                debug!("Expecting git branch: {git_branch}");
                 loop {
                     let branch = git::git_current_branch().await;
-                    debug!("Current git branch: {:?}", branch);
+                    debug!("Current git branch: {branch:?}");
                     match branch {
                         Some(current_branch) if &current_branch != git_branch => {
                             print::error!(
