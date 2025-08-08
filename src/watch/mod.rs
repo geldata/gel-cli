@@ -152,7 +152,7 @@ impl std::fmt::Display for Target {
             }
             Target::Sync => {
                 f.write_str(BRANDING_CLI_CMD)?;
-                f.write_str(" sync")
+                f.write_str(" configure apply")
             }
         }
     }
@@ -256,14 +256,14 @@ async fn start_executors(
         .filter(|m| matches!(m.target, Target::Sync))
         .next()
     {
-        let root = ctx.project.location.root.clone();
+        let project = ctx.project.clone();
         let schema_dir = ctx.project.manifest.project().get_schema_dir();
         let matcher = matcher.clone();
         let ctx = ctx.clone();
         let pending_sync = sync_trigger.pending.clone();
         join_set.spawn(async move {
             loop {
-                match project::config::apply(&root, true).await {
+                match project::config::apply(&project, true).await {
                     Ok(true) => {
                         print::success!("Configuration applied.");
                     }

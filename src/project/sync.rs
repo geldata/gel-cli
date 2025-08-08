@@ -28,26 +28,24 @@ pub struct Command {
 #[tokio::main(flavor = "current_thread")]
 pub async fn run(options: &Command, opts: &crate::options::Options) -> anyhow::Result<()> {
     let client = CloudClient::new(&opts.cloud_options)?;
-    let inst = {
-        let project = project::load_ctx(options.project_dir.as_deref(), true).await?.ok_or_else(|| {
-            anyhow::anyhow!(
-                "`{MANIFEST_FILE_DISPLAY_NAME}` not found, unable to perform this action without an initialized project."
-            )
-        })?;
-        let stash_dir = project::get_stash_path(&project.location.root)?;
-        if !stash_dir.exists() {
-            anyhow::bail!("No instance initialized.");
-        }
-        let instance_name = project::instance_name(&stash_dir)?;
-        let schema_dir = project.resolve_schema_dir()?;
-        project::Handle::probe(&instance_name, &project.location.root, &schema_dir, &client)?
-    };
-    sync(&inst, true, false).await?;
-
-    Ok(())
+    let project = project::load_ctx(options.project_dir.as_deref(), true).await?.ok_or_else(|| {
+        anyhow::anyhow!(
+            "`{MANIFEST_FILE_DISPLAY_NAME}` not found, unable to perform this action without an initialized project."
+        )
+    })?;
+    let stash_dir = project::get_stash_path(&project.location.root)?;
+    if !stash_dir.exists() {
+        anyhow::bail!("No instance initialized.");
+    }
+    let instance_name = project::instance_name(&stash_dir)?;
+    let schema_dir = project.resolve_schema_dir()?;
+    let inst =
+        project::Handle::probe(&instance_name, &project.location.root, &schema_dir, &client)?;
+    sync(&project, &inst, true, false).await
 }
 
 async fn sync(
+    project: &project::Context,
     inst: &project::Handle<'_>,
     ask_for_running: bool,
     skip_hooks: bool,
@@ -87,7 +85,7 @@ async fn sync(
                         }
                     },
                     Action::Run => {
-                        return run_and_sync(inst, skip_hooks);
+                        return run_and_sync(project, inst, skip_hooks);
                     }
                     Action::Retry => continue,
                 }
@@ -176,7 +174,7 @@ async fn sync(
     }
 
     msg!("3. Applying config...");
-    match project::config::apply(&inst.project_dir, true).await {
+    match project::config::apply(&project, true).await {
         Ok(true) => {
             print::success!("Project is now in sync.")
         }
@@ -240,17 +238,21 @@ pub fn maybe_enable_missing_extension(
     Err(err)
 }
 
-fn run_and_sync(info: &project::Handle, skip_hooks: bool) -> anyhow::Result<()> {
+fn run_and_sync(
+    project: &project::Context,
+    info: &project::Handle,
+    skip_hooks: bool,
+) -> anyhow::Result<()> {
     match &info.instance {
         project::InstanceKind::Portable(inst) => {
             control::ensure_runstate_dir(&info.name)?;
             let mut cmd = control::get_server_cmd(inst, false)?;
-            cmd.background_for(|| Ok(sync(info, false, skip_hooks)))?;
+            cmd.background_for(|| Ok(sync(project, info, false, skip_hooks)))?;
             Ok(())
         }
         project::InstanceKind::Wsl => {
             let mut cmd = windows::server_cmd(&info.name, false)?;
-            cmd.background_for(|| Ok(sync(info, false, skip_hooks)))?;
+            cmd.background_for(|| Ok(sync(project, info, false, skip_hooks)))?;
             Ok(())
         }
         project::InstanceKind::Remote => {

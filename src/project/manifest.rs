@@ -80,6 +80,7 @@ pub struct Hooks {
     pub branch: Option<BranchHooks>,
     pub migration: Option<MigrationHooks>,
     pub schema: Option<SchemaHooks>,
+    pub config: Option<ConfigHooks>,
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
@@ -100,6 +101,11 @@ pub struct MigrationHooks {
 
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct SchemaHooks {
+    pub update: Option<Hook>,
+}
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct ConfigHooks {
     pub update: Option<Hook>,
 }
 
