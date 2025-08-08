@@ -259,7 +259,7 @@ async fn _read_fixups(dir: &Path, validate_hashes: bool) -> anyhow::Result<Vec<M
             .and_then(|s| s.to_str())
             .and_then(|s| s.split('-').nth(1));
         let Some(fixup_target) = fixup_target else {
-            log::warn!("Invalid fixup file name {:?}", path);
+            log::warn!("Invalid fixup file name {path:?}");
             continue;
         };
         result.push(MigrationFile {

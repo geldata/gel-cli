@@ -735,7 +735,7 @@ impl Native {
                     Ok(())
                 }
                 Err(e) => {
-                    log::warn!("Error running {:?}: {}", stop_cmd, e);
+                    log::warn!("Error running {stop_cmd:?}: {e}");
                     Err(())
                 }
             }
@@ -892,7 +892,7 @@ async fn stdout_loop(
                 };
 
                 if quiet {
-                    log::debug!("{}", message);
+                    log::debug!("{message}");
                 } else {
                     io::stderr()
                         .write_all(message.to_string().as_bytes())
@@ -912,7 +912,7 @@ async fn kill_child<Never>(pid: u32, description: &str) -> Never {
     use std::time::Duration;
     use tokio::time::timeout;
 
-    log::debug!("Stopping {}", description);
+    log::debug!("Stopping {description}");
     if unsafe { libc::kill(pid as i32, SIGTERM) } != 0 {
         log::error!(
             "Error stopping {}: {}",
@@ -921,10 +921,7 @@ async fn kill_child<Never>(pid: u32, description: &str) -> Never {
         );
     }
     timeout(Duration::from_secs(10), pending::<()>()).await.ok();
-    log::warn!(
-        "Process {} is taking too long to complete. Forcing...",
-        description
-    );
+    log::warn!("Process {description} is taking too long to complete. Forcing...");
     if unsafe { libc::kill(pid as i32, SIGKILL) } != 0 {
         log::debug!(
             "Error stopping {}: {}",
@@ -949,11 +946,11 @@ async fn wait_forever() -> ! {
 }
 
 fn write_pid_file(path: &Option<PathBuf>, pid: u32) {
-    log::debug!("Writing pid file {:?} (pid: {})", path, pid);
+    log::debug!("Writing pid file {path:?} (pid: {pid})");
     if let Some(path) = path {
         _write_pid_file(path, pid)
             .map_err(|e| {
-                log::error!("Cannot write pid file {:?}: {:#}", path, e);
+                log::error!("Cannot write pid file {path:?}: {e:#}");
             })
             .ok();
     }
@@ -963,7 +960,7 @@ fn remove_pid_file(path: &Option<PathBuf>) {
     if let Some(path) = path {
         fs::remove_file(path)
             .map_err(|e| {
-                log::error!("Cannot remove pid file {:?}: {:#}", path, e);
+                log::error!("Cannot remove pid file {path:?}: {e:#}");
             })
             .ok();
     }

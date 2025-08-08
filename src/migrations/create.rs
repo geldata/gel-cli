@@ -519,12 +519,11 @@ async fn apply_proposal(
                     &statement.text, placeholders)?;
                 if let Err(e) = execute(cli, &statement, None).await {
                     if e.is::<InvalidSyntaxError>() {
-                        log::error!("Error executing: {}", statement);
+                        log::error!("Error executing: {statement}");
                         return Err(e)?;
                     } else if e.is::<QueryError>() {
                         rollback = true;
-                        log::info!("Statement {:?} failed: {:#}",
-                                   statement, e);
+                        log::info!("Statement {statement:?} failed: {e:#}");
                         return Ok(false);
                     } else {
                         return Err(e)?;

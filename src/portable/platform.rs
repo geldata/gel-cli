@@ -103,8 +103,7 @@ pub fn optional_docker_check() -> anyhow::Result<bool> {
                     .map_err(|e| {
                         log::warn!(
                             "Failed to check if running within \
-                                   a container: {:#}",
-                            e
+                                   a container: {e:#}"
                         )
                     })
                     .unwrap_or(false);

@@ -79,11 +79,7 @@ fn _check_newly_installed() -> anyhow::Result<bool> {
     let metadata = fs::metadata(std::env::current_exe()?)?;
     let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
     let created = metadata.created().unwrap_or(SystemTime::UNIX_EPOCH);
-    log::trace!(
-        "Checking CLI binary dates: modified: {:?}, created: {:?}",
-        modified,
-        created
-    );
+    log::trace!("Checking CLI binary dates: modified: {modified:?}, created: {created:?}");
     let now = SystemTime::now();
     if modified > now || created > now {
         log::trace!("CLI binary date is in the future, can't skip version check");
@@ -120,7 +116,7 @@ fn _check(cache_dir: &Path, strict: bool) -> anyhow::Result<()> {
             if strict {
                 return Err(e).context("error reading CLI version cache");
             }
-            log::debug!("Error reading cache: {}", e);
+            log::debug!("Error reading cache: {e}");
         }
     }
     let timestamp = SystemTime::now();
@@ -133,7 +129,7 @@ fn _check(cache_dir: &Path, strict: bool) -> anyhow::Result<()> {
             newer_warning(ver);
         }
     }
-    log::debug!("Remote version {:?}", pkg);
+    log::debug!("Remote version {pkg:?}");
     write_cache(
         cache_dir,
         &Cache {
@@ -187,7 +183,7 @@ pub fn check(no_version_check_opt: bool) -> anyhow::Result<()> {
             if strict {
                 return Err(e).context("Version check failed");
             }
-            log::debug!("Version check ignored: {}", e);
+            log::debug!("Version check ignored: {e}");
             return Ok(());
         }
     };
@@ -197,7 +193,7 @@ pub fn check(no_version_check_opt: bool) -> anyhow::Result<()> {
             if strict {
                 return Err(e).context("Cannot check for updates");
             }
-            log::warn!("Cannot check for updates: {:#}", e);
+            log::warn!("Cannot check for updates: {e:#}");
         }
     }
     Ok(())

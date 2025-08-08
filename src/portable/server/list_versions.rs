@@ -114,11 +114,7 @@ pub fn run(cmd: &Command) -> Result<(), anyhow::Error> {
                     installed: installed.is_some(),
                     debug_info: DebugInfo {
                         package: Some(p),
-                        install: if let Some(v) = installed {
-                            Some(DebugInstall::from(v))
-                        } else {
-                            None
-                        },
+                        install: installed.map(DebugInstall::from),
                     },
                 }
             })
@@ -244,15 +240,15 @@ pub fn all_packages() -> Vec<PackageInfo> {
     let mut pkgs = Vec::with_capacity(16);
     match get_server_packages(Channel::Stable) {
         Ok(stable) => pkgs.extend(stable),
-        Err(e) => log::warn!("Unable to fetch stable packages: {:#}", e),
+        Err(e) => log::warn!("Unable to fetch stable packages: {e:#}"),
     };
     match get_server_packages(Channel::Testing) {
         Ok(testing) => pkgs.extend(testing),
-        Err(e) => log::warn!("Unable to fetch testing packages: {:#}", e),
+        Err(e) => log::warn!("Unable to fetch testing packages: {e:#}"),
     };
     match get_server_packages(Channel::Nightly) {
         Ok(nightly) => pkgs.extend(nightly),
-        Err(e) => log::warn!("Unable to fetch nightly packages: {:#}", e),
+        Err(e) => log::warn!("Unable to fetch nightly packages: {e:#}"),
     }
     pkgs
 }

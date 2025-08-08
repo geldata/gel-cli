@@ -324,7 +324,7 @@ async fn apply_init(cli: &mut Connection, path: &Path) -> anyhow::Result<()> {
         };
         let stmt = str::from_utf8(&stmt[..]).context("can't decode statement")?;
         if !is_empty(stmt) {
-            log::trace!("Executing {:?}", stmt);
+            log::trace!("Executing {stmt:?}");
             cli.execute(stmt, &())
                 .await
                 .with_context(|| format!("failed statement {stmt:?}"))?;
@@ -358,7 +358,7 @@ pub async fn restore_all(
             continue;
         }
         let database = path_to_database_name(&path)?;
-        log::debug!("Restoring database {:?}", database);
+        log::debug!("Restoring database {database:?}");
         if !existing.contains(&database) {
             let stmt = format!("CREATE DATABASE {}", quote_name(&database));
             cli.execute(&stmt, &())

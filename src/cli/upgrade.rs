@@ -102,7 +102,7 @@ fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
     if cfg!(unix) {
         fs::remove_file(&backup_path).ok();
         fs::hard_link(&path, &backup_path)
-            .map_err(|e| log::warn!("Cannot keep a backup file: {:#}", e))
+            .map_err(|e| log::warn!("Cannot keep a backup file: {e:#}"))
             .ok();
     } else if cfg!(windows) {
         fs::remove_file(&backup_path).ok();

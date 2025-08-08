@@ -269,12 +269,10 @@ impl Filter {
     pub fn matches_loose(&self, spec: &Specific) -> bool {
         if self.exact {
             self.matches_exact(spec)
+        } else if self.minor.is_none() {
+            spec.major == self.major
         } else {
-            if self.minor.is_none() {
-                spec.major == self.major
-            } else {
-                self.matches_specific(spec)
-            }
+            self.matches_specific(spec)
         }
     }
 

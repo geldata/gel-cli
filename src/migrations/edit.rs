@@ -114,7 +114,7 @@ async fn check_migration(cli: &mut Connection, text: &str, path: &Path) -> anyho
     });
     cli.execute("ROLLBACK", &())
         .await
-        .map_err(|e| log::warn!("Error rolling back the transaction: {:#}", e))
+        .map_err(|e| log::warn!("Error rolling back the transaction: {e:#}"))
         .ok();
     res.map(|_| ())
 }

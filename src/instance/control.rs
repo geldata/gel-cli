@@ -108,7 +108,7 @@ fn daemon_start(instance: &str) -> anyhow::Result<()> {
         let lock = open_lock(instance)?;
         if lock.try_read().is_err() {
             // properly running
-            log::info!("Instance {:?} is already running", instance);
+            log::info!("Instance {instance:?} is already running");
             return Ok(());
         }
         process::Native::new("edgedb cli", "edgedb-cli", current_exe()?)
@@ -387,7 +387,7 @@ pub fn start(options: &Start) -> anyhow::Result<()> {
                 log::warn!("Restarting service in background...");
                 do_start(&meta)
                     .map_err(|e| {
-                        log::warn!("Error starting service: {}", e);
+                        log::warn!("Error starting service: {e}");
                     })
                     .ok();
             }
@@ -430,7 +430,7 @@ fn is_run_by_supervisor(lock: fd_lock::RwLock<fs::File>) -> bool {
     if lock.into_inner().read_to_string(&mut buf).is_err() {
         return false;
     }
-    log::debug!("Service running by {:?}", buf);
+    log::debug!("Service running by {buf:?}");
     match &buf[..] {
         "systemd" if cfg!(target_os = "linux") => true,
         "launchctl" if cfg!(target_os = "macos") => true,
@@ -446,7 +446,7 @@ pub fn do_stop(name: &str) -> anyhow::Result<()> {
         if supervisor && is_run_by_supervisor(lock) {
             supervisor_stop(name)
         } else if let Some(pid) = read_pid(name)? {
-            log::info!("Stopping {BRANDING} with pid {}", pid);
+            log::info!("Stopping {BRANDING} with pid {pid}");
             process::term(pid)?;
             // wait for unlock
             let _ = open_lock(name)?
@@ -462,7 +462,7 @@ pub fn do_stop(name: &str) -> anyhow::Result<()> {
             supervisor_stop(name)
         } else {
             if let Some(pid) = read_pid(name)? {
-                log::info!("Stopping {BRANDING} with pid {}", pid);
+                log::info!("Stopping {BRANDING} with pid {pid}");
                 process::term(pid)?;
                 // wait for unlock
                 let _ = open_lock(name)?.read()?;
@@ -512,7 +512,7 @@ pub fn stop_and_disable(instance: &str) -> anyhow::Result<bool> {
             // properly running
             if !supervisor || !is_run_by_supervisor(lock) {
                 if let Some(pid) = read_pid(instance)? {
-                    log::info!("Stopping {BRANDING} with pid {}", pid);
+                    log::info!("Stopping {BRANDING} with pid {pid}");
                     process::term(pid)?;
                     // wait for unlock
                     let _ = open_lock(instance)?.read()?;
@@ -549,7 +549,7 @@ pub fn do_restart(inst: &InstanceInfo) -> anyhow::Result<()> {
             supervisor_restart(inst)
         } else {
             if let Some(pid) = read_pid(&inst.name)? {
-                log::info!("Stopping {BRANDING} with pid {}", pid);
+                log::info!("Stopping {BRANDING} with pid {pid}");
                 process::term(pid)?;
                 // wait for unlock
                 let _ = open_lock(&inst.name)?.read()?;
@@ -568,7 +568,7 @@ pub fn do_restart(inst: &InstanceInfo) -> anyhow::Result<()> {
             supervisor_restart(inst)
         } else {
             if let Some(pid) = read_pid(&inst.name)? {
-                log::info!("Stopping {BRANDING} with pid {}", pid);
+                log::info!("Stopping {BRANDING} with pid {pid}");
                 process::term(pid)?;
                 // wait for unlock
                 let _ = lock.read()?;

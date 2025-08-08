@@ -308,7 +308,7 @@ impl AutoBackup {
                             "\"{}\" is not a local instance, skipping automatic backup.",
                             name.emphasized(),
                         );
-                        eprintln!("Read more at {}", LOCALDEV_URL);
+                        eprintln!("Read more at {LOCALDEV_URL}");
                     }
                     Ok(None)
                 }
@@ -317,8 +317,7 @@ impl AutoBackup {
                 if !quiet {
                     eprintln!(
                         "Skipping automatic backup for Cloud instance. \
-                        Read more at {}",
-                        LOCALDEV_URL,
+                        Read more at {LOCALDEV_URL}",
                     );
                 }
                 Ok(None)
@@ -855,10 +854,7 @@ async fn index_build_concurrently(conn: &mut Connection) -> Result<(), anyhow::E
 
     // supported on 7.0-dev.9640 onward
     let is_supported = if version.specific().major == 7 {
-        match version.specific().minor {
-            ver::MinorVersion::Dev(m) if m < 9641 => false,
-            _ => true,
-        }
+        matches!(version.specific().minor, ver::MinorVersion::Dev(m) if m < 9641)
     } else {
         version.specific().major > 7
     };

@@ -354,9 +354,8 @@ pub async fn watch_loop(
             Err(e) => {
                 ok = false;
                 log::error!(
-                    "Error updating database: {:#}. \
-                             Will retry in 10s.",
-                    e
+                    "Error updating database: {e:#}. \
+                             Will retry in 10s."
                 );
                 retry_timeout = Some(Duration::from_secs(10));
             }

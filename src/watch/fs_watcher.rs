@@ -155,11 +155,11 @@ impl notify::EventHandler for WatchHandler {
                     let res = self.tx.send(e.paths);
 
                     if let Err(e) = res {
-                        log::warn!("Error watching filesystem: {:#}", e)
+                        log::warn!("Error watching filesystem: {e:#}")
                     }
                 }
             }
-            Err(e) => log::warn!("Error watching filesystem: {:#}", e),
+            Err(e) => log::warn!("Error watching filesystem: {e:#}"),
         }
     }
 }
