@@ -14,7 +14,9 @@ use crate::branding::{BRANDING_CLI_CMD, BRANDING_LOCAL_CONFIG_FILE, QUERY_TAG};
 use crate::commands::{ExitCode, Options};
 use crate::connect::Connection;
 use crate::hint::HintExt;
+use crate::hooks;
 use crate::print::{self, Highlight};
+use crate::project;
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -27,9 +29,7 @@ pub struct Command {
 pub struct MissingExtension(pub String);
 
 pub async fn run(c: &Command, _options: &Options) -> anyhow::Result<()> {
-    let project_loc = super::find_project(c.project_dir.as_ref().map(|p| p.as_ref()))?;
-
-    let Some(project_loc) = project_loc else {
+    let Some(project) = project::load_ctx(c.project_dir.as_deref(), true).await? else {
         print::msg!(
             "{} {} Run `{BRANDING_CLI_CMD} project init`.",
             print::err_marker(),
@@ -38,17 +38,26 @@ pub async fn run(c: &Command, _options: &Options) -> anyhow::Result<()> {
         return Err(ExitCode::new(1).into());
     };
 
-    apply(&project_loc.root, false).await?;
+    apply(&project, false, false).await?;
     Ok(())
 }
 
 #[tokio::main(flavor = "current_thread")]
-pub async fn apply_sync(project_root: &path::Path) -> anyhow::Result<()> {
-    apply(project_root, false).await?;
+pub async fn apply_sync(project: &project::Context, skip_hooks: bool) -> anyhow::Result<()> {
+    apply(project, false, skip_hooks).await?;
     Ok(())
 }
 
-pub async fn apply(project_root: &path::Path, quiet: bool) -> anyhow::Result<bool> {
+pub async fn apply(
+    project: &project::Context,
+    quiet: bool,
+    skip_hooks: bool,
+) -> anyhow::Result<bool> {
+    if !skip_hooks {
+        hooks::on_action("config.update.before", project).await?;
+    }
+
+    let project_root = &project.location.root;
     let local_toml = project_root.join(BRANDING_LOCAL_CONFIG_FILE);
 
     if !tokio::fs::try_exists(&local_toml).await? {
@@ -88,6 +97,10 @@ pub async fn apply(project_root: &path::Path, quiet: bool) -> anyhow::Result<boo
     }
     if let Some(instance_cmds) = instance {
         configure(&mut conn, CfgScope::Instance, &instance_cmds).await?;
+    }
+
+    if !skip_hooks {
+        hooks::on_action("config.update.after", project).await?;
     }
 
     if !quiet {
