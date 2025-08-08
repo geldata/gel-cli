@@ -71,7 +71,7 @@ jobs:
         uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: "cargo,rustc,rust-std"
-          target: "x86_64-unknown-linux-musl"
+          targets: "x86_64-unknown-linux-musl"
           toolchain: '1.88'
 
       - run: |
