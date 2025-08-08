@@ -73,7 +73,6 @@ jobs:
           components: "cargo,rustc,rust-std"
           target: "x86_64-unknown-linux-musl"
           toolchain: '1.88'
-          override: true
 
       - run: |
           cargo build --bins --target=x86_64-unknown-linux-musl
