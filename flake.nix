@@ -42,7 +42,7 @@
         let
           fenix_pkgs = fenix.packages.${system};
           rust_toolchain = fenix_pkgs.toolchainOf {
-            channel = "1.85";
+            channel = "1.88";
             sha256 = "sha256-Hn2uaQzRLidAWpfmRwSRdImifGUCAb9HeAqTYFXWeQk=";
           };
 

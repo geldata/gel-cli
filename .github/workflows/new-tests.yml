@@ -9,7 +9,7 @@ on:
 env:
   CACHE_KEY: 2
   CLITEST_VERSION: "=0.2.0"
-  RUST_VERSION: "1.85"
+  RUST_VERSION: "1.88"
   RUST_COMPONENTS: "cargo,rustc,rust-std,clippy,rustfmt"
 
 jobs:
