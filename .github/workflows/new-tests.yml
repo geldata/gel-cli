@@ -9,7 +9,7 @@ on:
 env:
   CACHE_KEY: 2
   CLITEST_VERSION: "=0.2.0"
-  RUST_VERSION: "1.85"
+  RUST_VERSION: "1.88"
   RUST_COMPONENTS: "cargo,rustc,rust-std,clippy,rustfmt"
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: '${{ env.RUST_COMPONENTS }}'
           targets: 'x86_64-unknown-linux-musl'
@@ -52,9 +52,9 @@ jobs:
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-${{ env.CACHE_KEY }}-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ env.CACHE_KEY }}-${{ env.RUST_VERSION }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-${{ env.CACHE_KEY }}-
+            ${{ runner.os }}-cargo-${{ env.CACHE_KEY }}-${{ env.RUST_VERSION }}-
 
       - name: Build
         if: runner.os != 'Linux'
@@ -90,7 +90,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: '${{ env.RUST_COMPONENTS }}'
           toolchain: '${{ env.RUST_VERSION }}'
@@ -164,7 +164,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: '${{ env.RUST_COMPONENTS }}'
           toolchain: '${{ env.RUST_VERSION }}'

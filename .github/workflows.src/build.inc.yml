@@ -153,11 +153,11 @@
         brew update
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+      uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
       if: << 'false' if tgt.runs_on and 'self-hosted' in tgt.runs_on else 'true' >>
       with:
         components: "cargo,rustc,rust-std"
-        toolchain: "1.85"
+        toolchain: "1.88"
         targets: "<< tgt.arch >>-apple-darwin"
 
     - name: Set up Python
@@ -214,9 +214,9 @@
         path: edgedb-pkg
 
     - name: Install Rust toolchain
-      uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+      uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
       with:
-        toolchain: 1.85
+        toolchain: 1.88
 
     - name: Set up Python
       uses: actions/setup-python@v4

@@ -35,11 +35,10 @@ jobs:
         with:
           submodules: true
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.85'
-          override: true
+          toolchain: '1.88'
 
       - name: Install EdgeDB
         uses: edgedb/setup-edgedb@v1
@@ -68,12 +67,11 @@ jobs:
         run: "sudo apt-get install musl-tools"
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: "cargo,rustc,rust-std"
-          target: "x86_64-unknown-linux-musl"
-          toolchain: '1.85'
-          override: true
+          targets: "x86_64-unknown-linux-musl"
+          toolchain: '1.88'
 
       - run: |
           cargo build --bins --target=x86_64-unknown-linux-musl
@@ -105,11 +103,10 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.85'
-          override: true
+          toolchain: '1.88'
 
       - run: |
           cargo build --tests --features portable_tests
@@ -126,11 +123,10 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.85'
-          override: true
+          toolchain: '1.88'
 
       - run: |
           cargo install --locked --path=. --root=$TMPDIR
@@ -147,11 +143,10 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: "cargo,rustc,rust-std"
-          toolchain: '1.85'
-          override: true
+          toolchain: '1.88'
 
       - run: |
           cargo clippy --all-features --workspace --all-targets
