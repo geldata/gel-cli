@@ -69,3 +69,6 @@ pub const BRANDING_SERVER: &str = if cfg!(feature = "gel") {
 } else {
     "gel"
 };
+
+/// Name of the local configuration file.
+pub const BRANDING_LOCAL_CONFIG_FILE: &str = "gel.local.toml";

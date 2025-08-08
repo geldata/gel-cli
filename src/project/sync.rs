@@ -5,7 +5,10 @@ use clap::ValueHint;
 use edgeql_parser::helpers::quote_name;
 use gel_tokio::InstanceName;
 
-use crate::branding::{BRANDING_CLI_CMD, BRANDING_SCHEMA_FILE_EXT, MANIFEST_FILE_DISPLAY_NAME};
+use crate::branding::{
+    BRANDING_CLI_CMD, BRANDING_LOCAL_CONFIG_FILE, BRANDING_SCHEMA_FILE_EXT,
+    MANIFEST_FILE_DISPLAY_NAME,
+};
 use crate::cloud::client::CloudClient;
 use crate::commands::{ExitCode, Options};
 use crate::connect::Connector;
@@ -180,8 +183,7 @@ async fn sync(
         Ok(false) => {
             msg!(
                 "No config to apply, run `{BRANDING_CLI_CMD} sync` again \
-                after modifying `{}`.",
-                project::config::LOCAL_CONFIG_FILE,
+                after modifying `{BRANDING_LOCAL_CONFIG_FILE}`.",
             );
         }
         Err(err) => {

@@ -15,7 +15,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinSet;
 
 #[allow(unused_imports)]
-use crate::branding::{BRANDING_CLI_CMD, MANIFEST_FILE_DISPLAY_NAME};
+use crate::branding::{BRANDING_CLI_CMD, BRANDING_LOCAL_CONFIG_FILE, MANIFEST_FILE_DISPLAY_NAME};
 use crate::hint::HintExt;
 use crate::options::Options;
 use crate::print::{self, AsRelativeToCurrentDir, Highlight};
@@ -209,9 +209,9 @@ fn assemble_watchers(
     }
 
     if cmd.sync {
-        let glob = globset::Glob::new(project::config::LOCAL_CONFIG_FILE)?;
+        let glob = globset::Glob::new(BRANDING_LOCAL_CONFIG_FILE)?;
         watchers.push(Arc::new(Watcher {
-            name: project::config::LOCAL_CONFIG_FILE.into(),
+            name: BRANDING_LOCAL_CONFIG_FILE.into(),
             matchers: vec![glob.compile_matcher()],
             target: Target::Sync,
         }));

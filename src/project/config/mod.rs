@@ -10,13 +10,11 @@ use std::collections::HashMap;
 use std::path;
 use toml::Value as TomlValue;
 
-use crate::branding::{BRANDING_CLI_CMD, QUERY_TAG};
+use crate::branding::{BRANDING_CLI_CMD, BRANDING_LOCAL_CONFIG_FILE, QUERY_TAG};
 use crate::commands::{ExitCode, Options};
 use crate::connect::Connection;
 use crate::hint::HintExt;
 use crate::print::{self, Highlight};
-
-pub const LOCAL_CONFIG_FILE: &str = "gel.local.toml";
 
 #[derive(clap::Args, Clone, Debug)]
 pub struct Command {
@@ -51,10 +49,10 @@ pub async fn apply_sync(project_root: &path::Path) -> anyhow::Result<()> {
 }
 
 pub async fn apply(project_root: &path::Path, quiet: bool) -> anyhow::Result<bool> {
-    let local_toml = project_root.join(LOCAL_CONFIG_FILE);
+    let local_toml = project_root.join(BRANDING_LOCAL_CONFIG_FILE);
 
     if !tokio::fs::try_exists(&local_toml).await? {
-        print::msg!("Writing {LOCAL_CONFIG_FILE} for configuration");
+        print::msg!("Writing {BRANDING_LOCAL_CONFIG_FILE} for configuration");
         tokio::fs::write(&local_toml, INITIAL_CONFIG).await?;
         return Ok(false);
     }
