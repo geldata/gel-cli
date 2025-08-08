@@ -27,7 +27,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: '${{ env.RUST_COMPONENTS }}'
           targets: 'x86_64-unknown-linux-musl'
@@ -90,7 +90,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: '${{ env.RUST_COMPONENTS }}'
           toolchain: '${{ env.RUST_VERSION }}'
@@ -164,7 +164,7 @@ jobs:
           submodules: true
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0
+        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:
           components: '${{ env.RUST_COMPONENTS }}'
           toolchain: '${{ env.RUST_VERSION }}'
