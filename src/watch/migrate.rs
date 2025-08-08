@@ -14,7 +14,7 @@ use crate::migrations::apply::AutoBackup;
 use crate::migrations::{self, dev_mode};
 use crate::{git, msg, print};
 
-use super::{Context, ExecutionOrder, Watcher};
+use super::{Context, ExecutionOrder, SyncTrigger, Watcher};
 
 pub struct Migrator {
     ctx: Arc<Context>,
@@ -45,6 +45,7 @@ impl Migrator {
         mut self,
         mut input: UnboundedReceiver<ExecutionOrder>,
         matcher: Arc<Watcher>,
+        sync_trigger: SyncTrigger,
     ) {
         loop {
             if let Some(git_branch) = &self.git_branch {
@@ -82,6 +83,8 @@ impl Migrator {
                 print::error!("{e}");
                 // TODO
                 // matcher.should_retry = true;
+            } else {
+                sync_trigger.maybe_trigger();
             }
 
             match ExecutionOrder::recv(&mut input).await {

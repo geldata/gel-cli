@@ -9,13 +9,13 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::path::PathBuf;
 use std::sync::Arc;
-
+use std::sync::atomic::AtomicBool;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::task::JoinSet;
 
 #[allow(unused_imports)]
-use crate::branding::{BRANDING_CLI_CMD, MANIFEST_FILE_DISPLAY_NAME};
+use crate::branding::{BRANDING_CLI_CMD, BRANDING_LOCAL_CONFIG_FILE, MANIFEST_FILE_DISPLAY_NAME};
 use crate::hint::HintExt;
 use crate::options::Options;
 use crate::print::{self, AsRelativeToCurrentDir, Highlight};
@@ -25,9 +25,15 @@ use crate::project;
 pub struct Command {
     /// Runs "{BRANDING_CLI_CMD} migration apply --dev-mode" on changes to schema definitions.
     ///
-    /// This runs in addition to to scripts in {MANIFEST_FILE_DISPLAY_NAME}.
+    /// This runs in addition to scripts in {MANIFEST_FILE_DISPLAY_NAME}.
     #[arg(short = 'm', long)]
     pub migrate: bool,
+
+    /// Runs "{BRANDING_CLI_CMD} sync" on changes to gel.local.toml.
+    ///
+    /// This runs in addition to scripts in {MANIFEST_FILE_DISPLAY_NAME}.
+    #[arg(short = 's', long)]
+    pub sync: bool,
 
     #[arg(short = 'v', long)]
     pub verbose: bool,
@@ -133,6 +139,7 @@ impl Watcher {
 enum Target {
     Script(String),
     MigrateDevMode,
+    Sync,
 }
 
 impl std::fmt::Display for Target {
@@ -143,6 +150,10 @@ impl std::fmt::Display for Target {
                 f.write_str(BRANDING_CLI_CMD)?;
                 f.write_str(" migration apply --dev-mode")
             }
+            Target::Sync => {
+                f.write_str(BRANDING_CLI_CMD)?;
+                f.write_str(" sync")
+            }
         }
     }
 }
@@ -152,7 +163,7 @@ fn assemble_watchers(
     project: &project::Context,
 ) -> anyhow::Result<Vec<Arc<Watcher>>> {
     let watch_scripts = &project.manifest.watch;
-    if watch_scripts.is_empty() && !cmd.migrate {
+    if watch_scripts.is_empty() && !cmd.migrate && !cmd.sync {
         return Err(
             anyhow::anyhow!("Missing [[watch]] entries in {MANIFEST_FILE_DISPLAY_NAME}")
                 .with_hint(|| {
@@ -197,7 +208,39 @@ fn assemble_watchers(
         }));
     }
 
+    if cmd.sync {
+        let glob = globset::Glob::new(BRANDING_LOCAL_CONFIG_FILE)?;
+        watchers.push(Arc::new(Watcher {
+            name: BRANDING_LOCAL_CONFIG_FILE.into(),
+            matchers: vec![glob.compile_matcher()],
+            target: Target::Sync,
+        }));
+    }
+
     Ok(watchers)
+}
+
+#[derive(Clone)]
+struct SyncTrigger {
+    tx: UnboundedSender<ExecutionOrder>,
+    pending: Arc<AtomicBool>,
+}
+
+impl SyncTrigger {
+    fn new() -> (Self, UnboundedReceiver<ExecutionOrder>) {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let pending = Arc::new(AtomicBool::new(false));
+        (SyncTrigger { tx, pending }, rx)
+    }
+
+    fn maybe_trigger(&self) {
+        if self
+            .pending
+            .swap(false, std::sync::atomic::Ordering::Relaxed)
+        {
+            self.tx.send(ExecutionOrder::default()).ok();
+        }
+    }
 }
 
 async fn start_executors(
@@ -206,18 +249,64 @@ async fn start_executors(
 ) -> anyhow::Result<(Vec<UnboundedSender<ExecutionOrder>>, JoinSet<()>)> {
     let mut senders = Vec::with_capacity(matchers.len());
     let mut join_set = JoinSet::new();
+
+    let (sync_trigger, mut sync_rx) = SyncTrigger::new();
+    if let Some(matcher) = matchers
+        .iter()
+        .filter(|m| matches!(m.target, Target::Sync))
+        .next()
+    {
+        let root = ctx.project.location.root.clone();
+        let schema_dir = ctx.project.manifest.project().get_schema_dir();
+        let matcher = matcher.clone();
+        let ctx = ctx.clone();
+        let pending_sync = sync_trigger.pending.clone();
+        join_set.spawn(async move {
+            loop {
+                match project::config::apply(&root, true).await {
+                    Ok(true) => {
+                        print::success!("Configuration applied.");
+                    }
+                    Ok(false) => {
+                        print::msg!("No configuration to apply.");
+                    }
+                    Err(err) => {
+                        match project::sync::maybe_enable_missing_extension(err, &schema_dir) {
+                            Ok(extension_name) => {
+                                pending_sync.store(true, std::sync::atomic::Ordering::Relaxed);
+                                print::warn!(
+                                    "Failed to apply configuration due to missing extension \
+                                        `{extension_name}`; it's now enabled."
+                                );
+                            }
+                            Err(err) => print::error!("Failed to apply configuration: {err}"),
+                        }
+                    }
+                }
+                match ExecutionOrder::recv(&mut sync_rx).await {
+                    Some(order) => order.print(&matcher, ctx.as_ref()),
+                    None => break,
+                }
+            }
+        });
+    }
+
     for matcher in matchers {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-        senders.push(tx);
-
         match &matcher.target {
-            Target::Script(_) => join_set.spawn(scripts::execute(rx, matcher.clone(), ctx.clone())),
-            Target::MigrateDevMode => {
-                let migrator = migrate::Migrator::new(ctx.clone()).await?;
-
-                join_set.spawn(migrator.run(rx, matcher.clone()))
+            Target::Script(_) => {
+                senders.push(tx);
+                join_set.spawn(scripts::execute(rx, matcher.clone(), ctx.clone()));
             }
-        };
+            Target::MigrateDevMode => {
+                senders.push(tx);
+                let migrator = migrate::Migrator::new(ctx.clone()).await?;
+                join_set.spawn(migrator.run(rx, matcher.clone(), sync_trigger.clone()));
+            }
+            Target::Sync => {
+                senders.push(sync_trigger.tx.clone());
+            }
+        }
     }
     Ok((senders, join_set))
 }
@@ -281,6 +370,7 @@ async fn watch_and_match(
     Ok(())
 }
 
+#[derive(Default)]
 struct ExecutionOrder {
     matched_paths: HashSet<String>,
 }
