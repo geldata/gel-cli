@@ -1,5 +1,5 @@
 #!/usr/bin/env clitest --v0
-pattern ESC \x1b\[\w+
+pattern ESC \x1b\[\w+;
 
 ignore {
     ! Newer version of gel tool exists %{GREEDYDATA}
