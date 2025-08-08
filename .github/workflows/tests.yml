@@ -39,7 +39,6 @@ jobs:
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.88'
-          override: true
 
       - name: Install EdgeDB
         uses: edgedb/setup-edgedb@v1
@@ -73,7 +72,6 @@ jobs:
           components: "cargo,rustc,rust-std"
           targets: "x86_64-unknown-linux-musl"
           toolchain: '1.88'
-          override: true
 
       - run: |
           cargo build --bins --target=x86_64-unknown-linux-musl
@@ -109,7 +107,6 @@ jobs:
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.88'
-          override: true
 
       - run: |
           cargo build --tests --features portable_tests
@@ -130,7 +127,6 @@ jobs:
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.88'
-          override: true
 
       - run: |
           cargo install --locked --path=. --root=$TMPDIR
@@ -151,7 +147,6 @@ jobs:
         with:
           components: "cargo,rustc,rust-std"
           toolchain: '1.88'
-          override: true
 
       - run: |
           cargo clippy --all-features --workspace --all-targets
