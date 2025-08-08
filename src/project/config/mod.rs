@@ -38,18 +38,24 @@ pub async fn run(c: &Command, _options: &Options) -> anyhow::Result<()> {
         return Err(ExitCode::new(1).into());
     };
 
-    apply(&project, false).await?;
+    apply(&project, false, false).await?;
     Ok(())
 }
 
 #[tokio::main(flavor = "current_thread")]
-pub async fn apply_sync(project: &project::Context) -> anyhow::Result<()> {
-    apply(project, false).await?;
+pub async fn apply_sync(project: &project::Context, skip_hooks: bool) -> anyhow::Result<()> {
+    apply(project, false, skip_hooks).await?;
     Ok(())
 }
 
-pub async fn apply(project: &project::Context, quiet: bool) -> anyhow::Result<bool> {
-    hooks::on_action("config.update.before", project).await?;
+pub async fn apply(
+    project: &project::Context,
+    quiet: bool,
+    skip_hooks: bool,
+) -> anyhow::Result<bool> {
+    if !skip_hooks {
+        hooks::on_action("config.update.before", project).await?;
+    }
 
     let project_root = &project.location.root;
     let local_toml = project_root.join(BRANDING_LOCAL_CONFIG_FILE);
@@ -93,7 +99,9 @@ pub async fn apply(project: &project::Context, quiet: bool) -> anyhow::Result<bo
         configure(&mut conn, CfgScope::Instance, &instance_cmds).await?;
     }
 
-    hooks::on_action("config.update.after", project).await?;
+    if !skip_hooks {
+        hooks::on_action("config.update.after", project).await?;
+    }
 
     if !quiet {
         print::success!("Configuration applied.");

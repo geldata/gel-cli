@@ -263,7 +263,7 @@ async fn start_executors(
         let pending_sync = sync_trigger.pending.clone();
         join_set.spawn(async move {
             loop {
-                match project::config::apply(&project, true).await {
+                match project::config::apply(&project, true, false).await {
                     Ok(true) => {
                         print::success!("Configuration applied.");
                     }

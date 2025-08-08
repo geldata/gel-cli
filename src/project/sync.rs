@@ -174,7 +174,7 @@ async fn sync(
     }
 
     msg!("3. Applying config...");
-    match project::config::apply(&project, true).await {
+    match project::config::apply(&project, true, false).await {
         Ok(true) => {
             print::success!("Project is now in sync.")
         }
