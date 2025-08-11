@@ -21,13 +21,6 @@ $ gel --version
 ? Gel CLI %{VERSION}
 
 $ gel instance create inst1
-optional {
-    sequence {
-        ? Downloading package...
-        ? %{DATA}
-        ? Successfully installed %{VERSION}
-    }
-}
 ! Initializing Gel instance 'inst1'...
 optional {
     choice {
