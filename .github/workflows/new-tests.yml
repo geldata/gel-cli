@@ -138,6 +138,11 @@ jobs:
           echo "gel: $(gel --version)"
           echo "clitest: $(clitest --version)"
 
+      - name: Pre-install the latest gel + nightly
+        run: |
+          gel server install
+          gel server install --nightly
+
       - name: Run all CLI tests
         run: |
           find tests/scripts -name "*.cli" -type f | while read -r test_file; do
@@ -199,11 +204,6 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           chmod +x ${{ env.CARGO_HOME }}/bin/*
-
-      - name: Pre-install the latest gel + nightly
-        run: |
-          gel server install
-          gel server install --nightly
 
       - name: Run DSN tests
         run: |
