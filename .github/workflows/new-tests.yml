@@ -200,6 +200,11 @@ jobs:
         run: |
           chmod +x ${{ env.CARGO_HOME }}/bin/*
 
+      - name: Pre-install the latest gel + nightly
+        run: |
+          gel server install
+          gel server install --nightly
+
       - name: Run DSN tests
         run: |
           cargo test -p shared-client-tests
