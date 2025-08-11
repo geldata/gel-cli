@@ -85,8 +85,7 @@ static IS_IN_WSL: LazyLock<WslState> = LazyLock::new(|| {
             WslState::Wsl2
         } else {
             warn!(
-                "Unknown WSL version: /proc/cmdline={:?} /proc/version={:?}, please report this as a bug",
-                cmdline, version
+                "Unknown WSL version: /proc/cmdline={cmdline:?} /proc/version={version:?}, please report this as a bug"
             );
             WslState::Wsl2
         }
@@ -331,7 +330,7 @@ pub fn destroy(options: &destroy::Command, name: &str) -> anyhow::Result<bool> {
         if path.exists() {
             found = true;
             log::info!(target: "edgedb::portable::destroy",
-                       "Removing service file {:?}", path);
+                       "Removing service file {path:?}");
             fs::remove_file(path)?;
         }
     }
@@ -1078,7 +1077,7 @@ fn list_local(options: &status::List) -> anyhow::Result<Vec<status::JsonStatus>>
             .arg("list")
             .args(&inner_opts)
             .get_stdout_text()?;
-        log::info!("WSL list returned {:?}", text);
+        log::info!("WSL list returned {text:?}");
         let mut instances: Vec<status::JsonStatus> = serde_json::from_str(&text)
             .context("cannot decode json from `instance list` in WSL")?;
         // Use the Windows service status, not the WSL one

@@ -109,7 +109,7 @@ fn _get_local_ui_url(cmd: &UI, cfg: &gel_tokio::Config) -> anyhow::Result<String
                     return Err(ExitCode::new(2).into());
                 }
                 Ok(status) => {
-                    log::info!("GET {} returned status code {}", url, status);
+                    log::info!("GET {url} returned status code {status}");
                     print::error!(
                         "Web UI not served correctly by specified {BRANDING} server. \
                         Try `{BRANDING_CLI_CMD} instance logs -I <instance_name>` to see details."
@@ -140,7 +140,7 @@ fn _get_local_ui_secret_key(cfg: &gel_tokio::Config) -> anyhow::Result<Option<St
         let key = jwt::LocalJWT::new(instance.name)
             .generate()
             .map_err(|e| {
-                log::warn!("Cannot generate authToken: {:#}", e);
+                log::warn!("Cannot generate authToken: {e:#}");
             })
             .ok();
         Ok(key)
@@ -148,7 +148,7 @@ fn _get_local_ui_secret_key(cfg: &gel_tokio::Config) -> anyhow::Result<Option<St
         let key = jwt::LocalJWT::new("_localdev")
             .generate()
             .map_err(|e| {
-                log::warn!("Cannot generate authToken: {:#}", e);
+                log::warn!("Cannot generate authToken: {e:#}");
             })
             .ok();
         Ok(key)

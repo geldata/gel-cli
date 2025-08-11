@@ -75,13 +75,13 @@ impl Http {
         let resp = resp.map_err(Http::map_error)?;
 
         let status = resp.status();
-        debug!("Got response: status: {:?}", status);
+        debug!("Got response: status: {status:?}");
         if status.is_success() {
             let res = resp
                 .json()
                 .await
                 .map_err(|e| CloudError::DeserializationError(Box::new(e)))?;
-            debug!("Got response: body: {:?}", res);
+            debug!("Got response: body: {res:?}");
             Ok(res)
         } else {
             #[derive(Debug, serde::Deserialize)]
@@ -94,7 +94,7 @@ impl Http {
                 .text()
                 .await
                 .map_err(|e| CloudError::DeserializationError(Box::new(e)))?;
-            debug!("Got error: body: {:?}", body);
+            debug!("Got error: body: {body:?}");
 
             let message = if let Ok(body) = serde_json::from_str::<ErrorResponse>(&body) {
                 body.error
@@ -113,7 +113,7 @@ impl Http {
                 reqwest::StatusCode::UNAUTHORIZED => Err(CloudError::Unauthorized),
                 reqwest::StatusCode::NOT_FOUND => {
                     Err(CloudError::NotFound(message.unwrap_or_else(|| {
-                        format!("The requested {} was not found", resource)
+                        format!("The requested {resource} was not found")
                     })))
                 }
                 _ => Err(CloudError::Other(

@@ -32,7 +32,7 @@ pub async fn git_current_branch() -> Option<String> {
             None
         }
         Err(e) => {
-            warn!("Failed to get current git branch: {}", e);
+            warn!("Failed to get current git branch: {e}");
             None
         }
     }

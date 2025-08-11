@@ -172,7 +172,7 @@ impl State {
     pub async fn set_idle_transaction_timeout(&mut self) -> anyhow::Result<()> {
         if let Some(conn) = &mut self.connection {
             let d = self.idle_transaction_timeout;
-            log::info!("Setting session_idle_transaction_timeout to {}", d);
+            log::info!("Setting session_idle_transaction_timeout to {d}");
             conn.execute(
                 &format!(
                     "CONFIGURE SESSION SET session_idle_transaction_timeout \
@@ -256,7 +256,7 @@ impl State {
             if conn.is_consistent() {
                 timeout(Duration::from_secs(1), conn.terminate())
                     .await
-                    .map_err(|e| log::warn!("Termination error: {:#}", e))
+                    .map_err(|e| log::warn!("Termination error: {e:#}"))
                     .ok();
             }
         }

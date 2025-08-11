@@ -85,7 +85,7 @@ pub async fn run_async(cmd: &Link, opts: &Options) -> anyhow::Result<()> {
     let non_interactive = cmd.non_interactive;
     let trust_tls_cert = cmd.trust_tls_cert;
     let quiet = cmd.quiet;
-    debug!("connecting with config: {:?}", config);
+    debug!("connecting with config: {config:?}");
     let mut connect_result = if config.tls_ca.is_none() {
         let mut config = config.clone();
         config.tls_security = TlsSecurity::Insecure;

@@ -155,7 +155,7 @@ pub fn download_package(pkg_info: &PackageInfo) -> anyhow::Result<PathBuf> {
             }
         }
         PackageHash::Unknown(val) => {
-            log::warn!("Cannot verify hash, unknown hash format {:?}", val);
+            log::warn!("Cannot verify hash, unknown hash format {val:?}");
         }
     }
     Ok(cache_path)
@@ -242,7 +242,7 @@ fn unpack_package(cache_file: &Path, target_dir: &Path) -> anyhow::Result<()> {
 fn unlink_cache(cache_file: &Path) {
     fs::remove_file(cache_file)
         .map_err(|e| {
-            log::warn!("Failed to remove cache {:?}: {}", cache_file, e);
+            log::warn!("Failed to remove cache {cache_file:?}: {e}");
         })
         .ok();
 }

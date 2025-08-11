@@ -181,7 +181,7 @@ async fn _get_json<T>(url: &Url) -> Result<T, anyhow::Error>
 where
     T: serde::de::DeserializeOwned,
 {
-    log::info!("Fetching JSON at {}", url);
+    log::info!("Fetching JSON at {url}");
     let body_bytes = reqwest::Client::new()
         .get(url.clone())
         .header(reqwest::header::USER_AGENT, USER_AGENT)
@@ -228,7 +228,7 @@ fn filter_package(
 ) -> Option<PackageInfo> {
     let result = _filter_package(pkg_root, pkg, expected_package_type);
     if result.is_none() {
-        log::info!("Skipping package {:?}", pkg);
+        log::info!("Skipping package {pkg:?}");
     }
     result
 }
@@ -271,14 +271,14 @@ fn _filter_package(
     let version = match pkg.version.parse() {
         Ok(v) => v,
         Err(e) => {
-            log::trace!("Failed to parse package version: {}", e);
+            log::trace!("Failed to parse package version: {e}");
             return None;
         }
     };
     let url = match pkg_root.join(&iref.path) {
         Ok(u) => u,
         Err(e) => {
-            log::trace!("Failed to join package URL: {}", e);
+            log::trace!("Failed to join package URL: {e}");
             return None;
         }
     };
@@ -298,7 +298,7 @@ fn _filter_package(
 fn filter_cli_package(pkg_root: &Url, pkg: &PackageData) -> Option<CliPackageInfo> {
     let result = _filter_cli_package(pkg_root, pkg);
     if result.is_none() {
-        log::info!("Skipping package {:?}", pkg);
+        log::info!("Skipping package {pkg:?}");
     }
     result
 }

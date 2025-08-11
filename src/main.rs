@@ -157,7 +157,7 @@ fn _main() -> anyhow::Result<()> {
     builder.init();
 
     let cfg = cfg.unwrap_or_else(|e| {
-        log::warn!("Config error: {:#}", e);
+        log::warn!("Config error: {e:#}");
         Default::default()
     });
 

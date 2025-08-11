@@ -116,7 +116,7 @@ fn find_project_dirs(f: impl Fn(&str) -> bool) -> anyhow::Result<HashMap<String,
                 .filter_map(|p| {
                     read_project_path(&p)
                         .inspect_err(|_| {
-                            log::warn!("Broken project stash dir: {:?}", p);
+                            log::warn!("Broken project stash dir: {p:?}");
                         })
                         .ok()
                 })
@@ -152,7 +152,7 @@ pub fn logout(c: &options::Logout, options: &CloudOptions) -> anyhow::Result<()>
                 continue;
             }
             let profile = stem.unwrap();
-            log::debug!("Logging out from profile {:?}", profile);
+            log::debug!("Logging out from profile {profile:?}");
             if let Some(projects) = projects.remove(profile) {
                 if !projects.is_empty() {
                     if c.non_interactive {
@@ -182,7 +182,7 @@ pub fn logout(c: &options::Logout, options: &CloudOptions) -> anyhow::Result<()>
         let path = cloud_config_file(&client.profile)?;
         if path.exists() {
             let profile = client.profile.as_deref().unwrap_or("default");
-            log::debug!("Logging out from profile {:?}", profile);
+            log::debug!("Logging out from profile {profile:?}");
             let projects = find_project_dirs(|p| profile == p)
                 .map(|projects| projects.into_values().flatten().collect())
                 .or_else(|e| if c.force { Ok(Vec::new()) } else { Err(e) })?;

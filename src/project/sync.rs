@@ -212,7 +212,7 @@ pub fn maybe_enable_missing_extension(
         let extensions_gel = schema_dir.join(format!("extensions.{BRANDING_SCHEMA_FILE_EXT}"));
         if extensions_gel.exists() {
             let content = std::fs::read_to_string(&extensions_gel)?;
-            let pattern = format!("#using extension {};", extension_name);
+            let pattern = format!("#using extension {extension_name};");
             let mut enabled = false;
             let uncommented = content
                 .lines()

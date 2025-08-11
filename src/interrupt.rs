@@ -228,8 +228,7 @@ impl Interrupt {
             old_bt.resolve();
             panic!(
                 "Second Interrupt created simultaneously.\n\n\
-                Previous was created at:\n{:?}",
-                old_bt
+                Previous was created at:\n{old_bt:?}"
             );
         };
         Interrupt { event }

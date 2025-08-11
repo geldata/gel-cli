@@ -246,7 +246,7 @@ fn _service_status(name: &str) -> Status {
             Some(("pid", value)) => match value.parse() {
                 Ok(value) => pid = Some(value),
                 Err(_) => {
-                    log::warn!("launchctl returned invalid pid: {}", value);
+                    log::warn!("launchctl returned invalid pid: {value}");
                 }
             },
             Some(("state", "waiting")) => {
@@ -359,7 +359,7 @@ pub fn detect_launchd() -> bool {
             false
         }
         Err(e) => {
-            log::info!("detecting launchd session: {:#}", e);
+            log::info!("detecting launchd session: {e:#}");
             false
         }
     }
@@ -426,7 +426,7 @@ fn wait_started(name: &str) -> anyhow::Result<()> {
     cmd.arg(log_file(name)?);
     cmd.no_proxy()
         .run()
-        .map_err(|e| log::warn!("Cannot show log: {}", e))
+        .map_err(|e| log::warn!("Cannot show log: {e}"))
         .ok();
     println!("--- End of log ---");
     anyhow::bail!("Failed to start {BRANDING}");

@@ -66,6 +66,11 @@ jobs:
       - name: Install musl-tools
         run: "sudo apt-get install musl-tools"
 
+      # The build fails without this. I don't know why.
+      - name: Remove rust-toolchain.toml
+        run: |
+          rm rust-toolchain.toml
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
         with:

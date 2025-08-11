@@ -251,11 +251,7 @@ async fn start_executors(
     let mut join_set = JoinSet::new();
 
     let (sync_trigger, mut sync_rx) = SyncTrigger::new();
-    if let Some(matcher) = matchers
-        .iter()
-        .filter(|m| matches!(m.target, Target::Sync))
-        .next()
-    {
+    if let Some(matcher) = matchers.iter().find(|m| matches!(m.target, Target::Sync)) {
         let project = ctx.project.clone();
         let schema_dir = ctx.project.manifest.project().get_schema_dir();
         let matcher = matcher.clone();

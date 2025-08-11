@@ -308,7 +308,7 @@ impl Connection {
             ._execute("CONFIGURE CURRENT DATABASE RESET force_database_error", &())
             .await;
         let Err(e) = res else { return };
-        log::error!("Cannot clear database error state: {:#}", e);
+        log::error!("Cannot clear database error state: {e:#}");
     }
 
     pub fn database(&self) -> &DatabaseBranch {

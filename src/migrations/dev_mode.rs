@@ -35,7 +35,7 @@ impl ProgressCallbackListener for BackupProgressBar {
             self.bar.set_position(progress as u64);
         }
         self.bar
-            .set_message(format!("Current operation: {}...", message));
+            .set_message(format!("Current operation: {message}..."));
     }
 
     fn println(&self, msg: &str) {
@@ -54,7 +54,7 @@ pub async fn migrate(cli: &mut Connection, ctx: &Context, bar: &ProgressBar) -> 
     let db_migration = get_db_migration(cli).await?;
     match select_mode(cli, &migrations, db_migration.as_deref()).await? {
         Mode::Normal { skip } => {
-            log::info!("Skipping {} revisions.", skip);
+            log::info!("Skipping {skip} revisions.");
             let migrations = migrations
                 .get_range(skip..)
                 .ok_or_else(|| bug::error("`skip` is out of range"))?;
@@ -131,7 +131,7 @@ mod ddl {
         )
         .await?;
         for ddl_statement in items {
-            log::info!("{}", ddl_statement);
+            log::info!("{ddl_statement}");
         }
         Ok(())
     }
@@ -336,7 +336,7 @@ pub async fn rebase_to_schema(
             execute_if_connected(cli, "ABORT MIGRATION REWRITE")
                 .await
                 .map_err(|e| {
-                    log::warn!("Error aborting migration rewrite: {:#}", e);
+                    log::warn!("Error aborting migration rewrite: {e:#}");
                 })
                 .ok();
             Err(e)

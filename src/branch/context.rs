@@ -148,7 +148,7 @@ impl Context {
                 credentials.branch = Some(branch.to_string());
                 credentials::write(x, &credentials)?;
             } else {
-                warn!("Credentials unexpectedly missing for {:#}", x);
+                warn!("Credentials unexpectedly missing for {x:#}");
             }
         }
 

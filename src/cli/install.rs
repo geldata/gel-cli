@@ -574,7 +574,7 @@ fn copy_to_installation_path<P: AsRef<Path>>(installation_path: P) -> anyhow::Re
     let path = installation_path.join(BRANDING_CLI_CMD_FILE);
     let exe_path = current_exe()?;
     fs::create_dir_all(installation_path)
-        .with_context(|| format!("failed to create {:?}", installation_path))?;
+        .with_context(|| format!("failed to create {installation_path:?}"))?;
 
     // Attempt to rename from the current executable to the target path. If this fails, we try a copy.
     if fs::rename(&exe_path, &path).is_ok() {
