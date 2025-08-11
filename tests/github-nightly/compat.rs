@@ -42,7 +42,6 @@ fn cli(distro: Distro, version: &str) -> anyhow::Result<()> {
 
             edgedb -Itest1 list scalars --system
         "###,
-            version = version,
         ),
     )
     .success();

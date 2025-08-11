@@ -29,7 +29,7 @@ pub fn run(cmd: &Command) -> Result<(), anyhow::Error> {
         let filter = if cmd.installed_only {
             let mut filter = "installed".to_string();
             if cmd.version.is_some() {
-                filter.push_str(&format!(", matching"));
+                filter.push_str(", matching");
             }
             if let Some(channel) = channel {
                 filter.push_str(&format!(", {channel:?} channel").to_lowercase());

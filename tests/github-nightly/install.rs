@@ -37,7 +37,6 @@ fn package(distro: Distro, version: &str) -> anyhow::Result<()> {
             timeout 180 edgedb instance destroy -I test1 --non-interactive
             edgedb server uninstall --all --verbose
         "###,
-            version = version,
         ),
     )
     .success();

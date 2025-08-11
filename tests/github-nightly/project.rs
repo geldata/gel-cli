@@ -36,7 +36,6 @@ fn simple_package(distro: Distro, version: &str) -> anyhow::Result<()> {
             timeout 120 edgedb project unlink \
                 --destroy-server-instance --non-interactive
         "###,
-            version = version,
         ),
     )
     .success();
