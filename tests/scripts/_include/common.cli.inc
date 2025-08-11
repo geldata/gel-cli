@@ -10,7 +10,6 @@ ignore {
     ! Version %{VERSION} is already downloaded
     sequence {
         ! Downloading package...
-        ! %{DATA}
         ! Successfully installed %{VERSION}
     }
 }
