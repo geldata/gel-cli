@@ -22,6 +22,7 @@ apt-get update -qq \
     -o Dir::State::Lists=$TEMP_DIR/lists
 
 cd $TEMP_DIR && apt-get download ca-certificates \
+    -o APT::Get::AllowUnauthenticated=true \
     -o Dir::Etc::SourceList=$TEMP_DIR/sources.list \
     -o Dir::Cache::Archives=$TEMP_DIR/archives \
     -o Dir::State::Lists=$TEMP_DIR/lists
