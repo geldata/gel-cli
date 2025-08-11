@@ -1,5 +1,7 @@
 #!/usr/bin/env clitest --v0
 
+include "../_include/common.cli.inc";
+
 using tempdir;
 
 $ cp -R $INITIAL_PWD/../../proj .
@@ -9,17 +11,17 @@ $ gel instance destroy -I inst2 --force
 %EXIT any
 *
 
+cd proj/project3;
+
 # Create instance
 $ gel instance create inst2 default-branch-name --non-interactive
 *
-
-cd proj/project3;
 
 # Initialize project
 $ gel project init --link --server-instance=inst2 --non-interactive
 reject {
     # Reject any hooks that are not listed below
-    ? hook (?!project.init.after|migration.apply.before|schema.update.before|migration.apply.after|schema.update.after): %{GREEDYDATA}
+    ? hook (?!project.init.after|migration.apply.before|schema.update.before|migration.apply.after|schema.update.after)[\w\.]+: %{GREEDYDATA}
 }
 *
 ! hook project.init.after: true
@@ -45,7 +47,7 @@ $ gel project info --json
 $ gel branch switch --create --empty another
 reject {
     # Reject any hooks that are not listed below
-    ? hook (?!branch.switch.before|branch.switch.after|schema.update.before|schema.update.after): %{GREEDYDATA}
+    ? hook (?!branch.switch.before|branch.switch.after|schema.update.before|schema.update.after)[\w\.]+: %{GREEDYDATA}
 }
 *
 ! hook branch.switch.before: true
@@ -65,7 +67,7 @@ $ cat branch.log
 $ gel branch merge default-branch-name
 reject {
     # Reject any hooks that are not listed below
-    ? hook (?!migration.apply.before|schema.update.before|migration.apply.after|schema.update.after): %{GREEDYDATA}
+    ? hook (?!migration.apply.before|schema.update.before|migration.apply.after|schema.update.after)[\w\.]+: %{GREEDYDATA}
 }
 *
 ! hook migration.apply.before: true
@@ -81,7 +83,7 @@ reject {
 $ gel branch wipe another --non-interactive
 reject {
     # Reject any hooks that are not listed below
-    ? hook (?!branch.wipe.before|schema.update.before|branch.wipe.after|schema.update.after): %{GREEDYDATA}
+    ? hook (?!branch.wipe.before|schema.update.before|branch.wipe.after|schema.update.after)[\w\.]+: %{GREEDYDATA}
 }
 *
 ! hook branch.wipe.before: true
@@ -97,7 +99,7 @@ reject {
 $ gel branch switch default-branch-name
 reject {
     # Reject any hooks that are not listed below
-    ? hook (?!branch.switch.before|schema.update.before|branch.switch.after|schema.update.after): %{GREEDYDATA}
+    ? hook (?!branch.switch.before|schema.update.before|branch.switch.after|schema.update.after)[\w\.]+: %{GREEDYDATA}
 }
 *
 ! hook branch.switch.before: true

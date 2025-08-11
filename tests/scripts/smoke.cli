@@ -24,13 +24,6 @@ $ gel server list-versions
 
 # Test instance creation
 $ gel instance create inst1 my-branch
-optional {
-    sequence {
-        ? Downloading package...
-        *
-        ? Successfully installed %{VERSION}
-    }
-}
 ! Initializing Gel instance 'inst1'...
 *
 ! Instance inst1 is up and running.
@@ -39,13 +32,6 @@ optional {
 
 # Test instance creation with nightly
 $ gel instance create second --nightly
-optional {
-    sequence {
-        ! Downloading package...
-        *
-        ! Successfully installed %{VERSION}
-    }
-}
 ! Initializing Gel instance 'second'...
 *
 ! Instance second is up and running.

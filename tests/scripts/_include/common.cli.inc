@@ -8,4 +8,8 @@ ignore {
     ! CRITICAL %{GREEDYDATA} postgres: %{GREEDYDATA}
     ! Connecting to Gel instance %{GREEDYDATA}
     ! Version %{VERSION} is already downloaded
+    sequence {
+        ! Downloading package...
+        ! Successfully installed %{VERSION}
+    }
 }
