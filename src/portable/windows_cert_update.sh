@@ -14,12 +14,14 @@ echo 'deb http://deb.debian.org/debian stable-updates main' >> $TEMP_DIR/sources
 
 export DEBIAN_FRONTEND=noninteractive
 
-apt-get --allow-unauthenticated update -qq \
+apt-get update -qq \
+    -o Acquire::AllowInsecureRepositories=true \
+    -o Acquire::AllowDowngradeToInsecureRepositories=true \
     -o Dir::Etc::SourceList=$TEMP_DIR/sources.list \
     -o Dir::Cache::Archives=$TEMP_DIR/archives \
     -o Dir::State::Lists=$TEMP_DIR/lists
 
-cd $TEMP_DIR && apt-get --allow-unauthenticated download ca-certificates \
+cd $TEMP_DIR && apt-get download ca-certificates \
     -o Dir::Etc::SourceList=$TEMP_DIR/sources.list \
     -o Dir::Cache::Archives=$TEMP_DIR/archives \
     -o Dir::State::Lists=$TEMP_DIR/lists
