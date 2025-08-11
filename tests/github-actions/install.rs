@@ -20,9 +20,9 @@ impl OutputExt for Assert {
     fn context(mut self, name: &'static str, description: &'static str) -> Self {
         self = self.append_context(name, description);
         let out = self.get_output();
-        println!("------ {}: {} (STDOUT) -----", name, description);
+        println!("------ {name}: {description} (STDOUT) -----");
         println!("{}", String::from_utf8_lossy(&out.stdout));
-        println!("------ {}: {} (STDERR) -----", name, description);
+        println!("------ {name}: {description} (STDERR) -----");
         println!("{}", String::from_utf8_lossy(&out.stderr));
         self
     }
@@ -82,7 +82,7 @@ fn github_action_install() -> anyhow::Result<()> {
             .success();
     } else {
         let mut tmpfile = tempfile::NamedTempFile::new()?;
-        tmpfile.write_all(&gel_stream::test_keys::raw::CA_CERT.as_bytes())?;
+        tmpfile.write_all(gel_stream::test_keys::raw::CA_CERT.as_bytes())?;
         Command::new("sh")
             .arg("-c")
             .arg("-e")
