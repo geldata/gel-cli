@@ -24,8 +24,7 @@ struct ProgressBar {
 
 impl Default for ProgressBar {
     fn default() -> Self {
-        let bar =
-            indicatif::ProgressBar::new_spinner().with_message(format!("{}", "Please wait..."));
+        let bar = indicatif::ProgressBar::new_spinner().with_message("Please wait...".to_string());
         bar.enable_steady_tick(Duration::from_millis(100));
         Self { bar }
     }

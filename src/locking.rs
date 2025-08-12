@@ -268,20 +268,16 @@ impl LoopState {
             }
             self.first = false;
         }
-        if self.start.elapsed() > SLOW_LOCK_WARNING {
-            if !self.warned {
-                if let Ok((pid, cmd)) = self.load_lock_file() {
-                    warn!(
-                        "Still waiting for {domain:?} lock held by process {pid} running {cmd:?}",
-                    );
-                } else {
-                    warn!(
-                        "Still waiting for {domain:?} lock ({})",
-                        self.path.display()
-                    );
-                }
-                self.warned = true;
+        if self.start.elapsed() > SLOW_LOCK_WARNING && !self.warned {
+            if let Ok((pid, cmd)) = self.load_lock_file() {
+                warn!("Still waiting for {domain:?} lock held by process {pid} running {cmd:?}",);
+            } else {
+                warn!(
+                    "Still waiting for {domain:?} lock ({})",
+                    self.path.display()
+                );
             }
+            self.warned = true;
         }
         if self.start.elapsed() > SLOW_LOCK_TIMEOUT {
             if let Ok((pid, cmd)) = self.load_lock_file() {

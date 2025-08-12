@@ -86,8 +86,7 @@ impl Highlighter for EdgeqlHelper {
         prompt: &'p str,
         _default: bool,
     ) -> Cow<'b, str> {
-        if prompt.ends_with("> ") {
-            let content = &prompt[..prompt.len() - 2];
+        if let Some(content) = prompt.strip_suffix("> ") {
             if content.ends_with(TX_MARKER) {
                 format!(
                     "{}{}> ",

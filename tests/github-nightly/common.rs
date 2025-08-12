@@ -40,8 +40,7 @@ pub fn dock_ubuntu(codename: &str) -> String {
         ADD ./gel /usr/bin/edgedb
         ADD ./gel /usr/bin/gel
         ADD ./sudoers /etc/sudoers
-    "###,
-        codename = codename
+    "###
     )
 }
 
@@ -66,7 +65,6 @@ pub fn dock_debian(codename: &str) -> String {
         ADD ./gel /usr/bin/edgedb
         ADD ./gel /usr/bin/gel
         ADD ./sudoers /etc/sudoers
-    "###,
-        codename = codename
+    "###
     )
 }

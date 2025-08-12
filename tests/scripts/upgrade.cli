@@ -15,13 +15,6 @@ $ gel --version
 
 # Test instance creation
 $ gel instance create inst3
-optional {
-    sequence {
-        ? Downloading package...
-        *
-        ? Successfully installed %{VERSION}
-    }
-}
 ! Initializing Gel instance 'inst3'...
 *
 ! Instance inst3 is up and running.

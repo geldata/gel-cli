@@ -149,8 +149,7 @@ pub fn run(tagname: &str, script: &str) -> assert_cmd::assert::Assert {
         export EDGEDB_SKIP_DOCKER_CHECK=yes
 
         {script}
-    "###,
-        script = script
+    "###
     );
     Command::new("docker")
         .arg("run")
@@ -200,7 +199,7 @@ pub fn run_with(tagname: &str, script: &str, link: &str) -> assert_cmd::assert::
         .arg("--rm")
         .arg("-u")
         .arg("1000")
-        .arg(format!("--link={0}:{0}", link))
+        .arg(format!("--link={link}:{link}"))
         .arg(tagname)
         .args(["sh", "-exc", script])
         .assert()
