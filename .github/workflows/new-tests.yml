@@ -67,6 +67,24 @@ jobs:
           RUSTFLAGS="-C target-feature=+crt-static" cargo build --target=x86_64-unknown-linux-gnu
           cp target/x86_64-unknown-linux-gnu/debug/gel target/debug/gel
 
+      - name: Install clitest from crates.io
+        uses: baptiste0928/cargo-install@91c5da15570085bcde6f4d7aed98cb82d6769fd3
+        with:
+          crate: clitest
+          version: '${{ env.CLITEST_VERSION }}'
+
+      - name: Setup WSL
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          echo "--------------------------------"
+          echo "wsl --version"
+          wsl --version
+          echo "--------------------------------"
+          echo
+          _GEL_WSL_LINUX_BINARY=target/debug/gel target/debug/gel cli init-wsl
+          echo "_GEL_WSL_SKIP_UPDATE=true" >> $GITHUB_ENV
+
       - name: Pre-install the latest gel + nightly
         run: |
           target/debug/gel server install
@@ -103,7 +121,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debug-gel-cli-${{ runner.os }}
-          path: target/debug/gel*
+          path: |
+            target/debug/gel*
+            ${{ env.CARGO_HOME }}/bin/clitest*
           if-no-files-found: error
 
       - name: Upload artifacts (gel servers)
@@ -147,22 +167,17 @@ jobs:
         with:
           submodules: true
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
-        with:
-          components: '${{ env.RUST_COMPONENTS }}'
-          toolchain: '${{ env.RUST_VERSION }}'
-
-      - name: Install clitest from crates.io
-        uses: baptiste0928/cargo-install@91c5da15570085bcde6f4d7aed98cb82d6769fd3
-        with:
-          crate: clitest
-          version: '${{ env.CLITEST_VERSION }}'
-
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: "*-${{ runner.os }}"
+          path: artifacts
+
+      - name: Download Linux artifacts for WSL (Windows only)
+        if: runner.os == 'Windows'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: "*-Linux"
           path: artifacts
 
       - name: List artifacts
@@ -173,6 +188,7 @@ jobs:
       - name: Copy artifacts to PATH
         run: |
           cp artifacts/debug-gel-cli-${{ runner.os }}/gel* ${{ env.CARGO_HOME }}/bin/
+          cp artifacts/debug-gel-cli-${{ runner.os }}/clitest* ${{ env.CARGO_HOME }}/bin/
 
       - name: Restore gel servers
         run: |
