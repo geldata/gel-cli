@@ -10,8 +10,7 @@ use crate::branding::{
     MANIFEST_FILE_DISPLAY_NAME,
 };
 use crate::cloud::client::CloudClient;
-use crate::commands::{ExitCode, Options};
-use crate::connect::Connector;
+use crate::commands::ExitCode;
 use crate::hint::{HintExt, HintedError};
 use crate::instance::control;
 use crate::portable::windows;
@@ -103,21 +102,21 @@ async fn sync(
         conn = Box::pin(inst.get_connection()).await?;
     }
 
-    let cfg = migrations::options::MigrationConfig {
-        schema_dir: Some(inst.project_dir.join(&inst.schema_dir)),
-    };
-    let options = Options {
-        command_line: true,
-        styler: None,
-        conn_params: Connector::new(inst.get_builder()?.build().map_err(Into::into)),
-        instance_name: Some(InstanceName::from_str(&inst.name)?),
+    let mig_ctx = migrations::context::Context {
+        schema_dir: inst.project_dir.join(&inst.schema_dir),
+        quiet: true,
         skip_hooks,
+        project: Some(project.clone()),
+        auto_backup: None,
     };
 
     msg!("1. Applying migrations...");
-    migrations::apply::run(
+    migrations::apply::run_inner(
+        &mig_ctx,
         &migrations::apply::Command {
-            cfg: cfg.clone(),
+            cfg: migrations::options::MigrationConfig {
+                schema_dir: Some(mig_ctx.schema_dir.clone()),
+            },
             quiet: true,
             to_revision: None,
             dev_mode: false,
@@ -126,7 +125,7 @@ async fn sync(
             conn: None,
         },
         &mut conn,
-        &options,
+        Some(InstanceName::from_str(&inst.name)?),
         false,
     )
     .await?;
@@ -134,8 +133,11 @@ async fn sync(
 
     msg!("2. Checking if schema is up to date...");
     match migrations::create::run_inner(
+        &mig_ctx,
         &migrations::create::Command {
-            cfg,
+            cfg: migrations::options::MigrationConfig {
+                schema_dir: Some(mig_ctx.schema_dir.clone()),
+            },
             squash: false,
             non_interactive: true,
             allow_unsafe: false,
@@ -145,7 +147,6 @@ async fn sync(
             quiet: true,
         },
         &mut conn,
-        &options,
     )
     .await
     {

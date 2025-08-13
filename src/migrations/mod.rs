@@ -1,4 +1,4 @@
-mod context;
+pub mod context;
 
 mod db_migration;
 mod edb;

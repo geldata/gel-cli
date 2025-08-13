@@ -10,7 +10,6 @@ use std::sync::LazyLock;
 use crate::async_try;
 use crate::branding::BRANDING;
 use crate::bug;
-use crate::commands::Options;
 use crate::hooks;
 use crate::migrations::apply::{apply_migrations, apply_migrations_inner};
 use crate::migrations::context::Context;
@@ -66,7 +65,7 @@ pub async fn migrate(cli: &mut Connection, ctx: &Context, bar: &ProgressBar) -> 
                 bar.set_message("Applying migrations");
                 apply_migrations(cli, migrations, ctx, false).await?;
                 bar.println("Migrations applied");
-                &ctx.clone().with_auto_backup(None)
+                &ctx.with_auto_backup(None)
             } else {
                 ctx
             };
@@ -363,7 +362,6 @@ async fn create_in_rewrite(
 pub async fn create(
     cmd: &create::Command,
     conn: &mut Connection,
-    _options: &Options,
     ctx: &Context,
 ) -> anyhow::Result<String> {
     let migrations = migration::read_all(ctx, true).await?;
