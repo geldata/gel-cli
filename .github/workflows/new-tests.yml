@@ -67,11 +67,50 @@ jobs:
           RUSTFLAGS="-C target-feature=+crt-static" cargo build --target=x86_64-unknown-linux-gnu
           cp target/x86_64-unknown-linux-gnu/debug/gel target/debug/gel
 
+      - name: Pre-install the latest gel + nightly
+        run: |
+          target/debug/gel server install
+          target/debug/gel server install --nightly
+
+      - name: Package gel servers
+        run: |
+          raw_output=$(target/debug/gel server list-versions --installed-only --json)
+          installed_json=$(echo "$raw_output" | sed -n '/^\[/,$p')
+          
+          if [ -z "$installed_json" ] || [ "$installed_json" = "[]" ]; then
+            echo "Warning: No valid JSON array found in gel server list output"
+            echo "Raw output was:"
+            echo "$raw_output"
+            exit 1
+          fi
+          
+          echo "Installed servers JSON:"
+          echo "$installed_json" | jq '.'
+          
+          mkdir -p gel-servers
+          echo "$installed_json" | jq -r '.[].["debug-info"].install.path' | while read -r server_path; do
+            if [ -d "$server_path" ]; then
+              echo "Packaging server from: $server_path"
+              server_name=$(basename "$server_path")
+              tar -czf "gel-servers/${server_name}.tar.gz" -C "$(dirname "$server_path")" "$server_name"
+            fi
+          done
+          
+          echo "$installed_json" > gel-servers/installed-versions.json
+          ls -la gel-servers/
+
       - name: Upload artifacts (gel)
         uses: actions/upload-artifact@v4
         with:
           name: debug-gel-cli-${{ runner.os }}
           path: target/debug/gel*
+          if-no-files-found: error
+
+      - name: Upload artifacts (gel servers)
+        uses: actions/upload-artifact@v4
+        with:
+          name: gel-servers-${{ runner.os }}
+          path: gel-servers/
           if-no-files-found: error
 
   generate-matrix:
@@ -123,7 +162,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: debug-*
+          pattern: "*-${{ runner.os }}"
           path: artifacts
 
       - name: List artifacts
@@ -134,6 +173,37 @@ jobs:
       - name: Copy artifacts to PATH
         run: |
           cp artifacts/debug-gel-cli-${{ runner.os }}/gel* ${{ env.CARGO_HOME }}/bin/
+
+      - name: Restore gel servers
+        run: |
+          if [ -d "artifacts/gel-servers-${{ runner.os }}" ]; then
+            cd artifacts/gel-servers-${{ runner.os }}
+            
+            if [ -f "installed-versions.json" ]; then
+              echo "Restoring gel servers from JSON paths:"
+              cat installed-versions.json | jq -r '.[].version'
+              
+              cat installed-versions.json | jq -r '.[].["debug-info"].install.path' | while read -r server_path; do
+                if [ -n "$server_path" ]; then
+                  server_name=$(basename "$server_path")
+                  tar_file="${server_name}.tar.gz"
+                  
+                  if [ -f "$tar_file" ]; then
+                    echo "Restoring $server_name to original path: $server_path"
+                    mkdir -p "$(dirname "$server_path")"
+                    tar -xzf "$tar_file" -C "$(dirname "$server_path")"
+                  else
+                    echo "Warning: tar file $tar_file not found"
+                  fi
+                fi
+              done
+            else
+              echo "Warning: installed-versions.json not found"
+            fi
+          else
+            echo "Warning: gel-servers artifacts not found for ${{ runner.os }}"
+          fi
+        shell: bash
 
       - name: Setup WSL
         if: runner.os == 'Windows'
@@ -156,11 +226,8 @@ jobs:
         run: |
           echo "gel: $(gel --version)"
           echo "clitest: $(clitest --version)"
-
-      - name: Pre-install the latest gel + nightly
-        run: |
-          gel server install
-          gel server install --nightly
+          echo "Available gel servers:"
+          gel server list-versions --installed-only
 
       - name: Run CLI test
         run: |
