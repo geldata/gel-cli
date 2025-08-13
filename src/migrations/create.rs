@@ -46,7 +46,7 @@ pub async fn run(cmd: &Command, conn: &mut Connection, options: &Options) -> any
     if cmd.squash {
         squash::run(cmd, conn, options).await
     } else {
-        run_inner(cmd, conn, options).await?;
+        run_command(cmd, conn, options).await?;
         Ok(())
     }
 }
@@ -84,13 +84,20 @@ pub struct Command {
     pub quiet: bool,
 }
 
-pub async fn run_inner(
+pub async fn run_command(
     cmd: &Command,
     conn: &mut Connection,
     options: &Options,
 ) -> anyhow::Result<String> {
     let ctx = Context::for_migration_config(&cmd.cfg, false, options.skip_hooks, true).await?;
+    run_inner(&ctx, cmd, conn).await
+}
 
+pub async fn run_inner(
+    ctx: &Context,
+    cmd: &Command,
+    conn: &mut Connection,
+) -> anyhow::Result<String> {
     if dev_mode::check_client(conn).await? {
         let dev_num = query_row::<i64>(
             conn,
@@ -102,11 +109,11 @@ pub async fn run_inner(
         .await?;
         if dev_num > 0 {
             log::info!("Detected dev-mode migrations");
-            return dev_mode::create(cmd, conn, options, &ctx).await;
+            return dev_mode::create(cmd, conn, ctx).await;
         }
     }
 
-    let migrations = migration::read_all(&ctx, true).await?;
+    let migrations = migration::read_all(ctx, true).await?;
     let old_timeout = timeout::inhibit_for_transaction(conn).await?;
     let migration = async_try! {
         async {
@@ -114,18 +121,18 @@ pub async fn run_inner(
             // of the bug in EdgeDB:
             //   https://github.com/edgedb/edgedb/issues/3958
             if migrations.is_empty() {
-                first_migration(conn, &ctx, cmd).await
+                first_migration(conn, ctx, cmd).await
             } else {
                 let key = MigrationKey::Index((migrations.len() + 1) as u64);
                 let parent = migrations.keys().last().map(|x| &x[..]);
-                normal_migration(conn, &ctx, key, parent, cmd).await
+                normal_migration(conn, ctx, key, parent, cmd).await
             }
         },
         finally async {
             timeout::restore_for_transaction(conn, old_timeout).await
         }
     }?;
-    write_migration(&ctx, &migration, !cmd.non_interactive).await
+    write_migration(ctx, &migration, !cmd.non_interactive).await
 }
 
 pub enum SourceName {

@@ -95,6 +95,16 @@ pub async fn run(
     // migrate apply needs to be able to run during gel watch.
     let ctx = Context::for_migration_config(&cmd.cfg, cmd.quiet, options.skip_hooks, true).await?;
     let instance_name = options.conn_params.instance_name()?;
+    run_inner(&ctx, cmd, conn, instance_name, skip_auto_backup).await
+}
+
+pub async fn run_inner(
+    ctx: &Context,
+    cmd: &Command,
+    conn: &mut Connection,
+    instance_name: Option<gel_tokio::InstanceName>,
+    skip_auto_backup: bool,
+) -> Result<(), anyhow::Error> {
     if cmd.dev_mode {
         let bar = if cmd.quiet {
             ProgressBar::hidden()
@@ -102,13 +112,13 @@ pub async fn run(
             ProgressBar::new_spinner()
         };
         if skip_auto_backup {
-            return dev_mode::migrate(conn, &ctx, &bar).await;
+            return dev_mode::migrate(conn, ctx, &bar).await;
         } else {
             let auto_backup = AutoBackup::init(instance_name, cmd.quiet)?;
             return dev_mode::migrate(conn, &ctx.with_auto_backup(auto_backup), &bar).await;
         }
     }
-    let migrations = migration::read_all(&ctx, true).await?;
+    let migrations = migration::read_all(ctx, true).await?;
     let db_migrations = db_migration::read_all(conn, false, true).await?;
     let last_db_rev = db_migrations.last().map(|kv| kv.0);
 
@@ -163,7 +173,7 @@ pub async fn run(
                         auto_backup.run(cmd.quiet, None).await?;
                     }
                 }
-                return fixup(conn, &ctx, &migrations, &db_migrations, target_rev, cmd).await;
+                return fixup(conn, ctx, &migrations, &db_migrations, target_rev, cmd).await;
             }
         } else {
             return Err(anyhow::anyhow!(
@@ -205,7 +215,7 @@ pub async fn run(
             auto_backup.run(cmd.quiet, None).await?;
         }
     }
-    apply_migrations(conn, migrations, &ctx, cmd.single_transaction).await?;
+    apply_migrations(conn, migrations, ctx, cmd.single_transaction).await?;
 
     if !cmd.no_index_build {
         index_build_concurrently(conn).await?;

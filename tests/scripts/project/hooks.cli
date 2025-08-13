@@ -21,7 +21,7 @@ $ gel instance create inst2 default-branch-name --non-interactive
 $ gel project init --link --server-instance=inst2 --non-interactive
 reject {
     # Reject any hooks that are not listed below
-    ? hook (?!project.init.after|migration.apply.before|schema.update.before|migration.apply.after|schema.update.after)[\w\.]+: %{GREEDYDATA}
+    ? hook (?!project.init.after|migration.apply.(before|after)|(schema|config).update.(before|after))[\w\.]+: %{GREEDYDATA}
 }
 *
 ! hook project.init.after: true
@@ -33,6 +33,11 @@ reject {
 ! hook migration.apply.after: true
 *
 ! hook schema.update.after: true
+*
+! hook config.update.before: true
+*
+! hook config.update.after: true
+! Configuration applied.
 *
 
 $ gel project info --json
@@ -136,3 +141,31 @@ reject {
     ! hook %{GREEDYDATA}
 }
 *
+
+# Test config update hooks
+$ gel sync
+reject {
+    # Reject any hooks that are not listed below
+    ? hook (?!config.update.(before|after))[\w\.]+: %{GREEDYDATA}
+}
+*
+! hook config.update.before: true
+*
+! hook config.update.after: true
+! Project is now in sync.
+
+# Test config update with --skip-hooks flag
+$ gel --skip-hooks sync
+reject {
+    ! hook %{GREEDYDATA}
+}
+*
+! Project is now in sync.
+
+# Test config update with GEL_SKIP_HOOKS environment variable
+$ GEL_SKIP_HOOKS=1 gel sync
+reject {
+    ! hook %{GREEDYDATA}
+}
+*
+! Project is now in sync.

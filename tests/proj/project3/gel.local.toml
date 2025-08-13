@@ -1,0 +1,2 @@
+[branch.config]
+session_idle_transaction_timeout     = "30 seconds"

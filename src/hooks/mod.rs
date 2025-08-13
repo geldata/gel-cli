@@ -65,6 +65,8 @@ fn get_hook<'m>(action: &'static str, hooks: &'m project::manifest::Hooks) -> Op
         "migration.apply.after" => &hooks.migration.as_ref()?.apply.as_ref()?.after,
         "schema.update.before" => &hooks.schema.as_ref()?.update.as_ref()?.before,
         "schema.update.after" => &hooks.schema.as_ref()?.update.as_ref()?.after,
+        "config.update.before" => &hooks.config.as_ref()?.update.as_ref()?.before,
+        "config.update.after" => &hooks.config.as_ref()?.update.as_ref()?.after,
         _ => panic!("unknown action"),
     };
     hook.as_deref()

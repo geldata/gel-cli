@@ -75,10 +75,10 @@ impl Context {
         })
     }
 
-    pub fn with_auto_backup(self, auto_backup: Option<AutoBackup>) -> Self {
+    pub fn with_auto_backup(&self, auto_backup: Option<AutoBackup>) -> Self {
         Self {
             auto_backup,
-            ..self
+            ..self.clone()
         }
     }
 }

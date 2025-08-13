@@ -439,7 +439,7 @@ fn do_init(
         create_database(&handle)?;
     }
 
-    project::config::apply_sync(&project.location.root)?;
+    project::config::apply_sync(project, opts.skip_hooks)?;
 
     print_initialized(name, &cmd.project_dir);
     Ok(())
@@ -574,7 +574,7 @@ fn do_link(
         create_database(inst)?;
     }
 
-    project::config::apply_sync(&project.location.root)?;
+    project::config::apply_sync(project, opts.skip_hooks)?;
 
     print::success!("Project linked");
     if let Some(dir) = &cmd.project_dir {
