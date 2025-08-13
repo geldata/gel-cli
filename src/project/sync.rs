@@ -41,7 +41,7 @@ pub async fn run(options: &Command, opts: &crate::options::Options) -> anyhow::R
     let schema_dir = project.resolve_schema_dir()?;
     let inst =
         project::Handle::probe(&instance_name, &project.location.root, &schema_dir, &client)?;
-    sync(&project, &inst, true, false).await
+    sync(&project, &inst, true, opts.skip_hooks).await
 }
 
 async fn sync(
@@ -174,7 +174,7 @@ async fn sync(
     }
 
     msg!("3. Applying config...");
-    match project::config::apply(&project, true, false).await {
+    match project::config::apply(&project, true, skip_hooks).await {
         Ok(true) => {
             print::success!("Project is now in sync.")
         }
