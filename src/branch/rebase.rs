@@ -31,7 +31,7 @@ pub async fn main(
     let mut connector = cli_opts.conn_params.clone();
     let mut temp_branch_connection = connector.branch(&temp_branch)?.connect().await?;
 
-    match rebase(
+    match Box::pin(rebase(
         &current_branch,
         &temp_branch,
         source_connection,
@@ -39,7 +39,7 @@ pub async fn main(
         project,
         cli_opts,
         !options.no_apply,
-    )
+    ))
     .await
     {
         Err(e) => {
