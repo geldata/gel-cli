@@ -74,14 +74,33 @@ jobs:
           path: target/debug/gel*
           if-no-files-found: error
 
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate test matrix
+        id: set-matrix
+        run: |
+          test_files=$(find tests/scripts -name "*.cli" -type f | sed 's|tests/scripts/||' | sort)
+          
+          matrix_json=$(echo "$test_files" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          
+          echo "matrix=$matrix_json" >> $GITHUB_OUTPUT
+          echo "Generated matrix with $(echo "$test_files" | wc -l) test files:"
+          echo "$matrix_json" | jq '.'
+
   tests:
-    needs: build
+    needs: [build, generate-matrix]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, large-win-x64]
+        test_file: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
       fail-fast: false
+      max-parallel: 16
     env:
       CI: false
     steps:
@@ -143,14 +162,10 @@ jobs:
           gel server install
           gel server install --nightly
 
-      - name: Run all CLI tests
+      - name: Run CLI test
         run: |
-          find tests/scripts -name "*.cli" -type f | while read -r test_file; do
-            test_name=$(basename "$test_file" .cli)
-            echo "::group::Running test: $test_name"
-            TERM=xterm-256color clitest --timeout 120 "$test_file"
-            echo "::endgroup::"
-          done
+          test_name=$(basename "${{ matrix.test_file }}" .cli)
+          TERM=xterm-256color clitest --timeout 120 "tests/scripts/${{ matrix.test_file }}"
         shell: bash
 
   dsn-tests:
