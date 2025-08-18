@@ -40,7 +40,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/debian-buster@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-debian-buster:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -52,6 +52,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -72,7 +74,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/debian-buster@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-debian-buster:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -84,6 +86,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -104,7 +108,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/debian-bullseye@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-debian-bullseye:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -116,6 +120,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -136,7 +142,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/debian-bullseye@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-debian-bullseye:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -148,6 +154,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -168,7 +176,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/debian-bookworm@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-debian-bookworm:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -180,6 +188,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -200,7 +210,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/debian-bookworm@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-debian-bookworm:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -212,6 +222,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -232,7 +244,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/ubuntu-bionic@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-ubuntu-bionic:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -244,6 +256,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -264,7 +278,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/ubuntu-bionic@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-ubuntu-bionic:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -276,6 +290,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -296,7 +312,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/ubuntu-focal@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-ubuntu-focal:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -308,6 +324,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -328,7 +346,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/ubuntu-focal@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-ubuntu-focal:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -340,6 +358,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -360,7 +380,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/ubuntu-jammy@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-ubuntu-jammy:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -372,6 +392,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -392,7 +414,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/ubuntu-jammy@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-ubuntu-jammy:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -404,6 +426,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -424,7 +448,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/ubuntu-noble@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-ubuntu-noble:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -436,6 +460,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -456,7 +482,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/ubuntu-noble@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-ubuntu-noble:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -468,6 +494,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -488,7 +516,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/centos-7@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-centos-7:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -500,6 +528,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -520,7 +550,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/centos-8@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-centos-8:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -532,6 +562,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -552,7 +584,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/centos-8@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-centos-8:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -564,6 +596,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -584,7 +618,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/rockylinux-9@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-rockylinux-9:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -596,6 +630,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -616,7 +652,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/rockylinux-9@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-rockylinux-9:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -628,6 +664,8 @@ jobs:
         EXTRA_OPTIMIZATIONS: "true"
 
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -648,7 +686,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/linuxmusl-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-linuxmusl-x86_64:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -664,6 +702,8 @@ jobs:
 
         PKG_PLATFORM_LIBC: "musl"
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -684,7 +724,7 @@ jobs:
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/linuxmusl-aarch64@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-linuxmusl-aarch64:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         BUILD_IS_RELEASE: "true"
@@ -700,6 +740,8 @@ jobs:
 
         PKG_PLATFORM_LIBC: "musl"
 
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -935,7 +977,7 @@ jobs:
         target: debian-buster
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "debian"
         PKG_PLATFORM_VERSION: "buster"
@@ -944,7 +986,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-buster@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-debian-buster:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "debian"
@@ -975,7 +1017,7 @@ jobs:
         target: debian-buster
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "debian"
         PKG_PLATFORM_VERSION: "buster"
@@ -984,7 +1026,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-buster@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-debian-buster:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "debian"
@@ -1015,7 +1057,7 @@ jobs:
         target: debian-bullseye
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "debian"
         PKG_PLATFORM_VERSION: "bullseye"
@@ -1024,7 +1066,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-bullseye@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-debian-bullseye:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "debian"
@@ -1055,7 +1097,7 @@ jobs:
         target: debian-bullseye
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "debian"
         PKG_PLATFORM_VERSION: "bullseye"
@@ -1064,7 +1106,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-bullseye@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-debian-bullseye:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "debian"
@@ -1095,7 +1137,7 @@ jobs:
         target: debian-bookworm
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "debian"
         PKG_PLATFORM_VERSION: "bookworm"
@@ -1104,7 +1146,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-bookworm@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-debian-bookworm:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "debian"
@@ -1135,7 +1177,7 @@ jobs:
         target: debian-bookworm
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "debian"
         PKG_PLATFORM_VERSION: "bookworm"
@@ -1144,7 +1186,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/debian-bookworm@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-debian-bookworm:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "debian"
@@ -1175,7 +1217,7 @@ jobs:
         target: ubuntu-bionic
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "ubuntu"
         PKG_PLATFORM_VERSION: "bionic"
@@ -1184,7 +1226,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-bionic@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-ubuntu-bionic:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "ubuntu"
@@ -1215,7 +1257,7 @@ jobs:
         target: ubuntu-bionic
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "ubuntu"
         PKG_PLATFORM_VERSION: "bionic"
@@ -1224,7 +1266,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-bionic@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-ubuntu-bionic:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "ubuntu"
@@ -1255,7 +1297,7 @@ jobs:
         target: ubuntu-focal
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "ubuntu"
         PKG_PLATFORM_VERSION: "focal"
@@ -1264,7 +1306,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-focal@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-ubuntu-focal:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "ubuntu"
@@ -1295,7 +1337,7 @@ jobs:
         target: ubuntu-focal
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "ubuntu"
         PKG_PLATFORM_VERSION: "focal"
@@ -1304,7 +1346,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-focal@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-ubuntu-focal:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "ubuntu"
@@ -1335,7 +1377,7 @@ jobs:
         target: ubuntu-jammy
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "ubuntu"
         PKG_PLATFORM_VERSION: "jammy"
@@ -1344,7 +1386,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-jammy@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-ubuntu-jammy:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "ubuntu"
@@ -1375,7 +1417,7 @@ jobs:
         target: ubuntu-jammy
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "ubuntu"
         PKG_PLATFORM_VERSION: "jammy"
@@ -1384,7 +1426,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-jammy@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-ubuntu-jammy:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "ubuntu"
@@ -1415,7 +1457,7 @@ jobs:
         target: ubuntu-noble
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "ubuntu"
         PKG_PLATFORM_VERSION: "noble"
@@ -1424,7 +1466,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-noble@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-ubuntu-noble:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "ubuntu"
@@ -1455,7 +1497,7 @@ jobs:
         target: ubuntu-noble
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "ubuntu"
         PKG_PLATFORM_VERSION: "noble"
@@ -1464,7 +1506,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/ubuntu-noble@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-ubuntu-noble:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "ubuntu"
@@ -1495,7 +1537,7 @@ jobs:
         target: centos-7
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "centos"
         PKG_PLATFORM_VERSION: "7"
@@ -1504,7 +1546,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/centos-7@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-centos-7:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "centos"
@@ -1535,7 +1577,7 @@ jobs:
         target: centos-8
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "centos"
         PKG_PLATFORM_VERSION: "8"
@@ -1544,7 +1586,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/centos-8@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-centos-8:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "centos"
@@ -1575,7 +1617,7 @@ jobs:
         target: centos-8
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "centos"
         PKG_PLATFORM_VERSION: "8"
@@ -1584,7 +1626,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/centos-8@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-centos-8:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "centos"
@@ -1615,7 +1657,7 @@ jobs:
         target: rockylinux-9
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "rockylinux"
         PKG_PLATFORM_VERSION: "9"
@@ -1624,7 +1666,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/rockylinux-9@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-rockylinux-9:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "rockylinux"
@@ -1655,7 +1697,7 @@ jobs:
         target: rockylinux-9
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "rockylinux"
         PKG_PLATFORM_VERSION: "9"
@@ -1664,7 +1706,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/rockylinux-9@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-rockylinux-9:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "rockylinux"
@@ -1695,7 +1737,7 @@ jobs:
         target: linuxmusl-x86_64
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "linux"
         PKG_PLATFORM_VERSION: "x86_64"
@@ -1706,7 +1748,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/linuxmusl-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-linuxmusl-x86_64:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "linux"
@@ -1737,7 +1779,7 @@ jobs:
         target: linuxmusl-aarch64
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "linux"
         PKG_PLATFORM_VERSION: "aarch64"
@@ -1748,7 +1790,7 @@ jobs:
 
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/linuxmusl-aarch64@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-linuxmusl-aarch64:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         PKG_PLATFORM: "linux"
@@ -1786,7 +1828,7 @@ jobs:
         target: macos-x86_64
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "macos"
         PKG_PLATFORM_VERSION: "x86_64"
@@ -1817,7 +1859,7 @@ jobs:
         target: macos-aarch64
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "macos"
         PKG_PLATFORM_VERSION: "aarch64"
@@ -1849,7 +1891,7 @@ jobs:
         target: win-x86_64
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "win"
         PKG_PLATFORM_VERSION: "x86_64"
