@@ -1,3 +1,14 @@
+<% macro workflow_dispatch() %>
+  workflow_dispatch:
+    inputs:
+      gelpkg_ref:
+        description: "gel-pkg git ref used to build the packages"
+        default: "master"
+      metapkg_ref:
+        description: "metapkg git ref used to build the packages"
+        default: "master"
+<%- endmacro %>
+
 <% macro workflow(targets, subdist="", publish_all=True) %>
   prep:
     runs-on: ubuntu-latest
@@ -99,7 +110,7 @@
         path: edgedb-pkg
 
     - name: Build
-      uses: edgedb/edgedb-pkg/integration/linux/build/<< plat_id >>@master
+      uses: docker://ghcr.io/geldata/gelpkg-build-<< plat_id >>:latest
       env:
         SRC_REF: "${{ needs.prep.outputs.branch }}"
         <%- if subdist != "nightly" %>
@@ -120,6 +131,8 @@
 <% if tgt.platform_libc %>
         PKG_PLATFORM_LIBC: "<< tgt.platform_libc >>"
 <% endif %>
+        GEL_PKG_REF: ${{ inputs.gelpkg_ref }}
+        METAPKG_REF: ${{ inputs.metapkg_ref }}
 
     - uses: actions/upload-artifact@v4
       with:
@@ -290,7 +303,7 @@
         target: << plat_id >>
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         <%- if subdist != "" %>
         PKG_SUBDIST: "<< subdist >>"
@@ -304,7 +317,7 @@
 <% endif %>
 
     - name: Test Published
-      uses: edgedb/edgedb-pkg/integration/linux/testpublished/<< plat_id >>@master
+      uses: docker://ghcr.io/geldata/gelpkg-testpublished-<< plat_id >>:latest
       env:
         PKG_NAME: "${{ steps.describe.outputs.name }}"
         <%- if subdist != "" %>
@@ -345,7 +358,7 @@
         target: << plat_id >>
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         <%- if subdist != "" %>
         PKG_SUBDIST: "<< subdist >>"
@@ -380,7 +393,7 @@
         target: << plat_id >>
 
     - name: Publish
-      uses: edgedb/edgedb-pkg/integration/linux/upload/linux-x86_64@master
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         <%- if subdist != "" %>
         PKG_SUBDIST: "<< subdist >>"
