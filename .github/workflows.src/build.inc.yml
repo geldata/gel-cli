@@ -9,7 +9,7 @@
         default: "master"
 <%- endmacro %>
 
-<% macro workflow(targets, subdist="", publish_all=True) %>
+<% macro workflow(targets, subdist="", publish_all=True, dryrun=False) %>
   prep:
     runs-on: ubuntu-latest
     outputs:
@@ -213,7 +213,7 @@
 <% for tgt in targets.win %>
 <% set plat_id = tgt.platform + ("{}".format(tgt.platform_libc) if tgt.platform_libc else "") + ("-{}".format(tgt.platform_version) if tgt.platform_version else "") %>
   build-<< tgt.name >>:
-    runs-on: windows-2025
+    runs-on: << "windows-11-arm" if tgt.arch == "aarch64" else "windows-2025" >>
     needs: prep
 <% if subdist == "nightly" %>
     if: needs.prep.outputs.if_<< tgt.name.replace('-', '_') >> == 'true'
@@ -230,6 +230,22 @@
       uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
       with:
         toolchain: 1.88
+
+    - name: Setup winget
+      uses: geldata/setup-winget@v1
+
+    - name: Install Zstandard
+      shell: pwsh
+      run: |
+        winget install Meta.Zstandard --disable-interactivity --accept-source-agreements --accept-package-agreements
+
+    - name: Add WinGet Links to PATH
+      shell: pwsh
+      run: |
+        $linkDir = "$env:LOCALAPPDATA\Microsoft\WinGet\Links"
+        if (Test-Path $linkDir) {
+          $linkDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        }
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -284,6 +300,7 @@
       - run: echo 'All builds passed, ready to publish now!'
 <%- endif %>
 
+<% if not dryrun %>
 <% for tgt in targets.linux %>
 <% set plat_id = tgt.platform + ("{}".format(tgt.platform_libc) if tgt.platform_libc else "") + ("-{}".format(tgt.platform_version) if tgt.platform_version else "") %>
   publish-<< tgt.name >>:
@@ -303,7 +320,7 @@
         target: << plat_id >>
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-<< tgt.arch >>:latest
       env:
         <%- if subdist != "" %>
         PKG_SUBDIST: "<< subdist >>"
@@ -358,7 +375,7 @@
         target: << plat_id >>
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-<< tgt.arch >>:latest
       env:
         <%- if subdist != "" %>
         PKG_SUBDIST: "<< subdist >>"
@@ -393,7 +410,7 @@
         target: << plat_id >>
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-<< tgt.arch >>:latest
       env:
         <%- if subdist != "" %>
         PKG_SUBDIST: "<< subdist >>"
@@ -523,5 +540,6 @@
           install_ref_<< tgt.platform_version >>=${{ needs.publish-<< tgt.name >>.outputs.install-ref }},
           <%- endfor %>subdist=<< subdist >>
         platforms: << docker_tgts|map(attribute="docker_arch")|join(",") >>
+<% endif %>
 <% endif %>
 <%- endmacro %>

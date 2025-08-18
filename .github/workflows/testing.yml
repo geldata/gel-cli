@@ -917,6 +917,22 @@ jobs:
       with:
         toolchain: 1.88
 
+    - name: Setup winget
+      uses: geldata/setup-winget@v1
+
+    - name: Install Zstandard
+      shell: pwsh
+      run: |
+        winget install Meta.Zstandard --disable-interactivity --accept-source-agreements --accept-package-agreements
+
+    - name: Add WinGet Links to PATH
+      shell: pwsh
+      run: |
+        $linkDir = "$env:LOCALAPPDATA\Microsoft\WinGet\Links"
+        if (Test-Path $linkDir) {
+          $linkDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        }
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -952,6 +968,75 @@ jobs:
         name: builds-win-x86_64
         path: artifacts/win-x86_64
 
+
+  build-win-aarch64:
+    runs-on: windows-11-arm
+    needs: prep
+
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        repository: edgedb/edgedb-pkg
+        ref: master
+        path: edgedb-pkg
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@6691ebadcb18182cc1391d07c9f295f657c593cd
+      with:
+        toolchain: 1.88
+
+    - name: Setup winget
+      uses: geldata/setup-winget@v1
+
+    - name: Install Zstandard
+      shell: pwsh
+      run: |
+        winget install Meta.Zstandard --disable-interactivity --accept-source-agreements --accept-package-agreements
+
+    - name: Add WinGet Links to PATH
+      shell: pwsh
+      run: |
+        $linkDir = "$env:LOCALAPPDATA\Microsoft\WinGet\Links"
+        if (Test-Path $linkDir) {
+          $linkDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        }
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Build
+      env:
+        SRC_REF: "${{ needs.prep.outputs.branch }}"
+        BUILD_IS_RELEASE: "true"
+        PKG_REVISION: "<current-date>"
+        PKG_SUBDIST: "testing"
+        PKG_PLATFORM: "win"
+        PKG_PLATFORM_VERSION: "aarch64"
+        PKG_PLATFORM_ARCH: "aarch64"
+        PACKAGE: edgedbpkg.edgedbcli:GelCLI
+
+      shell: bash
+      run: |
+        edgedb-pkg/integration/win/build.sh
+
+    - name: Set up VC tools environment
+      uses: elprans/gha-setup-vcpp-build-tools@v1
+
+    - name: Sign
+      uses: dlemstra/code-sign-action@913a13539bc1e64662db7eaa1e591f201f6b2bb6
+      with:
+        certificate: "${{ secrets.WIN_CODE_SIGNING_CERT }}"
+        password: "${{ secrets.WIN_CODE_SIGNING_CERT_PASSWORD }}"
+        folder: "artifacts/win-aarch64/"
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: builds-win-aarch64
+        path: artifacts/win-aarch64
+
   collect:
     needs:
     - build-debian-buster-x86_64
@@ -978,9 +1063,11 @@ jobs:
     - build-macos-x86_64
     - build-macos-aarch64
     - build-win-x86_64
+    - build-win-aarch64
     runs-on: ubuntu-latest
     steps:
       - run: echo 'All builds passed, ready to publish now!'
+
 
 
 
@@ -1043,7 +1130,7 @@ jobs:
         target: debian-buster
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "debian"
@@ -1127,7 +1214,7 @@ jobs:
         target: debian-bullseye
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "debian"
@@ -1211,7 +1298,7 @@ jobs:
         target: debian-bookworm
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "debian"
@@ -1295,7 +1382,7 @@ jobs:
         target: ubuntu-bionic
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "ubuntu"
@@ -1379,7 +1466,7 @@ jobs:
         target: ubuntu-focal
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "ubuntu"
@@ -1463,7 +1550,7 @@ jobs:
         target: ubuntu-jammy
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "ubuntu"
@@ -1547,7 +1634,7 @@ jobs:
         target: ubuntu-noble
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "ubuntu"
@@ -1673,7 +1760,7 @@ jobs:
         target: centos-8
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "centos"
@@ -1757,7 +1844,7 @@ jobs:
         target: rockylinux-9
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "rockylinux"
@@ -1843,7 +1930,7 @@ jobs:
         target: linuxmusl-aarch64
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "linux"
@@ -1926,7 +2013,7 @@ jobs:
         target: macos-aarch64
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
       env:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "macos"
@@ -1964,6 +2051,38 @@ jobs:
         PKG_SUBDIST: "testing"
         PKG_PLATFORM: "win"
         PKG_PLATFORM_VERSION: "x86_64"
+        PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
+        PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
+
+
+  publish-win-aarch64:
+    needs: [collect]
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/download-artifact@v4
+      with:
+        name: builds-win-aarch64
+        path: artifacts/win-aarch64
+
+    - uses: actions/checkout@v4
+      with:
+        repository: edgedb/edgedb-pkg
+        ref: master
+        path: edgedb-pkg
+
+    - name: Describe
+      id: describe
+      uses: edgedb/edgedb-pkg/integration/actions/describe-artifact@master
+      with:
+        target: win-aarch64
+
+    - name: Publish
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
+      env:
+        PKG_SUBDIST: "testing"
+        PKG_PLATFORM: "win"
+        PKG_PLATFORM_VERSION: "aarch64"
         PKG_VERSION_SLOT: "${{ steps.describe.outputs.version-slot }}"
         PACKAGE_UPLOAD_SSH_KEY: "${{ secrets.PACKAGE_UPLOAD_SSH_KEY }}"
 
@@ -2082,4 +2201,5 @@ jobs:
         workdir: dockerctx
         buildargs: install_ref_x86_64=${{ needs.publish-linux-x86_64.outputs.install-ref }},install_ref_aarch64=${{ needs.publish-linux-aarch64.outputs.install-ref }},subdist=testing
         platforms: linux/amd64,linux/arm64
+
 

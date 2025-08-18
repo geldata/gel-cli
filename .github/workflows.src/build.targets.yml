@@ -141,3 +141,8 @@ targets:
          platform: win
          platform_version: x86_64
          arch: x86_64
+
+       - name: win-aarch64
+         platform: win
+         platform_version: aarch64
+         arch: aarch64
