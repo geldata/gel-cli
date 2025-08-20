@@ -65,10 +65,10 @@ pub struct Command {
     /// This safe default can be overridden with `--allow-unsafe`.
     #[arg(long)]
     pub non_interactive: bool,
-    /// Run the migration creation in explicit mode. In this mode, the user
-    /// will receive more detailed prompts.
+    /// Run the migration creation in expert mode. In this mode, the user will
+    /// receive less-detailed prompts.
     #[arg(long)]
-    pub explicit: bool,
+    pub expert: bool,
     /// Apply the most probable unsafe changes in case there are ones. This
     /// is only useful in non-interactive mode.
     #[arg(long)]
@@ -700,7 +700,15 @@ impl InteractiveMigration<'_> {
         .await
     }
     async fn run(mut self, options: &Command) -> anyhow::Result<CurrentMigration> {
-        self.explicit = options.explicit;
+        if !options.expert {
+            eprintln!("Running in interactive mode.");
+            eprintln!(
+                "HINT: Use `--expert` to run with less detailed prompts, or `--non-interactive`"
+            );
+            eprintln!("      to attempt to apply migrations without user input.");
+            eprintln!();
+        }
+        self.explicit = !options.expert;
         self.save_point().await?;
         loop {
             let descr =

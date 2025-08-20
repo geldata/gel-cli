@@ -65,7 +65,7 @@ $ gel migration create --non-interactive
 ! Input required: Please specify a conversion expression to alter the type of link 'foo'
 ! gel error: Cannot apply migration without user input
 
-$ printf "yes\n.foo[IS default::Child2]\n" | gel migration create
+$ printf "yes\n.foo[IS default::Child2]\n" | gel migration create --expert
 ! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
 ! Please specify a conversion expression to alter the type of link 'foo':
 ! cast_expr> 
@@ -86,7 +86,7 @@ $ rm dbschema/migrations/00002-*.edgeql
 *
 
 # Adding a comment to input doesn't affect result
-$ printf "list\nyes\n.foo[IS default::Child2] # comment\n" | gel migration create
+$ printf "list\nyes\n.foo[IS default::Child2] # comment\n" | gel migration create --expert
 ! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
 ! The following DDL statements will be applied:
 !     ALTER TYPE default::Base {
@@ -114,7 +114,11 @@ $ rm dbschema/migrations/00002-*.edgeql
 *
 
 # Explicit migration mode
-$ printf "yes\n.foo[IS default::Child2] # comment\n" | gel migration create --explicit
+$ printf "yes\n.foo[IS default::Child2] # comment\n" | gel migration create
+! Running in interactive mode.
+! HINT: Use `--expert` to run with less detailed prompts, or `--non-interactive`
+!       to attempt to apply migrations without user input.
+!
 ! did you alter the type of link 'foo' of object type 'default::Base'?
 !
 ! If so, the following DDL statements will be applied:
