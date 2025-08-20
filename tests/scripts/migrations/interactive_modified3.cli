@@ -1,0 +1,89 @@
+#!/usr/bin/env clitest --v0
+
+include "../_include/common.cli.inc";
+
+ignore {
+    ! Legacy schema file extension '.esdl' detected. Consider renaming them to '.gel'.
+    ! Automatic backup is disabled by environment variable. Read more at https://geldata.com/p/localdev
+}
+
+set BRANCH "input_required_test";
+set INSTANCE "__shared-test-db__";
+set GEL_AUTO_BACKUP_MODE "disabled";
+
+$ gel instance create -I $INSTANCE
+%EXIT any
+*
+
+# Log the instance logs in the background to help debug failures
+background {
+    $ gel instance logs --tail 10 --follow -I $INSTANCE
+    %EXIT any
+    *
+}
+
+$ gel branch drop $BRANCH --force --non-interactive
+%EXIT any
+*
+
+using tempdir;
+
+using new dir "input_required_test";
+
+# Initialize a project
+$ echo "[instance]" > gel.toml
+
+# TODO: remove this once we've fully migrated these tests to CLI
+$ rm $INITIAL_PWD/../../migrations/db1/modified2/migrations/00002*
+%EXIT any
+*
+$ cp -R $INITIAL_PWD/../../migrations/db1/modified2 dbschema
+*
+
+$ gel project init --non-interactive --link --server-instance $INSTANCE --branch $BRANCH
+! Found `gel.toml` in %{PATH}
+! Linking project...
+! Applying migrations...
+*
+! Writing gel.local.toml for configuration
+! Project linked
+! To connect to __shared-test-db__, run `gel`
+
+# Destroy the branch after the test
+defer {
+    $ gel project unlink
+    *
+    $ gel branch drop -I $INSTANCE $BRANCH --force --non-interactive
+    %EXIT any
+    *
+}
+
+$ gel project info
+*
+
+$ printf "y\n" | gel migration create --expert
+! did you create object type 'default::Type2'? [y,n,l,c,b,s,q,?]
+! Created dbschema/migrations/00002-m13wjyi.edgeql, id: m13wjyiog2dbum2ou32yp77eysbewews7vlv6rqqfswpyi2yd4s55a
+
+$ cat dbschema/migrations/00002-m13wjyi.edgeql
+"""
+CREATE MIGRATION m13wjyiog2dbum2ou32yp77eysbewews7vlv6rqqfswpyi2yd4s55a
+    ONTO m12bulrbounwj3oj5xsspa7gj676azrog6ndi45iyuwrwzvawkxraa
+{
+  CREATE TYPE default::Type2 {
+      CREATE PROPERTY field2: std::str;
+  };
+};
+"""
+
+$ gel migrate
+! Applying m13wjyiog2dbum2ou32yp77eysbewews7vlv6rqqfswpyi2yd4s55a (00002-m13wjyi.edgeql)
+! ... parsed
+! ... applied
+
+$ gel migration status
+! Database is up to date. Last migration: %{DATA}
+
+$ gel migration create --non-interactive
+%EXIT 4
+! No schema changes detected.
