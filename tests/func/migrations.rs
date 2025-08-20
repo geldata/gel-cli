@@ -808,7 +808,7 @@ fn modified2_interactive() {
 
     let mut cmd = SERVER.custom_interactive(|cmd| {
         cmd.arg("--branch=modified2");
-        cmd.arg("migration").arg("create");
+        cmd.arg("migration").arg("create").arg("--expert");
         cmd.arg("--schema-dir=tests/migrations/db1/modified2");
     });
     cmd.exp_string("[y,n,l,c,b,s,q,?]").unwrap();
