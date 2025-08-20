@@ -137,12 +137,13 @@ $ printf "yes\n.foo[IS default::Child2] # comment\n" | gel migration create --ex
 ! Which action do you want to take? [y,n,c,b,s,q,?]
 !
 ! Please specify a conversion expression to alter the type of link 'foo'.
-! If left blank, the migration will use the expression:
+! If left blank, the migration will use the default expression:
 ! .foo[IS default::Child2]
 !
-! Conversion expression:
+! Cast expression from "default::Child" to "default::Child2" (for ".foo"):
+! cast_expr> 
 ! Created %{DATA}, id: %{DATA}
-
+ 
 $ cat dbschema/migrations/00002-*.edgeql
 ! CREATE MIGRATION %{DATA}
 !     ONTO m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq

@@ -321,22 +321,66 @@ fn print_statements(statements: impl IntoIterator<Item = impl AsRef<str>>) {
 async fn choice(explicit: bool, prompt: &str) -> anyhow::Result<Choice> {
     use Choice::*;
 
-    let choices: &[_] = if explicit {&[
-        (Yes, &["y", "yes"], r#"Confirm the prompt"#),
-        (No, &["n", "no"], "Reject the prompt; server will attempt to generate another suggestion"),
-        (Confirmed, &["c", "confirmed"], "List already confirmed EdgeQL statements for the current migration"),
-        (Back, &["b", "back"], "Go back a step by reverting latest accepted statements"),
-        (Split, &["s", "stop"], "Stop and finalize migration with only current accepted changes"),
-        (Quit, &["q", "quit"], "Quit without saving changes"),
-    ]} else {&[
-        (Yes, &["y", "yes"], r#"Confirm the prompt ("l" to see suggested statements)"#),
-        (No, &["n", "no"], "Reject the prompt; server will attempt to generate another suggestion"),
-        (List, &["l", "list"], "List proposed DDL statements for the current prompt"),
-        (Confirmed, &["c", "confirmed"], "List already confirmed EdgeQL statements for the current migration"),
-        (Back, &["b", "back"], "Go back a step by reverting latest accepted statements"),
-        (Split, &["s", "stop"], "Stop and finalize migration with only current accepted changes"),
-        (Quit, &["q", "quit"], "Quit without saving changes"),
-    ]};
+    let choices: &[_] = if explicit {
+        &[
+            (Yes, &["y", "yes"], r#"Confirm the prompt"#),
+            (
+                No,
+                &["n", "no"],
+                "Reject the prompt; server will attempt to generate another suggestion",
+            ),
+            (
+                Confirmed,
+                &["c", "confirmed"],
+                "List already confirmed EdgeQL statements for the current migration",
+            ),
+            (
+                Back,
+                &["b", "back"],
+                "Go back a step by reverting latest accepted statements",
+            ),
+            (
+                Split,
+                &["s", "stop"],
+                "Stop and finalize migration with only current accepted changes",
+            ),
+            (Quit, &["q", "quit"], "Quit without saving changes"),
+        ]
+    } else {
+        &[
+            (
+                Yes,
+                &["y", "yes"],
+                r#"Confirm the prompt ("l" to see suggested statements)"#,
+            ),
+            (
+                No,
+                &["n", "no"],
+                "Reject the prompt; server will attempt to generate another suggestion",
+            ),
+            (
+                List,
+                &["l", "list"],
+                "List proposed DDL statements for the current prompt",
+            ),
+            (
+                Confirmed,
+                &["c", "confirmed"],
+                "List already confirmed EdgeQL statements for the current migration",
+            ),
+            (
+                Back,
+                &["b", "back"],
+                "Go back a step by reverting latest accepted statements",
+            ),
+            (
+                Split,
+                &["s", "stop"],
+                "Stop and finalize migration with only current accepted changes",
+            ),
+            (Quit, &["q", "quit"], "Quit without saving changes"),
+        ]
+    };
 
     if explicit {
         println!("Select an action:");
@@ -732,7 +776,9 @@ impl InteractiveMigration<'_> {
                         print_statements(proposal.statements.iter().map(|s| &s.text));
                         println!();
                     }
-                    self.cli.ping_while(choice(self.explicit, "Which action do you want to take?")).await?
+                    self.cli
+                        .ping_while(choice(self.explicit, "Which action do you want to take?"))
+                        .await?
                 } else {
                     self.cli.ping_while(choice(self.explicit, prompt)).await?
                 };
@@ -741,7 +787,10 @@ impl InteractiveMigration<'_> {
                     Yes => {
                         let input_res = self
                             .cli
-                            .ping_while(get_user_input(self.explicit,&proposal.required_user_input))
+                            .ping_while(get_user_input(
+                                self.explicit,
+                                &proposal.required_user_input,
+                            ))
                             .await;
                         match input_res {
                             Ok(data) => input = data,
@@ -1005,13 +1054,32 @@ fn get_input(req: &RequiredUserInput) -> Result<String, anyhow::Error> {
 }
 
 fn get_input_explicit(req: &RequiredUserInput) -> Result<String, anyhow::Error> {
-    let prompt = "Conversion expression:";
+    let prompt = format!("{}> ", req.placeholder);
+
+    let expr_type = match req.placeholder.as_str() {
+        "cast_expr" => "Cast expression",
+        "conv_expr" => "Conversion expression",
+        "fill_expr" => "Fill expression",
+        _ => "expression",
+    };
     let mut prev = make_default_expression(req).unwrap_or_default();
     loop {
         println!("{}.", req.prompt);
-        println!("If left blank, the migration will use the expression:");
-        println!("{prev}");
+        if !prev.is_empty() {
+            println!("If left blank, the migration will use the default expression:");
+            println!("{prev}");
+        }
         println!();
+
+        match (&req.new_type, &req.old_type, &req.pointer_name) {
+            (Some(new_type), Some(old_type), Some(pointer_name)) => {
+                println!("{expr_type} from {old_type:?} to {new_type:?} (for \".{pointer_name}\"):")
+            }
+            (Some(new_type), Some(old_type), None) => {
+                println!("{expr_type} from {old_type:?} to {new_type:?}:")
+            }
+            _ => println!("{expr_type}:"),
+        };
 
         let mut value = match prompt::expression(&prompt, &req.placeholder, &prev) {
             Ok(val) => val,
