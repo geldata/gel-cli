@@ -881,7 +881,7 @@ fn modified3_interactive() {
 
     let mut cmd = SERVER.custom_interactive(|cmd| {
         cmd.arg("--branch=modified3");
-        cmd.arg("migration").arg("create");
+        cmd.arg("migration").arg("create").arg("--expert");
         cmd.arg("--schema-dir=tests/migrations/db1/modified3");
     });
     cmd.exp_string("[y,n,l,c,b,s,q,?]").unwrap();
@@ -958,7 +958,7 @@ fn prompt_id() {
 
     let mut cmd = SERVER.custom_interactive(|cmd| {
         cmd.arg("--branch=db2");
-        cmd.arg("migration").arg("create");
+        cmd.arg("migration").arg("create").arg("--expert");
         cmd.arg("--schema-dir=tests/migrations/db2/modified1");
     });
     cmd.exp_string("[y,n,l,c,b,s,q,?]").unwrap();
