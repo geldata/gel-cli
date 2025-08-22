@@ -5,6 +5,7 @@ include "../_include/common.cli.inc";
 ignore {
     ! Legacy schema file extension '.esdl' detected. Consider renaming them to '.gel'.
     ! Automatic backup is disabled by environment variable. Read more at https://geldata.com/p/localdev
+    ! Automatic backup is disabled because backup/restore is not yet supported on Windows.
 }
 
 set BRANCH "input_required_test";

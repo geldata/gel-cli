@@ -10,6 +10,7 @@ ignore {
         ! Created full backup:
         ! %{DATA} MiB %{PATH}
     }
+    ! Automatic backup is disabled because backup/restore is not yet supported on Windows.
 }
 
 set BRANCH "input_required_test";
