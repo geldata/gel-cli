@@ -190,6 +190,22 @@ fn check_project(name: &str, force: bool, ver_query: &Query) -> anyhow::Result<(
     Ok(())
 }
 
+pub fn is_in_place_upgrade_compatible(from: &ver::Specific, to: &ver::Specific) -> bool {
+    from.major >= 6
+    && to.major >= 6
+    && from.major != to.major
+    // 6.0-beta.1 has brokenness in IPUs not worth dealing with
+    && !(to.major == 6 && to.minor == ver::MinorVersion::Beta(1))
+}
+
+pub fn is_in_place_upgrade_default(from: &ver::Specific, to: &ver::Specific) -> bool {
+    is_in_place_upgrade_compatible(from, to)
+        && match to.minor {
+            ver::MinorVersion::Rc(_) | ver::MinorVersion::Minor(_) => true,
+            _ => false,
+        }
+}
+
 fn upgrade_local_cmd(
     cmd: &Command,
     name: &str,
@@ -235,10 +251,9 @@ fn upgrade_local_cmd(
         upgrade_compatible(inst, pkg)
     } else {
         let compatible_pg = true;
-        let compatible_in_place = compatible_pg
-            && inst_ver.major >= 6
-            && pkg_ver.major >= 6
-            && inst_ver.major != pkg_ver.major;
+        let compatible_in_place =
+            compatible_pg && is_in_place_upgrade_compatible(&inst_ver, &pkg_ver);
+        let default_in_place = is_in_place_upgrade_default(&inst_ver, &pkg_ver);
 
         if cmd.force_in_place && !compatible_in_place {
             return Err(anyhow::anyhow!(
@@ -248,7 +263,7 @@ fn upgrade_local_cmd(
             .into());
         }
 
-        if (compatible_in_place || cmd.force_in_place) && !cmd.force && !cmd.force_dump_restore {
+        if (default_in_place || cmd.force_in_place) && !cmd.force && !cmd.force_dump_restore {
             upgrade_in_place(inst, inst_ver, pkg)
         } else {
             upgrade_incompatible(inst, inst_ver, pkg, cmd.non_interactive, opts.skip_hooks)

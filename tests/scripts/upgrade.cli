@@ -27,7 +27,7 @@ if TARGET_OS != "windows" {
 }
 
 # Upgrade to nightly, in-place
-$ gel instance upgrade --instance=inst3 --to-nightly
+$ gel instance upgrade --instance=inst3 --to-nightly --force-in-place
 %TIMEOUT 120s
 ? Upgrading from %{VERSION} to version %{VERSION}, in-place
 *
