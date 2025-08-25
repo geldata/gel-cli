@@ -1945,7 +1945,7 @@ jobs:
         target: macos-aarch64
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "macos"
         PKG_PLATFORM_VERSION: "aarch64"
@@ -2008,7 +2008,7 @@ jobs:
         target: win-aarch64
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_PLATFORM: "win"
         PKG_PLATFORM_VERSION: "aarch64"

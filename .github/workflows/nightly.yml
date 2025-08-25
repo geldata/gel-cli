@@ -2468,7 +2468,7 @@ jobs:
         target: macos-aarch64
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_SUBDIST: "nightly"
         PKG_PLATFORM: "macos"
@@ -2533,7 +2533,7 @@ jobs:
         target: win-aarch64
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-aarch64:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         PKG_SUBDIST: "nightly"
         PKG_PLATFORM: "win"

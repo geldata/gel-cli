@@ -375,7 +375,7 @@
         target: << plat_id >>
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-<< tgt.arch >>:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         <%- if subdist != "" %>
         PKG_SUBDIST: "<< subdist >>"
@@ -410,7 +410,7 @@
         target: << plat_id >>
 
     - name: Publish
-      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-<< tgt.arch >>:latest
+      uses: docker://ghcr.io/geldata/gelpkg-upload-linux-x86_64:latest
       env:
         <%- if subdist != "" %>
         PKG_SUBDIST: "<< subdist >>"
