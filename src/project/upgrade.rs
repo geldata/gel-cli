@@ -342,9 +342,9 @@ fn upgrade_local(
 
                 let compatible_pg = true;
                 let compatible_in_place = compatible_pg
-                    && inst_ver.major >= 6
-                    && pkg_ver.major >= 6
-                    && inst_ver.major != pkg_ver.major;
+                    && instance::upgrade::is_in_place_upgrade_compatible(&inst_ver, &pkg_ver);
+                let default_in_place =
+                    instance::upgrade::is_in_place_upgrade_default(&inst_ver, &pkg_ver);
 
                 if cmd.force_in_place && !compatible_in_place {
                     return Err(anyhow::anyhow!(
@@ -354,9 +354,7 @@ fn upgrade_local(
                     .into());
                 }
 
-                if (compatible_in_place || cmd.force_in_place)
-                    && !cmd.force
-                    && !cmd.force_dump_restore
+                if (default_in_place || cmd.force_in_place) && !cmd.force && !cmd.force_dump_restore
                 {
                     upgrade::upgrade_in_place(inst, inst_ver.clone(), pkg)?;
                 } else {
