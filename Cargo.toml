@@ -31,7 +31,7 @@ gel-config = { version = "0.1" }
 [package]
 name = "gel-cli"
 license = "MIT/Apache-2.0"
-version = "7.8.0-dev"
+version = "7.8.0"
 authors = ["Gel Data Inc. <yo@geldata.com>"]
 edition.workspace = true
 rust-version.workspace = true
