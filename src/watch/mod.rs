@@ -23,15 +23,15 @@ use crate::project;
 
 #[derive(clap::Args, Debug, Clone)]
 pub struct Command {
-    /// Runs "{BRANDING_CLI_CMD} migration apply --dev-mode" on changes to schema definitions.
+    /// Runs "`BRANDING_CLI_CMD` migration apply --dev-mode" on changes to schema definitions.
     ///
-    /// This runs in addition to scripts in {MANIFEST_FILE_DISPLAY_NAME}.
+    /// This runs in addition to scripts in `MANIFEST_FILE_DISPLAY_NAME`.
     #[arg(short = 'm', long)]
     pub migrate: bool,
 
-    /// Runs "{BRANDING_CLI_CMD} sync" on changes to gel.local.toml.
+    /// Runs "`BRANDING_CLI_CMD` sync" on changes to gel.local.toml.
     ///
-    /// This runs in addition to scripts in {MANIFEST_FILE_DISPLAY_NAME}.
+    /// This runs in addition to scripts in `MANIFEST_FILE_DISPLAY_NAME`.
     #[arg(short = 's', long)]
     pub sync: bool,
 
