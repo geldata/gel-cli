@@ -44,6 +44,8 @@ fn github_action_install() -> anyhow::Result<()> {
         "aarch64-apple-darwin"
     } else if cfg!(all(target_os = "windows", target_arch = "x86_64")) {
         "x86_64-pc-windows-msvc"
+    } else if cfg!(all(target_os = "windows", target_arch = "aarch64")) {
+        "aarch64-pc-windows-msvc"
     } else {
         panic!("unsupported platform");
     };
