@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::io::IsTerminal;
 
 use anyhow::Context as _;
 use edgeql_parser::expr;
@@ -66,6 +67,21 @@ pub fn expression(
     history_name: &str,
     default: &str,
 ) -> Result<String, anyhow::Error> {
+    use std::io::Write;
+
+    if !std::io::stdin().is_terminal() {
+        print!("{}", prompt);
+        _ = std::io::stdout().flush();
+        let mut buf = String::new();
+        std::io::stdin().read_line(&mut buf)?;
+        if buf.is_empty() {
+            println!("{default}");
+            return Ok(default.to_string());
+        }
+        println!();
+        return Ok(buf);
+    }
+
     let history_name = format!("migr_{}", &history_name);
     let config = Config::builder();
     let config = config.edit_mode(EditMode::Emacs);
