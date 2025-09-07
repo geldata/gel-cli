@@ -367,7 +367,7 @@ pub fn upgrade_cloud(
     } else {
         let request = CloudInstanceUpgrade {
             version: target_ver.to_string(),
-            use_dump_restore,
+            use_dump_restore_upgrade: use_dump_restore,
         };
 
         cloud::ops::upgrade_cloud_instance(client, name, request)?;
