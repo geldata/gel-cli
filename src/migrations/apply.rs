@@ -240,14 +240,6 @@ impl AutoBackup {
         quiet: bool,
     ) -> anyhow::Result<Option<Self>> {
         const LOCALDEV_URL: &str = "https://geldata.com/p/localdev";
-        if cfg!(windows) {
-            eprintln!(
-                "Automatic backup is disabled because backup/restore \
-                is not yet supported on Windows."
-            );
-            eprintln!("Read more at {LOCALDEV_URL}");
-            return Ok(None);
-        }
         let mut skipped = *crate::cli::env::Env::in_ci()?.unwrap_or_default();
         match crate::cli::env::Env::auto_backup_mode()? {
             Some(crate::cli::env::AutoBackupMode::Disabled) => skipped = true,
@@ -260,6 +252,14 @@ impl AutoBackup {
                     Read more at {LOCALDEV_URL}",
                 );
             }
+            return Ok(None);
+        }
+        if cfg!(windows) {
+            eprintln!(
+                "Automatic backup is disabled because backup/restore \
+                is not yet supported on Windows."
+            );
+            eprintln!("Read more at {LOCALDEV_URL}");
             return Ok(None);
         }
 

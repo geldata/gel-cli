@@ -145,6 +145,7 @@ async fn sync(
             debug_print_queries: false,
             debug_print_err: false,
             quiet: true,
+            expert: true,
         },
         &mut conn,
     )

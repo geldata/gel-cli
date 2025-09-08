@@ -10,6 +10,7 @@ ignore {
         ! Created full backup:
         ! %{DATA} MiB %{PATH}
     }
+    ! Automatic backup is disabled because backup/restore is not yet supported on Windows.
 }
 
 set BRANCH "input_required_test";
@@ -65,9 +66,10 @@ $ gel migration create --non-interactive
 ! Input required: Please specify a conversion expression to alter the type of link 'foo'
 ! gel error: Cannot apply migration without user input
 
-$ printf "yes\n.foo[IS default::Child2]\n" | gel migration create
+$ printf "yes\n.foo[IS default::Child2]\n" | gel migration create --expert
 ! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
 ! Please specify a conversion expression to alter the type of link 'foo':
+! cast_expr> 
 ! Created %{DATA}, id: %{DATA}
 
 $ cat dbschema/migrations/00002-*.edgeql
@@ -85,11 +87,68 @@ $ rm dbschema/migrations/00002-*.edgeql
 *
 
 # Adding a comment to input doesn't affect result
-$ printf "yes\n.foo[IS default::Child2] # comment\n" | gel migration create
+$ printf "list\nyes\n.foo[IS default::Child2] # comment\n" | gel migration create --expert
+! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
+! The following DDL statements will be applied:
+!     ALTER TYPE default::Base {
+!         ALTER LINK foo {
+!             SET TYPE default::Child2 USING (\(cast_expr));
+!         };
+!     };
 ! did you alter the type of link 'foo' of object type 'default::Base'? [y,n,l,c,b,s,q,?]
 ! Please specify a conversion expression to alter the type of link 'foo':
+! cast_expr> 
 ! Created %{DATA}, id: %{DATA}
 
+$ cat dbschema/migrations/00002-*.edgeql
+! CREATE MIGRATION %{DATA}
+!     ONTO m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq
+! {
+!   ALTER TYPE default::Base {
+!       ALTER LINK foo {
+!           SET TYPE default::Child2 USING (.foo[IS default::Child2]);
+!       };
+!   };
+! };
+
+$ rm dbschema/migrations/00002-*.edgeql
+*
+
+# Explicit migration mode
+$ printf "yes\n.foo[IS default::Child2] # comment\n" | gel migration create
+! Running in interactive mode.
+! HINT: Use `--expert` to run with less detailed prompts, or `--non-interactive`
+!       to attempt to apply migrations without user input.
+!
+! did you alter the type of link 'foo' of object type 'default::Base'?
+!
+! If so, the following DDL statements will be applied:
+!
+!     ALTER TYPE default::Base {
+!         ALTER LINK foo {
+!             SET TYPE default::Child2 USING (\(cast_expr));
+!         };
+!     };
+!
+! Select an action:
+!
+! "yes" (or "y"): Confirm the prompt
+! "no" (or "n"): Reject the prompt; server will attempt to generate another suggestion
+! "confirmed" (or "c"): List already confirmed EdgeQL statements for the current migration
+! "back" (or "b"): Go back a step by reverting latest accepted statements
+! "stop" (or "s"): Stop and finalize migration with only current accepted changes
+! "quit" (or "q"): Quit without saving changes
+!
+! Which action do you want to take? [y,n,c,b,s,q,?]
+!
+! Please specify a conversion expression to alter the type of link 'foo'.
+! If left blank, the migration will use the default expression:
+! .foo[IS default::Child2]
+!
+! Cast expression from "default::Child" to "default::Child2" (for ".foo"):
+! cast_expr> 
+! Created %{DATA}, id: %{DATA}
+ 
 $ cat dbschema/migrations/00002-*.edgeql
 ! CREATE MIGRATION %{DATA}
 !     ONTO m1d6kfhjnqmrw4lleqvx6fibf5hpmndpw2tn2f6o4wm6fjyf55dhcq

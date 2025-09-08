@@ -65,6 +65,10 @@ pub struct Command {
     /// This safe default can be overridden with `--allow-unsafe`.
     #[arg(long)]
     pub non_interactive: bool,
+    /// Run the migration creation in expert mode. In this mode, the user will
+    /// receive less-detailed prompts.
+    #[arg(long)]
+    pub expert: bool,
     /// Apply the most probable unsafe changes in case there are ones. This
     /// is only useful in non-interactive mode.
     #[arg(long)]
@@ -142,7 +146,7 @@ pub enum SourceName {
     File(PathBuf),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 enum Choice {
     Yes,
     No,
@@ -219,6 +223,7 @@ struct InteractiveMigration<'a> {
     save_point: usize,
     operations: Vec<Set<String>>,
     confirmed: Vec<String>,
+    explicit: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -313,42 +318,91 @@ fn print_statements(statements: impl IntoIterator<Item = impl AsRef<str>>) {
     }
 }
 
-async fn choice(prompt: &str) -> anyhow::Result<Choice> {
+async fn choice(explicit: bool, prompt: &str) -> anyhow::Result<Choice> {
     use Choice::*;
 
+    let choices: &[_] = if explicit {
+        &[
+            (Yes, &["y", "yes"], r#"Confirm the prompt"#),
+            (
+                No,
+                &["n", "no"],
+                "Reject the prompt; server will attempt to generate another suggestion",
+            ),
+            (
+                Confirmed,
+                &["c", "confirmed"],
+                "List already confirmed EdgeQL statements for the current migration",
+            ),
+            (
+                Back,
+                &["b", "back"],
+                "Go back a step by reverting latest accepted statements",
+            ),
+            (
+                Split,
+                &["s", "stop"],
+                "Stop and finalize migration with only current accepted changes",
+            ),
+            (Quit, &["q", "quit"], "Quit without saving changes"),
+        ]
+    } else {
+        &[
+            (
+                Yes,
+                &["y", "yes"],
+                r#"Confirm the prompt ("l" to see suggested statements)"#,
+            ),
+            (
+                No,
+                &["n", "no"],
+                "Reject the prompt; server will attempt to generate another suggestion",
+            ),
+            (
+                List,
+                &["l", "list"],
+                "List proposed DDL statements for the current prompt",
+            ),
+            (
+                Confirmed,
+                &["c", "confirmed"],
+                "List already confirmed EdgeQL statements for the current migration",
+            ),
+            (
+                Back,
+                &["b", "back"],
+                "Go back a step by reverting latest accepted statements",
+            ),
+            (
+                Split,
+                &["s", "stop"],
+                "Stop and finalize migration with only current accepted changes",
+            ),
+            (Quit, &["q", "quit"], "Quit without saving changes"),
+        ]
+    };
+
+    if explicit {
+        println!("Select an action:");
+        println!();
+        for (_, input, help) in choices {
+            println!("{:?} (or {:?}): {help}", input[1], input[0]);
+        }
+        println!();
+    }
+
     let mut q = question::Choice::new(prompt.to_string());
-    q.option(
-        Yes,
-        &["y", "yes"],
-        r#"Confirm the prompt ("l" to see suggested statements)"#,
-    );
-    q.option(
-        No,
-        &["n", "no"],
-        "Reject the prompt; server will attempt to generate another suggestion",
-    );
-    q.option(
-        List,
-        &["l", "list"],
-        "List proposed DDL statements for the current prompt",
-    );
-    q.option(
-        Confirmed,
-        &["c", "confirmed"],
-        "List already confirmed EdgeQL statements for the current migration",
-    );
-    q.option(
-        Back,
-        &["b", "back"],
-        "Go back a step by reverting latest accepted statements",
-    );
-    q.option(
-        Split,
-        &["s", "stop"],
-        "Stop and finalize migration with only current accepted changes",
-    );
-    q.option(Quit, &["q", "quit"], "Quit without saving changes");
-    q.async_ask().await
+    for (choice, input, help) in choices {
+        q.option(choice, input.as_slice(), *help);
+    }
+
+    let res = *q.async_ask().await?;
+
+    if explicit {
+        println!();
+    }
+
+    Ok(res)
 }
 
 #[context("could not read schema in {}", ctx.schema_dir.display())]
@@ -626,6 +680,7 @@ impl InteractiveMigration<'_> {
             save_point: 0,
             operations: vec![Set::new()],
             confirmed: Vec::new(),
+            explicit: false,
         }
     }
     async fn save_point(&mut self) -> Result<(), Error> {
@@ -645,6 +700,15 @@ impl InteractiveMigration<'_> {
         .await
     }
     async fn run(mut self, options: &Command) -> anyhow::Result<CurrentMigration> {
+        if !options.expert {
+            eprintln!("Running in interactive mode.");
+            eprintln!(
+                "HINT: Use `--expert` to run with less detailed prompts, or `--non-interactive`"
+            );
+            eprintln!("      to attempt to apply migrations without user input.");
+            eprintln!();
+        }
+        self.explicit = !options.expert;
         self.save_point().await?;
         loop {
             let descr =
@@ -691,7 +755,7 @@ impl InteractiveMigration<'_> {
                 println!("(approved as part of an earlier prompt)");
                 let input = self
                     .cli
-                    .ping_while(get_user_input(&proposal.required_user_input))
+                    .ping_while(get_user_input(self.explicit, &proposal.required_user_input))
                     .await;
                 match input {
                     Ok(data) => break data,
@@ -711,11 +775,30 @@ impl InteractiveMigration<'_> {
                 "Apply the DDL statements?"
             };
             loop {
-                match self.cli.ping_while(choice(prompt)).await? {
+                let choice = if self.explicit {
+                    println!("{prompt}");
+                    println!();
+                    if self.explicit {
+                        println!("If so, the following DDL statements will be applied:");
+                        println!();
+                        print_statements(proposal.statements.iter().map(|s| &s.text));
+                        println!();
+                    }
+                    self.cli
+                        .ping_while(choice(self.explicit, "Which action do you want to take?"))
+                        .await?
+                } else {
+                    self.cli.ping_while(choice(self.explicit, prompt)).await?
+                };
+
+                match choice {
                     Yes => {
                         let input_res = self
                             .cli
-                            .ping_while(get_user_input(&proposal.required_user_input))
+                            .ping_while(get_user_input(
+                                self.explicit,
+                                &proposal.required_user_input,
+                            ))
                             .await;
                         match input_res {
                             Ok(data) => input = data,
@@ -978,13 +1061,67 @@ fn get_input(req: &RequiredUserInput) -> Result<String, anyhow::Error> {
     }
 }
 
+fn get_input_explicit(req: &RequiredUserInput) -> Result<String, anyhow::Error> {
+    let prompt = format!("{}> ", req.placeholder);
+
+    let expr_type = match req.placeholder.as_str() {
+        "cast_expr" => "Cast expression",
+        "conv_expr" => "Conversion expression",
+        "fill_expr" => "Fill expression",
+        _ => "expression",
+    };
+    let mut prev = make_default_expression(req).unwrap_or_default();
+    loop {
+        println!("{}.", req.prompt);
+        if !prev.is_empty() {
+            println!("If left blank, the migration will use the default expression:");
+            println!("{prev}");
+        }
+        println!();
+
+        match (&req.new_type, &req.old_type, &req.pointer_name) {
+            (Some(new_type), Some(old_type), Some(pointer_name)) => {
+                println!("{expr_type} from {old_type:?} to {new_type:?} (for \".{pointer_name}\"):")
+            }
+            (Some(new_type), Some(old_type), None) => {
+                println!("{expr_type} from {old_type:?} to {new_type:?}:")
+            }
+            _ => println!("{expr_type}:"),
+        };
+
+        let mut value = match prompt::expression(&prompt, &req.placeholder, &prev) {
+            Ok(val) => val,
+            Err(e) => match e.downcast::<ReadlineError>() {
+                Ok(ReadlineError::Eof) => return Err(Refused.into()),
+                Ok(e) => return Err(e.into()),
+                Err(e) => return Err(e),
+            },
+        };
+        match expr::check(&value) {
+            Ok(()) => {}
+            Err(e) => {
+                println!("Invalid expression: {e}");
+                prev = value;
+                continue;
+            }
+        }
+        add_newline_after_comment(&mut value)?;
+        return Ok(value);
+    }
+}
+
 async fn get_user_input(
+    explicit: bool,
     req: &[RequiredUserInput],
 ) -> Result<BTreeMap<String, String>, anyhow::Error> {
     let mut result = BTreeMap::new();
     for item in req {
         let copy = item.clone();
-        let input = unblock(move || get_input(&copy)).await??;
+        let input = if explicit {
+            unblock(move || get_input_explicit(&copy)).await??
+        } else {
+            unblock(move || get_input(&copy)).await??
+        };
         result.insert(item.placeholder.clone(), input);
     }
     Ok(result)
