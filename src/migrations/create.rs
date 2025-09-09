@@ -1062,35 +1062,34 @@ fn get_input(req: &RequiredUserInput) -> Result<String, anyhow::Error> {
 }
 
 fn get_input_explicit(req: &RequiredUserInput) -> Result<String, anyhow::Error> {
-    let prompt = format!("{}> ", req.placeholder);
-
-    let expr_type = match req.placeholder.as_str() {
-        "cast_expr" => "Cast expression",
-        "conv_expr" => "Conversion expression",
-        "fill_expr" => "Fill expression",
-        _ => "expression",
-    };
-    let mut prev = make_default_expression(req).unwrap_or_default();
+    let default = make_default_expression(req).unwrap_or_default();
     loop {
         println!("{}.", req.prompt);
-        if !prev.is_empty() {
+        if !default.is_empty() {
             println!("If left blank, the migration will use the default expression:");
-            println!("{prev}");
+            let mut buf = String::with_capacity(default.len());
+            highlight::edgeql(&mut buf, &default, &Styler::new());
+            println!();
+            println!("    {buf}");
+            println!();
         }
-        println!();
 
-        match (&req.new_type, &req.old_type, &req.pointer_name) {
-            (Some(new_type), Some(old_type), Some(pointer_name)) => {
-                println!("{expr_type} from {old_type:?} to {new_type:?} (for \".{pointer_name}\"):")
-            }
-            (Some(new_type), Some(old_type), None) => {
-                println!("{expr_type} from {old_type:?} to {new_type:?}:")
-            }
-            _ => println!("{expr_type}:"),
+        let question = match &req.new_type {
+            Some(new_type) => format!(
+                "EdgeQL expression {:?} that resolves into {new_type:?}",
+                req.placeholder
+            ),
+            None => format!("EdgeQL expression {:?}", req.placeholder),
         };
 
-        let mut value = match prompt::expression(&prompt, &req.placeholder, &prev) {
-            Ok(val) => val,
+        let mut value = match question::String::new(&question).ask() {
+            Ok(val) => {
+                if val.is_empty() {
+                    default.clone()
+                } else {
+                    val
+                }
+            }
             Err(e) => match e.downcast::<ReadlineError>() {
                 Ok(ReadlineError::Eof) => return Err(Refused.into()),
                 Ok(e) => return Err(e.into()),
@@ -1098,10 +1097,12 @@ fn get_input_explicit(req: &RequiredUserInput) -> Result<String, anyhow::Error> 
             },
         };
         match expr::check(&value) {
-            Ok(()) => {}
+            Ok(()) => {
+                println!();
+            }
             Err(e) => {
-                println!("Invalid expression: {e}");
-                prev = value;
+                print::error!("Invalid expression: {e}");
+                println!();
                 continue;
             }
         }
