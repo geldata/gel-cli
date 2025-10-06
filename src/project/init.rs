@@ -110,6 +110,10 @@ pub struct Command {
     #[arg(long)]
     pub server_instance: Option<InstanceName>,
 
+    // Convenience alias for server_instance
+    #[arg(from_global)]
+    pub instance: Option<InstanceName>,
+
     /// Specify the default database for the project to use on that instance
     #[arg(long, short = 'd')]
     pub database: Option<String>,
@@ -141,12 +145,12 @@ pub struct Command {
 
 impl Command {
     /// Compatibility with older --database flag
-    pub fn database(&self) -> &Option<String> {
-        if self.branch.is_some() {
-            &self.branch
-        } else {
-            &self.database
-        }
+    pub fn database(&self) -> Option<&String> {
+        self.branch.as_ref().or(self.database.as_ref())
+    }
+
+    pub fn server_instance(&self) -> Option<&InstanceName> {
+        self.server_instance.as_ref().or(self.instance.as_ref())
     }
 }
 
@@ -195,7 +199,7 @@ pub fn init_existing(
             if !cmd.interactive {
                 inst.database = Some(
                     cmd.database()
-                        .clone()
+                        .cloned()
                         .unwrap_or(get_default_branch_or_database(specific_version)),
                 );
             } else {
@@ -204,7 +208,7 @@ pub fn init_existing(
                     .map(|s| s.to_string());
             }
         } else {
-            inst.database.clone_from(cmd.database());
+            inst.database = cmd.database().cloned();
         }
         return do_link(&inst, &project, cmd, &stash_dir, opts);
     }
@@ -422,7 +426,7 @@ fn do_init(
         project_dir: project.location.root.clone(),
         schema_dir: project.resolve_schema_dir()?,
         instance,
-        database: cmd.database().clone(),
+        database: cmd.database().cloned(),
     };
 
     let mut stash = project::StashDir::new(&project.location.root, name);
@@ -519,7 +523,7 @@ fn link(
     let ver_query = &project.manifest.instance.server_version;
 
     let mut client = CloudClient::new(&opts.cloud_options)?;
-    let name = if let Some(name) = &cmd.server_instance {
+    let name = if let Some(name) = cmd.server_instance() {
         name.clone()
     } else if !cmd.interactive {
         anyhow::bail!(
@@ -536,14 +540,14 @@ fn link(
         if !cmd.interactive {
             inst.database = Some(
                 cmd.database()
-                    .clone()
+                    .cloned()
                     .unwrap_or(DEFAULT_DATABASE_NAME.to_string()),
             )
         } else {
             inst.database = ask_database()?.database().map(|s| s.to_string());
         }
     } else {
-        inst.database.clone_from(cmd.database());
+        inst.database = cmd.database().cloned();
     }
     inst.check_version(ver_query);
     do_link(&inst, &project, cmd, &stash_dir, opts)
@@ -666,7 +670,7 @@ fn init_new(
             if !cmd.interactive {
                 inst.database = Some(
                     cmd.database()
-                        .clone()
+                        .cloned()
                         .unwrap_or(get_default_branch_or_database(specific_version)),
                 );
             } else {
@@ -675,7 +679,7 @@ fn init_new(
                     .map(|s| s.to_string());
             }
         } else {
-            inst.database.clone_from(cmd.database());
+            inst.database = cmd.database().cloned();
         }
         return do_link(&inst, &ctx, cmd, &stash_dir, opts);
     };
@@ -809,11 +813,12 @@ fn init_new(
 
 fn ask_name(
     dir: &Path,
-    options: &Command,
+    cmd: &Command,
     cloud_client: &mut CloudClient,
 ) -> anyhow::Result<(InstanceName, bool)> {
     let instances = credentials::all_instance_names()?;
-    let default_name = if let Some(name) = &options.server_instance {
+
+    let default_name = if let Some(name) = cmd.server_instance() {
         name.clone()
     } else {
         let base_name = directory_to_name(dir, InstanceName::Local("instance".to_string()));
@@ -828,7 +833,7 @@ fn ask_name(
         }
         name
     };
-    if !options.interactive {
+    if !cmd.interactive {
         let exists = match &default_name {
             InstanceName::Local(_) => instances.contains(&default_name),
             InstanceName::Cloud(name) => {
