@@ -70,7 +70,7 @@ fn init_command_opts(options: &Options) -> Result<commands::Options, anyhow::Err
         } else {
             None
         },
-        instance_name: options.conn_options.instance_opts.maybe_instance(),
+        instance_name: options.conn_options.instance_opts.instance.clone(),
         conn_params: options.block_on_create_connector()?,
         skip_hooks: options.skip_hooks,
     })
