@@ -11,7 +11,7 @@ using new dir "watch_test";
 $ gel project init --instance=watch_test --non-interactive
 *
 
-$ uv init
+$ uv init --python 3.12
 *
 
 $ uv add gel==4.0.0b1
