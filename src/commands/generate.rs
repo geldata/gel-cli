@@ -207,7 +207,10 @@ pub async fn prepare_command(
     }
 
     let commands = if lang == "py" {
-        let gen_name = "gel-generate-py";
+        #[cfg(not(windows))]
+        let gen_name = "bin/gel-generate-py";
+        #[cfg(windows)]
+        let gen_name = "Scripts/gel-generate-py.exe";
 
         let mut venv = detect_venv()?;
         let mut using_uv = false;
@@ -229,7 +232,7 @@ pub async fn prepare_command(
                 "Using Python virtual environment: {}",
                 venv.display().to_string().emphasized()
             );
-            let cmd = venv.join("bin").join(gen_name);
+            let cmd = venv.join(gen_name);
             which(&cmd).map_err(|e| {
                 anyhow::anyhow!(e)
                     .context(format!("cannot execute {}", cmd.display()))
