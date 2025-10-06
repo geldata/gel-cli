@@ -312,7 +312,7 @@ impl InstanceOptions {
         }
 
         {
-            // infer instance from current project
+            // infer instance from current project or environment
             let config = gel_tokio::Builder::new().build();
             if let Ok(config) = config {
                 let instance = config.instance_name().cloned();

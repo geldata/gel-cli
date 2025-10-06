@@ -149,8 +149,21 @@ impl Command {
         self.branch.as_ref().or(self.database.as_ref())
     }
 
-    pub fn server_instance(&self) -> Option<&InstanceName> {
-        self.server_instance.as_ref().or(self.instance.as_ref())
+    pub fn server_instance(
+        &self,
+    ) -> Result<Option<InstanceName>, gel_tokio::dsn::error::ParseError> {
+        if self.server_instance.is_some() {
+            return Ok(self.server_instance.clone());
+        }
+        if self.instance.is_some() {
+            return Ok(self.instance.clone());
+        }
+
+        // infer from environment
+        if let Some(env_var) = std::env::var("GEL_INSTANCE").ok() {
+            return InstanceName::from_str(&env_var).map(Some);
+        }
+        Ok(None)
     }
 }
 
@@ -523,8 +536,8 @@ fn link(
     let ver_query = &project.manifest.instance.server_version;
 
     let mut client = CloudClient::new(&opts.cloud_options)?;
-    let name = if let Some(name) = cmd.server_instance() {
-        name.clone()
+    let name = if let Some(name) = cmd.server_instance()? {
+        name
     } else if !cmd.interactive {
         anyhow::bail!(
             "Existing instance name should be specified \
@@ -818,8 +831,8 @@ fn ask_name(
 ) -> anyhow::Result<(InstanceName, bool)> {
     let instances = credentials::all_instance_names()?;
 
-    let default_name = if let Some(name) = cmd.server_instance() {
-        name.clone()
+    let default_name = if let Some(name) = cmd.server_instance()? {
+        name
     } else {
         let base_name = directory_to_name(dir, InstanceName::Local("instance".to_string()));
         let mut name = base_name.clone();

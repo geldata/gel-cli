@@ -75,6 +75,15 @@ $ gel -I inst1 project init --link --non-interactive --project-dir=./project1
 ! Project linked
 ! To connect to inst1, navigate to %{GREEDYDATA} and run `gel`
 
+$ gel project unlink --non-interactive --project-dir=./project1
+! Unlinking instance inst1
+
+# Try again, with $GEL_INSTANCE
+$ GEL_INSTANCE=inst1 gel project init --link --non-interactive --project-dir=./project1
+*
+! Project linked
+! To connect to inst1, navigate to %{GREEDYDATA} and run `gel`
+
 $ gel project info --instance-name --project-dir=./project1
 ! inst1
 
