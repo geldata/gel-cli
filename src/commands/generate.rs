@@ -11,7 +11,7 @@ use tempfile::NamedTempFile;
 use tokio::process;
 use which::which;
 
-use crate::branding::BRANDING_CLI_CMD;
+use crate::branding::{BRANDING_CLI_CMD, MANIFEST_FILE_DISPLAY_NAME};
 use crate::cli::env::{Env, UseUv};
 use crate::commands::options::Options;
 use crate::hint::HintExt;
@@ -158,7 +158,11 @@ pub async fn prepare_command(
         .split_once('/')
         .context("generator should be of form <lang>/<tool>")?;
 
-    let project = project::ensure_ctx_async(None).await?;
+    let project = project::load_ctx(None, true).await?.ok_or_else(||
+        anyhow::anyhow!(
+            "`{MANIFEST_FILE_DISPLAY_NAME}` not found, unable to perform this action without an initialized project."
+        )
+    )?;
     let mut env = HashMap::new();
     if let Some(config) = project
         .manifest
