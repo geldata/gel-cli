@@ -11,7 +11,7 @@ use tempfile::NamedTempFile;
 use tokio::process;
 use which::which;
 
-use crate::branding::BRANDING_CLI_CMD;
+use crate::branding::{BRANDING_CLI_CMD, MANIFEST_FILE_DISPLAY_NAME};
 use crate::cli::env::{Env, UseUv};
 use crate::commands::options::Options;
 use crate::hint::HintExt;
@@ -158,7 +158,11 @@ pub async fn prepare_command(
         .split_once('/')
         .context("generator should be of form <lang>/<tool>")?;
 
-    let project = project::ensure_ctx_async(None).await?;
+    let project = project::load_ctx(None, true).await?.ok_or_else(||
+        anyhow::anyhow!(
+            "`{MANIFEST_FILE_DISPLAY_NAME}` not found, unable to perform this action without an initialized project."
+        )
+    )?;
     let mut env = HashMap::new();
     if let Some(config) = project
         .manifest
@@ -203,7 +207,10 @@ pub async fn prepare_command(
     }
 
     let commands = if lang == "py" {
-        let gen_name = "gel-generate-py";
+        #[cfg(not(windows))]
+        let gen_name = "bin/gel-generate-py";
+        #[cfg(windows)]
+        let gen_name = "Scripts/gel-generate-py.exe";
 
         let mut venv = detect_venv()?;
         let mut using_uv = false;
@@ -225,7 +232,7 @@ pub async fn prepare_command(
                 "Using Python virtual environment: {}",
                 venv.display().to_string().emphasized()
             );
-            let cmd = venv.join("bin").join(gen_name);
+            let cmd = venv.join(gen_name);
             which(&cmd).map_err(|e| {
                 anyhow::anyhow!(e)
                     .context(format!("cannot execute {}", cmd.display()))

@@ -11,6 +11,12 @@ using new dir "watch_test";
 $ gel project init --instance=watch_test --non-interactive
 *
 
+$ uv init --python 3.12
+*
+
+$ uv add gel==4.0.0b1
+*
+
 $ find .
 *
 
@@ -108,4 +114,7 @@ $ sleep 1
 
 $ gel query "select schema::Migration {*} filter .generated_by =
           schema::MigrationGeneratedBy.DevMode;"
+*
+
+$ gel generate py/models
 *

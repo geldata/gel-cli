@@ -143,6 +143,9 @@ jobs:
           gel server install
           gel server install --nightly
 
+      - name: Install uv to test with gel generate
+        uses: astral-sh/setup-uv@v6
+
       - name: Run all CLI tests
         run: |
           find tests/scripts -name "*.cli" -type f | while read -r test_file; do
