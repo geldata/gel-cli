@@ -159,9 +159,11 @@ impl Command {
             return Ok(self.instance.clone());
         }
 
-        // infer from environment
-        if let Some(env_var) = std::env::var("GEL_INSTANCE").ok() {
-            return InstanceName::from_str(&env_var).map(Some);
+        // infer from environment (GEL_INSTANCE)
+        if let Ok((computed, _)) = gel_tokio::Builder::new().with_env().with_fs().compute() {
+            if let Some(instance_name) = computed.instance {
+                return Ok(Some(instance_name));
+            }
         }
         Ok(None)
     }

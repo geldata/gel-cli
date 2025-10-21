@@ -1,7 +1,7 @@
 {
   description = "The EdgeDB CLI";
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs";
+    nixpkgs.url = "github:nixos/nixpkgs/25.05";
     flake-parts.url = "github:hercules-ci/flake-parts";
 
     # provides rust toolchain
