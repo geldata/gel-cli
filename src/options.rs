@@ -264,12 +264,6 @@ pub struct InstanceOptionsGlobal {
     pub container: Option<String>,
 }
 
-impl InstanceOptionsGlobal {
-    pub fn maybe_instance(&self) -> Option<InstanceName> {
-        self.instance.clone()
-    }
-}
-
 #[derive(clap::Args, Clone, Default, Debug, IntoArgs)]
 pub struct InstanceOptions {
     #[arg(from_global)]
@@ -318,7 +312,7 @@ impl InstanceOptions {
         }
 
         {
-            // infer instance from current project
+            // infer instance from current project or environment
             let config = gel_tokio::Builder::new().build();
             if let Ok(config) = config {
                 let instance = config.instance_name().cloned();
@@ -1112,7 +1106,7 @@ async fn with_password(options: &ConnectionOptions, user: &str) -> anyhow::Resul
 pub async fn prepare_conn_params(opts: &Options) -> anyhow::Result<Builder> {
     let tmp = &opts.conn_options;
     let mut bld = Builder::new();
-    let instance = tmp.instance_opts.maybe_instance();
+    let instance = tmp.instance_opts.instance.clone();
 
     if opts.conn_options.instance_opts.docker {
         if let Some(container) = &opts.conn_options.instance_opts.container {
