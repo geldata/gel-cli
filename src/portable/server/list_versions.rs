@@ -236,17 +236,18 @@ pub struct JsonVersionInfo {
     debug_info: DebugInfo,
 }
 
-pub fn all_packages() -> Vec<PackageInfo> {
+#[tokio::main(flavor = "current_thread")]
+pub async fn all_packages() -> Vec<PackageInfo> {
     let mut pkgs = Vec::with_capacity(16);
-    match get_server_packages(Channel::Stable) {
+    match get_server_packages(Channel::Stable).await {
         Ok(stable) => pkgs.extend(stable),
         Err(e) => log::warn!("Unable to fetch stable packages: {e:#}"),
     };
-    match get_server_packages(Channel::Testing) {
+    match get_server_packages(Channel::Testing).await {
         Ok(testing) => pkgs.extend(testing),
         Err(e) => log::warn!("Unable to fetch testing packages: {e:#}"),
     };
-    match get_server_packages(Channel::Nightly) {
+    match get_server_packages(Channel::Nightly).await {
         Ok(nightly) => pkgs.extend(nightly),
         Err(e) => log::warn!("Unable to fetch nightly packages: {e:#}"),
     }

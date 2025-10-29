@@ -196,7 +196,6 @@ where
 }
 
 #[context("failed to fetch JSON at URL: {}", url)]
-#[tokio::main(flavor = "current_thread")]
 async fn get_json<T>(url: &Url, timeo: Duration) -> Result<T, anyhow::Error>
 where
     T: serde::de::DeserializeOwned,
@@ -350,14 +349,15 @@ pub fn get_cli_packages(
     get_platform_cli_packages(channel, platform::get_cli()?, timeout)
 }
 
-pub fn get_platform_cli_packages(
+#[tokio::main(flavor = "current_thread")]
+pub async fn get_platform_cli_packages(
     channel: Channel,
     platform: &str,
     timeo: Duration,
 ) -> anyhow::Result<Vec<CliPackageInfo>> {
     let pkg_root = pkg_root()?;
 
-    let data: RepositoryData = match get_json(&json_url(platform, channel)?, timeo) {
+    let data: RepositoryData = match get_json(&json_url(platform, channel)?, timeo).await {
         Ok(data) => data,
         Err(e) if e.is::<NotFound>() => RepositoryData { packages: vec![] },
         Err(e) => return Err(e),
@@ -371,18 +371,19 @@ pub fn get_platform_cli_packages(
     Ok(packages)
 }
 
-pub fn get_server_packages(channel: Channel) -> anyhow::Result<Vec<PackageInfo>> {
+pub async fn get_server_packages(channel: Channel) -> anyhow::Result<Vec<PackageInfo>> {
     let plat = platform::get_server()?;
-    get_platform_server_packages(channel, plat)
+    get_platform_server_packages(channel, plat).await
 }
 
-fn get_platform_server_packages(
+async fn get_platform_server_packages(
     channel: Channel,
     platform: &str,
 ) -> anyhow::Result<Vec<PackageInfo>> {
     let pkg_root = pkg_root()?;
 
-    let data: RepositoryData = match get_json(&json_url(platform, channel)?, DEFAULT_TIMEOUT) {
+    let data: RepositoryData = match get_json(&json_url(platform, channel)?, DEFAULT_TIMEOUT).await
+    {
         Ok(data) => data,
         Err(e) if e.is::<NotFound>() => RepositoryData { packages: vec![] },
         Err(e) => return Err(e),
@@ -396,14 +397,15 @@ fn get_platform_server_packages(
     Ok(packages)
 }
 
-pub fn get_platform_extension_packages(
+pub async fn get_platform_extension_packages(
     channel: Channel,
     slot: &str,
     platform: &str,
 ) -> anyhow::Result<Vec<PackageInfo>> {
     let pkg_root = pkg_root()?;
 
-    let data: RepositoryData = match get_json(&json_url(platform, channel)?, DEFAULT_TIMEOUT) {
+    let data: RepositoryData = match get_json(&json_url(platform, channel)?, DEFAULT_TIMEOUT).await
+    {
         Ok(data) => data,
         Err(e) if e.is::<NotFound>() => RepositoryData { packages: vec![] },
         Err(e) => return Err(e),
@@ -420,7 +422,8 @@ pub fn get_platform_extension_packages(
     Ok(packages)
 }
 
-pub fn get_server_package(query: &Query) -> anyhow::Result<Option<PackageInfo>> {
+#[tokio::main(flavor = "current_thread")]
+pub async fn get_server_package(query: &Query) -> anyhow::Result<Option<PackageInfo>> {
     let plat = platform::get_server()?;
     if cfg!(all(target_arch = "aarch64", target_os = "macos"))
         && query
@@ -429,29 +432,31 @@ pub fn get_server_package(query: &Query) -> anyhow::Result<Option<PackageInfo>> 
             .map(|v| v.major == 1)
             .unwrap_or(false)
     {
-        return get_platform_server_package(query, "x86_64-apple-darwin");
+        return get_platform_server_package(query, "x86_64-apple-darwin").await;
     }
-    get_platform_server_package(query, plat)
+    get_platform_server_package(query, plat).await
 }
 
-fn get_platform_server_package(
+async fn get_platform_server_package(
     query: &Query,
     platform: &str,
 ) -> anyhow::Result<Option<PackageInfo>> {
     let filter = query.version.as_ref();
-    let pkg = get_platform_server_packages(query.channel, platform)?
+    let pkg = get_platform_server_packages(query.channel, platform)
+        .await?
         .into_iter()
         .filter(|pkg| filter.map(|q| q.matches(&pkg.version)).unwrap_or(true))
         .max_by_key(|pkg| pkg.version.specific());
     Ok(pkg)
 }
 
-pub fn get_specific_package(version: &ver::Specific) -> anyhow::Result<Option<PackageInfo>> {
+#[tokio::main(flavor = "current_thread")]
+pub async fn get_specific_package(version: &ver::Specific) -> anyhow::Result<Option<PackageInfo>> {
     let channel = Channel::from_version(version)?;
     let all = if cfg!(all(target_arch = "aarch64", target_os = "macos")) && version.major == 1 {
-        get_platform_server_packages(channel, "x86_64-apple-darwin")?
+        get_platform_server_packages(channel, "x86_64-apple-darwin").await?
     } else {
-        get_server_packages(channel)?
+        get_server_packages(channel).await?
     };
     let pkg = all
         .into_iter()

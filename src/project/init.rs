@@ -1065,8 +1065,9 @@ fn parse_ver_and_find(value: &str) -> anyhow::Result<Option<(Query, PackageInfo)
     }
 }
 
-fn print_versions(title: &str) -> anyhow::Result<()> {
-    let mut avail = repository::get_server_packages(Channel::Stable)?;
+#[tokio::main(flavor = "current_thread")]
+async fn print_versions(title: &str) -> anyhow::Result<()> {
+    let mut avail = repository::get_server_packages(Channel::Stable).await?;
     avail.sort_by(|a, b| b.version.cmp(&a.version));
     println!(
         "{}: {}{}",

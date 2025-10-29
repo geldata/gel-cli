@@ -184,7 +184,7 @@ async fn install(cmd: &ExtensionInstall, _options: &Options) -> Result<(), anyho
     let channel = cmd.channel.unwrap_or(Channel::Stable);
     let slot = cmd.slot.clone().unwrap_or(version.extension_server_slot());
     debug!("Instance: {version} {channel:?} {slot}");
-    let packages = get_platform_extension_packages(channel, &slot, get_server()?)?;
+    let packages = get_platform_extension_packages(channel, &slot, get_server()?).await?;
 
     let package = packages
         .iter()
@@ -275,7 +275,7 @@ async fn list_available(
     let channel = cmd.channel.unwrap_or(Channel::Stable);
     let slot = cmd.slot.clone().unwrap_or(version.extension_server_slot());
     debug!("Instance: {version} {channel:?} {slot}");
-    let packages = get_platform_extension_packages(channel, &slot, get_server()?)?;
+    let packages = get_platform_extension_packages(channel, &slot, get_server()?).await?;
 
     let mut table = Table::new();
     table.set_format(*table::FORMAT);
