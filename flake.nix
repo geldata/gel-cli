@@ -43,19 +43,18 @@
           fenix_pkgs = fenix.packages.${system};
           rust_toolchain = fenix_pkgs.toolchainOf {
             channel = "1.88";
-            sha256 = "sha256-Hn2uaQzRLidAWpfmRwSRdImifGUCAb9HeAqTYFXWeQk=";
+            sha256 = "sha256-Qxt8XAuaUR2OMdKbN4u8dBJOhSHxS+uS06Wl9+flVEk=";
           };
 
-          common =
-            [
-              # needed for running tests
-              edgedb.packages.${system}.gel-server-nightly
-            ]
-            ++ pkgs.lib.optional pkgs.stdenv.isDarwin [
-              pkgs.libiconv
-              pkgs.darwin.apple_sdk.frameworks.CoreServices
-              pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
-            ];
+          common = [
+            # needed for running tests
+            edgedb.packages.${system}.gel-server-nightly
+          ]
+          ++ pkgs.lib.optional pkgs.stdenv.isDarwin [
+            pkgs.libiconv
+            pkgs.darwin.apple_sdk.frameworks.CoreServices
+            pkgs.darwin.apple_sdk.frameworks.SystemConfiguration
+          ];
 
         in
         {

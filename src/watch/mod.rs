@@ -4,6 +4,7 @@ mod scripts;
 
 pub use fs_watcher::{Event, FsWatcher, WatchOptions};
 pub use scripts::run_script;
+use wax::Pattern;
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -65,7 +66,7 @@ pub async fn run(options: &Options, cmd: &Command) -> anyhow::Result<()> {
     });
 
     // determine what we will be watching
-    let matchers = assemble_watchers(cmd, &ctx.project)?;
+    let matchers = assemble_matchers(cmd, &ctx.project)?;
 
     if cmd.migrate {
         print::msg!(
@@ -124,13 +125,13 @@ struct Context {
     cmd: Command,
 }
 
-struct Watcher {
+struct Matcher {
     name: String,
-    matchers: Vec<globset::GlobMatcher>,
+    globs: Vec<wax::Glob<'static>>,
     target: Target,
 }
 
-impl Watcher {
+impl Matcher {
     fn name(&self) -> &str {
         self.name.as_str()
     }
@@ -158,10 +159,10 @@ impl std::fmt::Display for Target {
     }
 }
 
-fn assemble_watchers(
+fn assemble_matchers(
     cmd: &Command,
     project: &project::Context,
-) -> anyhow::Result<Vec<Arc<Watcher>>> {
+) -> anyhow::Result<Vec<Arc<Matcher>>> {
     let watch_scripts = &project.manifest.watch;
     if watch_scripts.is_empty() && !cmd.migrate && !cmd.sync {
         return Err(
@@ -175,23 +176,23 @@ fn assemble_watchers(
         );
     }
 
-    let mut watchers = Vec::new();
+    let mut matches: Vec<Arc<Matcher>> = Vec::new();
     for watch_script in watch_scripts {
-        let mut watcher = Watcher {
+        let mut watcher = Matcher {
             name: watch_script.files.join(","),
-            matchers: Vec::with_capacity(watch_script.files.len()),
+            globs: Vec::with_capacity(watch_script.files.len()),
             target: Target::Script(watch_script.script.clone()),
         };
 
         for glob in &watch_script.files {
-            let glob = globset::Glob::new(glob)?;
+            let glob = wax::Glob::new(glob)?.into_owned();
 
-            watcher.matchers.push(glob.compile_matcher());
+            watcher.globs.push(glob);
         }
 
-        watchers.push(Arc::new(watcher));
+        matches.push(Arc::new(watcher));
     }
-    watchers.sort_by(|a, b| b.name.cmp(&a.name));
+    matches.sort_by(|a, b| b.name.cmp(&a.name));
 
     if cmd.migrate {
         let schema_dir = project.manifest.project().get_schema_dir();
@@ -199,25 +200,25 @@ fn assemble_watchers(
             .to_str()
             .ok_or_else(|| anyhow::anyhow!("bad path: {}", schema_dir.display()))?;
         let glob_str = format!("{schema_dir}/**/*.{{gel,esdl}}");
-        let glob = globset::Glob::new(&glob_str)?;
+        let glob = wax::Glob::new(&glob_str)?.into_owned();
 
-        watchers.push(Arc::new(Watcher {
+        matches.push(Arc::new(Matcher {
             name: "--migrate".into(),
-            matchers: vec![glob.compile_matcher()],
+            globs: vec![glob],
             target: Target::MigrateDevMode,
         }));
     }
 
     if cmd.sync {
-        let glob = globset::Glob::new(BRANDING_LOCAL_CONFIG_FILE)?;
-        watchers.push(Arc::new(Watcher {
+        let glob = wax::Glob::new(BRANDING_LOCAL_CONFIG_FILE)?;
+        matches.push(Arc::new(Matcher {
             name: BRANDING_LOCAL_CONFIG_FILE.into(),
-            matchers: vec![glob.compile_matcher()],
+            globs: vec![glob],
             target: Target::Sync,
         }));
     }
 
-    Ok(watchers)
+    Ok(matches)
 }
 
 #[derive(Clone)]
@@ -244,7 +245,7 @@ impl SyncTrigger {
 }
 
 async fn start_executors(
-    matchers: &[Arc<Watcher>],
+    matchers: &[Arc<Matcher>],
     ctx: &Arc<Context>,
 ) -> anyhow::Result<(Vec<UnboundedSender<ExecutionOrder>>, JoinSet<()>)> {
     let mut senders = Vec::with_capacity(matchers.len());
@@ -308,25 +309,44 @@ async fn start_executors(
 }
 
 async fn watch_and_match(
-    watchers: &[Arc<Watcher>],
+    matchers: &[Arc<Matcher>],
     tx: &[UnboundedSender<ExecutionOrder>],
     ctx: &Arc<Context>,
     watch_options: WatchOptions,
 ) -> anyhow::Result<()> {
-    let mut watcher = fs_watcher::FsWatcher::new(watch_options)?;
-    // TODO: watch only directories that are needed, not the whole project
+    let project_root = &ctx.project.location.root;
 
-    watcher.watch(&ctx.project.location.root, notify::RecursiveMode::Recursive)?;
-    let schema_dir = ctx
-        .project
-        .manifest
-        .project()
-        .resolve_schema_dir(&ctx.project.location.root)?;
-    if ctx.cmd.migrate && !schema_dir.starts_with(&ctx.project.location.root) {
-        watcher.watch(
-            &ctx.project.manifest.project().get_schema_dir(),
-            notify::RecursiveMode::Recursive,
-        )?;
+    // collect all paths that need to be watched
+    let mut paths_to_watch: Vec<PathBuf> = Vec::new();
+    fn include_path(path: PathBuf, to_watch: &mut Vec<PathBuf>) {
+        // skip this path if it is already covered
+        let is_already_included = to_watch.iter().any(|p| path.starts_with(p));
+        if is_already_included {
+            return;
+        }
+
+        // remove all paths that will be covered by this path
+        to_watch.retain(|p| !p.starts_with(&path));
+
+        to_watch.push(path);
+    }
+    for matcher in matchers {
+        for glob in &matcher.globs {
+            let (invariant, _variant) = glob.clone().partition();
+            include_path(invariant, &mut paths_to_watch);
+        }
+    }
+    if ctx.cmd.migrate {
+        include_path(
+            ctx.project.manifest.project().get_schema_dir(),
+            &mut paths_to_watch,
+        );
+    }
+
+    // init watcher
+    let mut watcher = fs_watcher::FsWatcher::new(watch_options)?;
+    for path in paths_to_watch {
+        watcher.watch(&path, notify::RecursiveMode::Recursive)?;
     }
 
     loop {
@@ -341,16 +361,16 @@ async fn watch_and_match(
         // strip prefix
         let changed_paths: Vec<_> = changed_paths
             .iter()
-            .flat_map(|p| p.strip_prefix(&ctx.project.location.root).ok())
-            .map(|p| (p, globset::Candidate::new(p)))
+            .flat_map(|p| p.strip_prefix(&project_root).ok())
+            .map(|p| (p, wax::CandidatePath::from(p)))
             .collect();
 
         // run all matching scripts
-        for (watcher, tx) in std::iter::zip(watchers, tx) {
+        for (watcher, tx) in std::iter::zip(matchers, tx) {
             // does it match?
             let matched_paths = changed_paths
                 .iter()
-                .filter(|x| watcher.matchers.iter().any(|m| m.is_match_candidate(&x.1)))
+                .filter(|x| watcher.globs.iter().any(|m| m.is_match(x.1.clone())))
                 .map(|x| x.0.display().to_string())
                 .collect::<Vec<_>>();
             if matched_paths.is_empty() {
@@ -388,7 +408,7 @@ impl ExecutionOrder {
         Some(order)
     }
 
-    fn print(&self, matcher: &Watcher, ctx: &Context) {
+    fn print(&self, matcher: &Matcher, ctx: &Context) {
         // print
         print::msg!(
             "{}",

@@ -14,7 +14,7 @@ use crate::migrations::apply::AutoBackup;
 use crate::migrations::{self, dev_mode};
 use crate::{git, msg, print};
 
-use super::{Context, ExecutionOrder, SyncTrigger, Watcher};
+use super::{Context, ExecutionOrder, SyncTrigger, Matcher};
 
 pub struct Migrator {
     ctx: Arc<Context>,
@@ -44,7 +44,7 @@ impl Migrator {
     pub async fn run(
         mut self,
         mut input: UnboundedReceiver<ExecutionOrder>,
-        matcher: Arc<Watcher>,
+        matcher: Arc<Matcher>,
         sync_trigger: SyncTrigger,
     ) {
         loop {
