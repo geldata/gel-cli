@@ -14,7 +14,7 @@ use crate::migrations::apply::AutoBackup;
 use crate::migrations::{self, dev_mode};
 use crate::{git, msg, print};
 
-use super::{Context, ExecutionOrder, SyncTrigger, Matcher};
+use super::{Context, ExecutionOrder, Matcher, SyncTrigger};
 
 pub struct Migrator {
     ctx: Arc<Context>,
