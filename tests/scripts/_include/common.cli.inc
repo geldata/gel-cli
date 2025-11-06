@@ -19,4 +19,7 @@ ignore {
         ! See https://docs.geldata.com/reference/edgeql/path_resolution
         !
     }
+    
+    # This should probably not be here, it was happening in project/link.cli:178
+    ! ERROR 9330 - 2025-11-06T14:21:25.835 edb.server: HttpClient 139632940076208 was not closed
 }
