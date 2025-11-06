@@ -17,5 +17,6 @@ ignore {
         ! Schema does not have 'using future simple_scoping'.
         ! Non-simple_scoping will be removed in Gel 8.0.
         ! See https://docs.geldata.com/reference/edgeql/path_resolution
+        !
     }
 }
