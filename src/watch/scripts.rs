@@ -6,11 +6,11 @@ use crate::print;
 use crate::process;
 
 use super::Target;
-use super::{Context, ExecutionOrder, Watcher};
+use super::{Context, ExecutionOrder, Matcher};
 
 pub async fn execute(
     mut input: UnboundedReceiver<ExecutionOrder>,
-    matcher: Arc<Watcher>,
+    matcher: Arc<Matcher>,
     ctx: Arc<Context>,
 ) {
     let project_root = &ctx.project.location.root;
