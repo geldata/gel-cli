@@ -465,7 +465,6 @@ pub async fn get_specific_package(version: &ver::Specific) -> anyhow::Result<Opt
 }
 
 #[context("failed to download file at URL: {}", url)]
-#[tokio::main(flavor = "current_thread")]
 pub async fn download(
     dest: impl AsRef<Path>,
     url: &Url,

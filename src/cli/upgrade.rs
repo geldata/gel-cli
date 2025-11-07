@@ -49,7 +49,8 @@ pub fn run(cmd: &Command) -> anyhow::Result<()> {
     upgrade(cmd, _get_upgrade_path()?)
 }
 
-fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
+#[tokio::main(flavor = "current_thread")]
+async fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
     let cur_channel = channel();
     let channel = if let Some(channel) = cmd.to_channel {
         channel
@@ -95,7 +96,7 @@ fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
     let down_path = path.with_extension("download");
     let tmp_path = tmp_file_path(&path);
 
-    download(&down_path, &pkg.url, cmd.quiet)?;
+    download(&down_path, &pkg.url, cmd.quiet).await?;
     unpack_file(&down_path, &tmp_path, pkg.compression)?;
 
     let backup_path = path.with_extension("backup");

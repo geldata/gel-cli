@@ -76,7 +76,8 @@ pub fn specific(version: &ver::Specific) -> anyhow::Result<InstallInfo> {
     package(&pkg)
 }
 
-pub fn package(pkg_info: &PackageInfo) -> anyhow::Result<InstallInfo> {
+#[tokio::main(flavor = "current_thread")]
+pub async fn package(pkg_info: &PackageInfo) -> anyhow::Result<InstallInfo> {
     let ver_name = pkg_info.version.specific().to_string();
     let target_dir = platform::portable_dir()?.join(ver_name);
     if target_dir.exists() {
@@ -95,7 +96,7 @@ pub fn package(pkg_info: &PackageInfo) -> anyhow::Result<InstallInfo> {
     }
 
     print::msg!("Downloading package...");
-    let cache_path = download_package(pkg_info)?;
+    let cache_path = download_package(pkg_info).await?;
     let tmp_target = platform::tmp_file_path(&target_dir);
     unpack_package(&cache_path, &tmp_target)?;
     let info = InstallInfo {
@@ -142,12 +143,12 @@ fn check_metadata(dir: &Path, pkg_info: &PackageInfo) -> anyhow::Result<InstallI
 }
 
 #[context("failed to download {}", pkg_info)]
-pub fn download_package(pkg_info: &PackageInfo) -> anyhow::Result<PathBuf> {
+pub async fn download_package(pkg_info: &PackageInfo) -> anyhow::Result<PathBuf> {
     let cache_dir = platform::cache_dir()?;
     let download_dir = cache_dir.join("downloads");
     fs::create_dir_all(&download_dir)?;
     let cache_path = download_dir.join(pkg_info.cache_file_name());
-    let hash = download(&cache_path, &pkg_info.url, false)?;
+    let hash = download(&cache_path, &pkg_info.url, false).await?;
     match &pkg_info.hash {
         PackageHash::Blake2b(hex) => {
             if hash.to_hex()[..] != hex[..] {

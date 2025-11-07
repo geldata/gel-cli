@@ -197,7 +197,7 @@ async fn install(cmd: &ExtensionInstall, _options: &Options) -> Result<(), anyho
                 cmd.extension,
                 pkg.version.to_string().emphasized()
             );
-            let zip = download_package(pkg)?;
+            let zip = download_package(pkg).await?;
             let command = if cmd.reinstall {
                 Some("--reinstall")
             } else {
