@@ -193,6 +193,17 @@ pub async fn run(
             .await
         }
         C::Set(Set {
+            parameter: S::QueryCacheSize(ConfigStr { value }),
+        }) => {
+            set(
+                conn,
+                "query_cache_size",
+                Some("<int32>"),
+                format!("'{value}'"),
+            )
+            .await
+        }
+        C::Set(Set {
             parameter: S::StoreMigrationSdl(ConfigStr { value }),
         }) => set(conn, "store_migration_sdl", None, format!("'{value}'")).await,
         C::Set(Set {
@@ -235,6 +246,7 @@ pub async fn run(
                 C::CorsAllowOrigins => "cors_allow_origins",
                 C::AutoRebuildQueryCache => "auto_rebuild_query_cache",
                 C::AutoRebuildQueryCacheTimeout => "auto_rebuild_query_cache_timeout",
+                C::QueryCacheSize => "query_cache_size",
                 C::StoreMigrationSdl => "store_migration_sdl",
                 C::HttpMaxConnections => "http_max_connections",
                 C::CurrentEmailProviderName => "current_email_provider_name",
@@ -426,6 +438,9 @@ pub enum ValueParameter {
     /// Timeout to recompile the cached queries on DDL.
     AutoRebuildQueryCacheTimeout(ConfigStr),
 
+    /// Number of queries whose compilation can be cached.
+    QueryCacheSize(ConfigStr),
+
     /// When to store resulting SDL of a Migration. This may be slow.
     ///
     /// May be set to:
@@ -499,6 +514,8 @@ pub enum ConfigParameter {
     AutoRebuildQueryCache,
     /// Reset auto_rebuild_query_cache_timeout
     AutoRebuildQueryCacheTimeout,
+    /// Reset query_cache_size
+    QueryCacheSize,
     /// When to store resulting SDL of a Migration
     StoreMigrationSdl,
     /// The maximum number of concurrent HTTP connections.
