@@ -492,7 +492,6 @@ fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
 
 #[cfg(windows)]
 #[context("cannot initialize WSL2 (windows subsystem for linux)")]
-#[tokio::main(flavor = "current_thread")]
 async fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
     let wsl = get_wsl_lib()?;
     let meta_path = config_dir()?.join("wsl.json");
@@ -690,17 +689,18 @@ async fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
 }
 
 #[cfg(unix)]
-fn get_wsl_distro(_install: bool) -> anyhow::Result<WslInit> {
+async fn get_wsl_distro(_install: bool) -> anyhow::Result<WslInit> {
     Err(bug::error("WSL on unix is unupported"))
 }
 
 static WSL: Mutex<Option<WslInit>> = Mutex::new(None);
 
 /// Ensures that WSL is initialized, installing it if necessary.
-pub fn ensure_wsl() -> anyhow::Result<Wsl> {
+#[tokio::main(flavor = "current_thread")]
+pub async fn ensure_wsl() -> anyhow::Result<Wsl> {
     let mut wsl = WSL.lock().unwrap();
     if wsl.is_none() {
-        *wsl = Some(get_wsl_distro(true)?);
+        *wsl = Some(get_wsl_distro(true).await?);
     }
     Ok(Wsl {
         distribution: wsl.as_ref().unwrap().distribution.clone(),
@@ -710,10 +710,11 @@ pub fn ensure_wsl() -> anyhow::Result<Wsl> {
 }
 
 /// Get WSL if it's installed and initialized.
-fn get_wsl() -> anyhow::Result<Option<Wsl>> {
+#[tokio::main(flavor = "current_thread")]
+async fn get_wsl() -> anyhow::Result<Option<Wsl>> {
     let mut wsl = WSL.lock().unwrap();
     if wsl.is_none() {
-        match get_wsl_distro(false) {
+        match get_wsl_distro(false).await {
             Ok(v) => *wsl = Some(v),
             Err(e) if e.is::<NoDistribution>() => return Ok(None),
             Err(e) => return Err(e),
@@ -727,10 +728,11 @@ fn get_wsl() -> anyhow::Result<Option<Wsl>> {
 }
 
 /// Get WSL if it's installed and initialized.
-pub fn try_get_wsl() -> anyhow::Result<Wsl> {
+#[tokio::main(flavor = "current_thread")]
+pub async fn try_get_wsl() -> anyhow::Result<Wsl> {
     let mut wsl = WSL.lock().unwrap();
     if wsl.is_none() {
-        match get_wsl_distro(false) {
+        match get_wsl_distro(false).await {
             Ok(v) => *wsl = Some(v),
             Err(e) if e.is::<NoDistribution>() => {
                 return Err(e).hint(formatcp!(
