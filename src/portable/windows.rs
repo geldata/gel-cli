@@ -410,7 +410,8 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
 }
 
 #[cfg(windows)]
-fn download_binary(dest: &Path) -> anyhow::Result<()> {
+#[tokio::main(flavor = "current_thread")]
+async fn download_binary(dest: &Path) -> anyhow::Result<()> {
     let my_ver = self_version()?;
     let (arch, _) = crate::portable::platform::get_cli()?
         .split_once('-')
@@ -452,7 +453,7 @@ fn download_binary(dest: &Path) -> anyhow::Result<()> {
 
     let down_path = dest.with_extension("download");
     let tmp_path = tmp_file_path(dest);
-    download(&down_path, &pkg.url, false)?;
+    download(&down_path, &pkg.url, false).await?;
     upgrade::unpack_file(&down_path, &tmp_path, pkg.compression)?;
     fs_err::rename(&tmp_path, dest)?;
 
@@ -491,7 +492,8 @@ fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
 
 #[cfg(windows)]
 #[context("cannot initialize WSL2 (windows subsystem for linux)")]
-fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
+#[tokio::main(flavor = "current_thread")]
+async fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
     let wsl = get_wsl_lib()?;
     let meta_path = config_dir()?.join("wsl.json");
     let mut distro = None;
@@ -538,7 +540,7 @@ fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
             fs::create_dir_all(&download_dir)?;
 
             let download_path = download_dir.join("debian.zip");
-            download(&download_path, &DISTRO_URL, false)?;
+            download(&download_path, &DISTRO_URL, false).await?;
 
             msg!("Unpacking WSL distribution...");
             let file_format = detect_file_format(&download_path)?;

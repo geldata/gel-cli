@@ -70,7 +70,7 @@ pub fn expression(
     use std::io::Write;
 
     if !std::io::stdin().is_terminal() {
-        print!("{}", prompt);
+        print!("{prompt}");
         _ = std::io::stdout().flush();
         let mut buf = String::new();
         std::io::stdin().read_line(&mut buf)?;
