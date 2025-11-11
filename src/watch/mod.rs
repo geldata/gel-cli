@@ -361,7 +361,7 @@ async fn watch_and_match(
         // strip prefix
         let changed_paths: Vec<_> = changed_paths
             .iter()
-            .flat_map(|p| p.strip_prefix(&project_root).ok())
+            .flat_map(|p| p.strip_prefix(project_root).ok())
             .map(|p| (p, wax::CandidatePath::from(p)))
             .collect();
 

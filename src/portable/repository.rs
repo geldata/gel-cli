@@ -464,8 +464,16 @@ pub async fn get_specific_package(version: &ver::Specific) -> anyhow::Result<Opt
     Ok(pkg)
 }
 
-#[context("failed to download file at URL: {}", url)]
 #[tokio::main(flavor = "current_thread")]
+pub async fn download_sync(
+    dest: impl AsRef<Path>,
+    url: &Url,
+    quiet: bool,
+) -> Result<blake2b_simd::Hash, anyhow::Error> {
+    download(dest, url, quiet).await
+}
+
+#[context("failed to download file at URL: {}", url)]
 pub async fn download(
     dest: impl AsRef<Path>,
     url: &Url,
