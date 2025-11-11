@@ -37,7 +37,7 @@ use crate::platform::{cache_dir, config_dir, tmp_file_path, wsl_dir};
 use crate::portable::exit_codes;
 use crate::portable::local::{InstanceInfo, NonLocalInstance, Paths, write_json};
 use crate::portable::options;
-use crate::portable::repository::{self, PackageHash, PackageInfo, download};
+use crate::portable::repository::{self, PackageHash, PackageInfo, download_sync};
 use crate::portable::server;
 use crate::portable::ver;
 use crate::print::{self, Highlight, msg};
@@ -492,7 +492,9 @@ fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
 
 #[cfg(windows)]
 #[context("cannot initialize WSL2 (windows subsystem for linux)")]
-async fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
+// N.B (asdf): can't call with install=True if there is a running tokio runtime
+// asdf!
+fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
     let wsl = get_wsl_lib()?;
     let meta_path = config_dir()?.join("wsl.json");
     let mut distro = None;
@@ -539,7 +541,7 @@ async fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
             fs::create_dir_all(&download_dir)?;
 
             let download_path = download_dir.join("debian.zip");
-            download(&download_path, &DISTRO_URL, false).await?;
+            download_sync(&download_path, &DISTRO_URL, false)?;
 
             msg!("Unpacking WSL distribution...");
             let file_format = detect_file_format(&download_path)?;
@@ -689,7 +691,7 @@ async fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
 }
 
 #[cfg(unix)]
-async fn get_wsl_distro(_install: bool) -> anyhow::Result<WslInit> {
+fn get_wsl_distro(_install: bool) -> anyhow::Result<WslInit> {
     Err(bug::error("WSL on unix is unupported"))
 }
 
@@ -700,7 +702,7 @@ static WSL: Mutex<Option<WslInit>> = Mutex::new(None);
 pub async fn ensure_wsl() -> anyhow::Result<Wsl> {
     let mut wsl = WSL.lock().unwrap();
     if wsl.is_none() {
-        *wsl = Some(get_wsl_distro(true).await?);
+        *wsl = Some(get_wsl_distro(true)?);
     }
     Ok(Wsl {
         distribution: wsl.as_ref().unwrap().distribution.clone(),
@@ -710,11 +712,10 @@ pub async fn ensure_wsl() -> anyhow::Result<Wsl> {
 }
 
 /// Get WSL if it's installed and initialized.
-#[tokio::main(flavor = "current_thread")]
-async fn get_wsl() -> anyhow::Result<Option<Wsl>> {
+fn get_wsl() -> anyhow::Result<Option<Wsl>> {
     let mut wsl = WSL.lock().unwrap();
     if wsl.is_none() {
-        match get_wsl_distro(false).await {
+        match get_wsl_distro(false) {
             Ok(v) => *wsl = Some(v),
             Err(e) if e.is::<NoDistribution>() => return Ok(None),
             Err(e) => return Err(e),
@@ -728,11 +729,10 @@ async fn get_wsl() -> anyhow::Result<Option<Wsl>> {
 }
 
 /// Get WSL if it's installed and initialized.
-#[tokio::main(flavor = "current_thread")]
-pub async fn try_get_wsl() -> anyhow::Result<Wsl> {
+pub fn try_get_wsl() -> anyhow::Result<Wsl> {
     let mut wsl = WSL.lock().unwrap();
     if wsl.is_none() {
-        match get_wsl_distro(false).await {
+        match get_wsl_distro(false) {
             Ok(v) => *wsl = Some(v),
             Err(e) if e.is::<NoDistribution>() => {
                 return Err(e).hint(formatcp!(
