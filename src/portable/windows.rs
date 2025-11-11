@@ -37,7 +37,7 @@ use crate::platform::{cache_dir, config_dir, tmp_file_path, wsl_dir};
 use crate::portable::exit_codes;
 use crate::portable::local::{InstanceInfo, NonLocalInstance, Paths, write_json};
 use crate::portable::options;
-use crate::portable::repository::{self, PackageHash, PackageInfo, download_sync};
+use crate::portable::repository::{self, PackageHash, PackageInfo, download, download_sync};
 use crate::portable::server;
 use crate::portable::ver;
 use crate::print::{self, Highlight, msg};
@@ -698,8 +698,7 @@ fn get_wsl_distro(_install: bool) -> anyhow::Result<WslInit> {
 static WSL: Mutex<Option<WslInit>> = Mutex::new(None);
 
 /// Ensures that WSL is initialized, installing it if necessary.
-#[tokio::main(flavor = "current_thread")]
-pub async fn ensure_wsl() -> anyhow::Result<Wsl> {
+pub fn ensure_wsl() -> anyhow::Result<Wsl> {
     let mut wsl = WSL.lock().unwrap();
     if wsl.is_none() {
         *wsl = Some(get_wsl_distro(true)?);
