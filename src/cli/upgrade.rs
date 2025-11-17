@@ -9,7 +9,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 
 use crate::platform::{binary_path, current_exe, home_dir, tmp_file_path};
 use crate::portable::platform;
-use crate::portable::repository::{self, Channel, download};
+use crate::portable::repository::{self, Channel, download_sync};
 use crate::portable::ver;
 use crate::print::{self, Highlight, msg};
 use crate::process;
@@ -49,8 +49,7 @@ pub fn run(cmd: &Command) -> anyhow::Result<()> {
     upgrade(cmd, _get_upgrade_path()?)
 }
 
-#[tokio::main(flavor = "current_thread")]
-async fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
+fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
     let cur_channel = channel();
     let channel = if let Some(channel) = cmd.to_channel {
         channel
@@ -96,7 +95,7 @@ async fn upgrade(cmd: &Command, path: PathBuf) -> anyhow::Result<()> {
     let down_path = path.with_extension("download");
     let tmp_path = tmp_file_path(&path);
 
-    download(&down_path, &pkg.url, cmd.quiet).await?;
+    download_sync(&down_path, &pkg.url, cmd.quiet)?;
     unpack_file(&down_path, &tmp_path, pkg.compression)?;
 
     let backup_path = path.with_extension("backup");
