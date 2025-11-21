@@ -107,8 +107,8 @@ def main(args):
     danger = async_called.keys() & bad_funcs
 
     # TODO: we only generate one bad path; doing multiple could be better!!
-    print()
     for bad in sorted(danger):
+        print()
         print(trim_symbol(bad))
 
         n = bad
@@ -118,6 +118,8 @@ def main(args):
             if n in path:
                 break
             path.append(n)
+            if n in async_funcs:
+                break
         print([trim_symbol(s) for s in path])
 
 
