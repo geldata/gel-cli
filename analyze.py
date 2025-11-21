@@ -12,7 +12,7 @@ import sys
 rust-analyzer scip .
 ~/tmp/scip print --json index.scip > index_scip.json
 ~/tmp/scip-callgraph/target/debug/export_call_graph_d3 -- ~/src/e/edgedb-cli/index_scip.json && mv call_graph_d3.json call_graph.json
-git grep -A1 'tokio'::main | grep 'fn ' > tokio_mains.txt
+git grep -n -A1 'tokio'::main src > tokio_mains.txt
 
 # And then
 ./analyze.py index_scip.json call_graph.json tokio_mains.txt
@@ -42,26 +42,24 @@ def main(args):
 
     bad_funcs = set()
 
-    # Try to match the function names we have with symbols
-    for main in mains:
-        filename, rest = main.split('-', 1)
-        stem = filename.replace('src/', '').replace('.rs', '')  # do it better?
-        if stem.endswith('/mod'):
-            stem = stem[:-len('/mod')]
-        funcname = rest.strip().split('fn', 1)[1].strip().split('(')[0]
+    documents = {doc['relative_path'].replace('\\', '/'): doc for doc in scip_data['documents']}
 
-        for node in nodes:
-            symbol = node['symbol']
-            if (
-                f'{stem}/impl#' in symbol
-                and symbol.endswith(f']{funcname}().')
-            ) or symbol.endswith(f'{stem}/{funcname}().'):
-                # print(stem, funcname, "->", symbol)
-                bad_funcs.add(symbol)
+    # Match the line numbers with symbol definitions
+    for main in mains:
+        if 'tokio''::main' not in main:
+            continue
+        filename, num, rest = main.split(':', 2)
+        num = int(num)
+        doc = documents[filename]
+        for symbol in doc['occurrences']:
+            # if 'range' in symbol:
+            #     print(symbol['range'])
+            if symbol.get('symbol_roles', 0) & 1 and symbol['range'][0] == num:
+                # print(filename, num, "->", symbol['symbol'])
+                bad_funcs.add(symbol['symbol'])
                 break
         else:
-                print('MISSED', stem, funcname)
-
+                print('MISSED', filename, num)
 
     async_funcs = set()
     # We have to look through the original scip data to get symbols
@@ -117,6 +115,8 @@ def main(args):
         path = [n]
         while n in async_called:
             n = async_called[n]
+            if n in path:
+                break
             path.append(n)
         print([trim_symbol(s) for s in path])
 
