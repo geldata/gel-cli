@@ -4,15 +4,15 @@ use std::collections::BTreeSet;
 use std::env;
 use std::ffi::OsString;
 use std::fs;
-use std::thread;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{LazyLock, Mutex, OnceLock, RwLock};
+use std::thread;
 use std::time::{Duration, SystemTime};
 
-use anyhow::anyhow;
 use anyhow::Context;
+use anyhow::anyhow;
 use const_format::formatcp;
 use fn_error_context::context;
 use gel_tokio::InstanceName;
@@ -493,10 +493,25 @@ fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
 
 #[cfg(windows)]
 fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
-    let handle = thread::spawn(move || {
-        _get_wsl_distro(install)
-    });
-    handle.join().map_err(|_| anyhow!("Thread panicked or encountered an error"))?
+    // HACK: try_get_wsl() gets called from get_instance_info() which
+    // gets called from every sort of place imaginable, including a
+    // bunch in async contexts. _get_wsl_distro in turn invokes a
+    // bunch of stuff that calls download_sync and other tokio::main
+    // functions.
+    //
+    // Spawning a tokio runtime inside a tokio runtime panics.
+    //
+    // To route around this problem, we run _get_wsl_distro on a new thread.
+    // Blocking on a thread join from an async context isn't really good either
+    // but I think it's basically fine if nothing real is actually in flight,
+    // which I don't expect it to be.
+    //
+    // Sigh. The real solution is to destroy all traces of
+    // tokio::main, I think.
+    let handle = thread::spawn(move || _get_wsl_distro(install));
+    handle
+        .join()
+        .map_err(|_| anyhow!("Thread panicked or encountered an error"))?
 }
 
 #[cfg(windows)]
