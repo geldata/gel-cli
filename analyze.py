@@ -19,6 +19,10 @@ git grep -n -A1 'tokio'::main src > tokio_mains.txt
 
 """
 
+EXEMPT = {
+    'portable/windows/_get_wsl_distro().',
+}
+
 def trim_symbol(s):
     return s.split(' ')[-1]
 
@@ -35,8 +39,6 @@ def main(args):
     with open(mains_file) as f:
         mains = [s.strip() for s in f]
 
-    # print(mains)
-
     nodes = graph['nodes']
     edges = graph['links']
 
@@ -52,8 +54,6 @@ def main(args):
         num = int(num)
         doc = documents[filename]
         for symbol in doc['occurrences']:
-            # if 'range' in symbol:
-            #     print(symbol['range'])
             if symbol.get('symbol_roles', 0) & 1 and symbol['range'][0] == num:
                 # print(filename, num, "->", symbol['symbol'])
                 bad_funcs.add(symbol['symbol'])
@@ -68,14 +68,6 @@ def main(args):
             sig = symbol.get('signature_documentation')
             if sig and 'async fn' in sig.get('text'):
                 async_funcs.add(symbol['symbol'])
-
-    # for node in nodes:
-    #     if 'async fn' in node.get('body', ''):
-    #         name = node['symbol']
-    #         if name not in async_funcs:
-    #             if name not in bad_funcs:
-    #                 print("SEARCH IS MISSING", name)
-    #         async_funcs.add(name)
 
     # The tokio::main "bad functions" are async but don't have it in their signature anymore!
     async_funcs.update(bad_funcs)
@@ -93,18 +85,21 @@ def main(args):
     while wl:
         s = wl.pop()
         for tgt in sgraph.get(s, ()):
+            if trim_symbol(tgt) in EXEMPT:
+                continue
             # need to do the checks at the outbound side, not the inbound one,
             # because we need to tell if the bad functions are getting *called*
             if tgt not in async_called:
                 async_called[tgt] = s
                 wl.append(tgt)
 
+    danger = async_called.keys() & bad_funcs
+
     print(f'{len(bad_funcs)=}')
     print(f'{len(async_funcs)=}')
     print(f'{len(async_called)=}')
     print(f'{len(async_called.keys() | async_funcs)=}')
-
-    danger = async_called.keys() & bad_funcs
+    print(f'{len(danger)=}')
 
     # TODO: we only generate one bad path; doing multiple could be better!!
     for bad in sorted(danger):
