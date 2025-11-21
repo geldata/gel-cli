@@ -410,7 +410,8 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
 }
 
 #[cfg(windows)]
-fn download_binary(dest: &Path) -> anyhow::Result<()> {
+#[tokio::main(flavor = "current_thread")]
+async fn download_binary(dest: &Path) -> anyhow::Result<()> {
     let my_ver = self_version()?;
     let (arch, _) = crate::portable::platform::get_cli()?
         .split_once('-')
@@ -452,7 +453,7 @@ fn download_binary(dest: &Path) -> anyhow::Result<()> {
 
     let down_path = dest.with_extension("download");
     let tmp_path = tmp_file_path(dest);
-    download_sync(&down_path, &pkg.url, false)?;
+    download(&down_path, &pkg.url, false).await?;
     upgrade::unpack_file(&down_path, &tmp_path, pkg.compression)?;
     fs_err::rename(&tmp_path, dest)?;
 

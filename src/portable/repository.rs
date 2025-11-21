@@ -2,12 +2,10 @@ use std::cmp::min;
 use std::collections::HashMap;
 use std::fmt;
 use std::future;
-use std::thread;
 use std::path::Path;
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use anyhow::anyhow;
 use anyhow::Context;
 use fn_error_context::context;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -466,22 +464,8 @@ pub async fn get_specific_package(version: &ver::Specific) -> anyhow::Result<Opt
     Ok(pkg)
 }
 
-pub fn download_sync(
-    dest: impl AsRef<Path>,
-    url: &Url,
-    quiet: bool,
-) -> Result<blake2b_simd::Hash, anyhow::Error> {
-    // XXX: This is a terrible hack to work around our really sloppy uses of tokio::main.
-    let path_buf = dest.as_ref().to_path_buf();
-    let url2 = url.clone();
-    let handle = thread::spawn(move || {
-        _download_sync(&path_buf, &url2, quiet)
-    });
-    handle.join().map_err(|_| anyhow!("Thread panicked or encountered an error"))?
-}
-
 #[tokio::main(flavor = "current_thread")]
-async fn _download_sync(
+pub async fn download_sync(
     dest: impl AsRef<Path>,
     url: &Url,
     quiet: bool,
