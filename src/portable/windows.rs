@@ -10,6 +10,7 @@ use std::str::FromStr;
 use std::sync::{LazyLock, Mutex, OnceLock, RwLock};
 use std::time::{Duration, SystemTime};
 
+use anyhow::anyhow;
 use anyhow::Context;
 use const_format::formatcp;
 use fn_error_context::context;
@@ -410,7 +411,7 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
 }
 
 #[cfg(windows)]
-async fn download_binary(dest: &Path) -> anyhow::Result<()> {
+fn download_binary(dest: &Path) -> anyhow::Result<()> {
     let my_ver = self_version()?;
     let (arch, _) = crate::portable::platform::get_cli()?
         .split_once('-')
