@@ -410,7 +410,6 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
 }
 
 #[cfg(windows)]
-#[tokio::main(flavor = "current_thread")]
 async fn download_binary(dest: &Path) -> anyhow::Result<()> {
     let my_ver = self_version()?;
     let (arch, _) = crate::portable::platform::get_cli()?
@@ -453,7 +452,7 @@ async fn download_binary(dest: &Path) -> anyhow::Result<()> {
 
     let down_path = dest.with_extension("download");
     let tmp_path = tmp_file_path(dest);
-    download(&down_path, &pkg.url, false).await?;
+    download_sync(&down_path, &pkg.url, false)?;
     upgrade::unpack_file(&down_path, &tmp_path, pkg.compression)?;
     fs_err::rename(&tmp_path, dest)?;
 
@@ -491,10 +490,16 @@ fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
 }
 
 #[cfg(windows)]
-#[context("cannot initialize WSL2 (windows subsystem for linux)")]
-// N.B (asdf): can't call with install=True if there is a running tokio runtime
-// asdf!
 fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
+    let handle = thread::spawn( || {
+        _get_wsl_distro(install)
+    });
+    handle.join().map_err(|_| anyhow!("Thread panicked or encountered an error"))?
+}
+
+#[cfg(windows)]
+#[context("cannot initialize WSL2 (windows subsystem for linux)")]
+fn _get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
     let wsl = get_wsl_lib()?;
     let meta_path = config_dir()?.join("wsl.json");
     let mut distro = None;
