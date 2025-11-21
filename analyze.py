@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+
+import json
+import sys
+
+"""
+
+# Prep commands
+rust-analyzer scip .
+~/tmp/scip print --json index.scip > index_scip.json
+~/tmp/scip-callgraph/target/debug/export_call_graph_d3 -- ~/src/e/edgedb-cli/index_scip.json && mv call_graph_d3.json call_graph.json
+git grep -A1 tokio::main | grep 'fn ' > tokio_mains.txt
+
+# And then
+./analyze.py index_scip.json call_graph.json tokio_mains.txt
+
+"""
+
+def main(args):
+    _, scipfile, jfile, mains_file = args
+
+    with open(scipfile) as f:
+        scip_data = json.load(f)
+
+    with open(jfile) as f:
+        graph = json.load(f)
+
+    with open(mains_file) as f:
+        mains = [s.strip() for s in f]
+
+    # print(mains)
+
+    nodes = graph['nodes']
+    edges = graph['links']
+
+    bad_funcs = set()
+
+    # Find the symbols of
+    for main in mains:
+        filename, rest = main.split('-', 1)
+        stem = filename.replace('src/', '').replace('.rs', '')  # do it better?
+        if stem.endswith('/mod'):
+            stem = stem[:-len('/mod')]
+        funcname = rest.strip().split('fn', 1)[1].strip().split('(')[0]
+
+        for node in nodes:
+            symbol = node['symbol']
+            if f'{stem}/' in symbol and (
+                symbol.endswith(f'/{funcname}().')
+                or symbol.endswith(f']{funcname}().')
+            ):
+                print(stem, funcname, "->", symbol)
+                bad_funcs.add(symbol)
+                break
+        else:
+                print('MISSED', stem, funcname)
+
+
+    async_funcs = set()
+    for node in nodes:
+        if 'async fn' in node.get('body', ''):
+            async_funcs.add(node['symbol'])
+
+    sgraph = dict()
+    for edge in edges:
+        sgraph.setdefault(edge["source"], []).append(edge["target"])
+
+
+    # print(bad_funcs)
+    # print(async_funcs)
+    # print(sgraph)
+
+    async_called = set()
+    wl = list(async_funcs)
+    while wl:
+        s = wl.pop()
+        if s in async_called:
+            continue
+        for tgt in sgraph.get(s, ()):
+            # need to do the checks at the outbound side, not the inbound one,
+            # because we need to tell if the bad functions are getting *called*
+            if tgt not in async_called:
+                async_called.add(tgt)
+                wl.append(tgt)
+
+    print(len(async_funcs))
+    print(len(async_called))
+
+    danger = async_called & bad_funcs
+    print(danger)
+    print(len(danger))
+
+
+
+if __name__ == '__main__':
+    main(sys.argv)
