@@ -12,12 +12,16 @@ import sys
 rust-analyzer scip .
 ~/tmp/scip print --json index.scip > index_scip.json
 ~/tmp/scip-callgraph/target/debug/export_call_graph_d3 -- ~/src/e/edgedb-cli/index_scip.json && mv call_graph_d3.json call_graph.json
-git grep -A1 tokio::main | grep 'fn ' > tokio_mains.txt
+git grep -A1 'tokio'::main | grep 'fn ' > tokio_mains.txt
 
 # And then
 ./analyze.py index_scip.json call_graph.json tokio_mains.txt
 
 """
+
+def trim_symbol(s):
+    return s.split(' ')[-1]
+
 
 def main(args):
     _, scipfile, jfile, mains_file = args
@@ -38,7 +42,7 @@ def main(args):
 
     bad_funcs = set()
 
-    # Find the symbols of
+    # Try to match the function names we have with symbols
     for main in mains:
         filename, rest = main.split('-', 1)
         stem = filename.replace('src/', '').replace('.rs', '')  # do it better?
@@ -48,10 +52,10 @@ def main(args):
 
         for node in nodes:
             symbol = node['symbol']
-            if f'{stem}/' in symbol and (
-                symbol.endswith(f'/{funcname}().')
-                or symbol.endswith(f']{funcname}().')
-            ):
+            if (
+                f'{stem}/impl#' in symbol
+                and symbol.endswith(f']{funcname}().')
+            ) or symbol.endswith(f'{stem}/{funcname}().'):
                 # print(stem, funcname, "->", symbol)
                 bad_funcs.add(symbol)
                 break
@@ -86,30 +90,36 @@ def main(args):
     # print(async_funcs)
     # print(sgraph)
 
-    async_called = set()
+    async_called = {}
     wl = list(async_funcs)
     while wl:
         s = wl.pop()
-        if s in async_called:
-            continue
         for tgt in sgraph.get(s, ()):
             # need to do the checks at the outbound side, not the inbound one,
             # because we need to tell if the bad functions are getting *called*
             if tgt not in async_called:
-                async_called.add(tgt)
+                async_called[tgt] = s
                 wl.append(tgt)
 
     print(f'{len(bad_funcs)=}')
     print(f'{len(async_funcs)=}')
     print(f'{len(async_called)=}')
-    print(f'{len(async_called | async_funcs)=}')
+    print(f'{len(async_called.keys() | async_funcs)=}')
 
-    danger = async_called & bad_funcs
-    print(len(danger))
+    danger = async_called.keys() & bad_funcs
 
+    # TODO: we only generate one bad path; doing multiple could be better!!
     print()
-    for bad in danger:
-        print(bad)
+    for bad in sorted(danger):
+        print(trim_symbol(bad))
+
+        n = bad
+        path = [n]
+        while n in async_called:
+            n = async_called[n]
+            path.append(n)
+        print([trim_symbol(s) for s in path])
+
 
 
 if __name__ == '__main__':
