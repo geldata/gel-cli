@@ -210,7 +210,6 @@ pub fn prompt_cloud_login(client: &mut CloudClient) -> anyhow::Result<()> {
     }
 }
 
-#[tokio::main(flavor = "current_thread")]
 pub async fn restart_cloud_instance(
     name: &CloudName,
     options: &CloudOptions,
