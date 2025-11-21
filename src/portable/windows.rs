@@ -493,7 +493,7 @@ fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
 
 #[cfg(windows)]
 fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
-    let handle = thread::spawn( || {
+    let handle = thread::spawn(move || {
         _get_wsl_distro(install)
     });
     handle.join().map_err(|_| anyhow!("Thread panicked or encountered an error"))?
