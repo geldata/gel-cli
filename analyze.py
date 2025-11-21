@@ -4,6 +4,9 @@ import json
 import sys
 
 """
+# This uses some weird deps:
+# https://github.com/sourcegraph/scip  (seems basically plausible)
+# https://github.com/Beneficial-AI-Foundation/scip-callgraph  (was a pain in my ass but probably saved some time)
 
 # Prep commands
 rust-analyzer scip .
@@ -49,7 +52,7 @@ def main(args):
                 symbol.endswith(f'/{funcname}().')
                 or symbol.endswith(f']{funcname}().')
             ):
-                print(stem, funcname, "->", symbol)
+                # print(stem, funcname, "->", symbol)
                 bad_funcs.add(symbol)
                 break
         else:
@@ -57,14 +60,27 @@ def main(args):
 
 
     async_funcs = set()
-    for node in nodes:
-        if 'async fn' in node.get('body', ''):
-            async_funcs.add(node['symbol'])
+    # We have to look through the original scip data to get symbols
+    for doc in scip_data['documents']:
+        for symbol in doc['symbols']:
+            sig = symbol.get('signature_documentation')
+            if sig and 'async fn' in sig.get('text'):
+                async_funcs.add(symbol['symbol'])
+
+    # for node in nodes:
+    #     if 'async fn' in node.get('body', ''):
+    #         name = node['symbol']
+    #         if name not in async_funcs:
+    #             if name not in bad_funcs:
+    #                 print("SEARCH IS MISSING", name)
+    #         async_funcs.add(name)
+
+    # The tokio::main "bad functions" are async but don't have it in their signature anymore!
+    async_funcs.update(bad_funcs)
 
     sgraph = dict()
     for edge in edges:
         sgraph.setdefault(edge["source"], []).append(edge["target"])
-
 
     # print(bad_funcs)
     # print(async_funcs)
@@ -83,13 +99,17 @@ def main(args):
                 async_called.add(tgt)
                 wl.append(tgt)
 
-    print(len(async_funcs))
-    print(len(async_called))
+    print(f'{len(bad_funcs)=}')
+    print(f'{len(async_funcs)=}')
+    print(f'{len(async_called)=}')
+    print(f'{len(async_called | async_funcs)=}')
 
     danger = async_called & bad_funcs
-    print(danger)
     print(len(danger))
 
+    print()
+    for bad in danger:
+        print(bad)
 
 
 if __name__ == '__main__':
