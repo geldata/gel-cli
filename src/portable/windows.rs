@@ -4,6 +4,7 @@ use std::collections::BTreeSet;
 use std::env;
 use std::ffi::OsString;
 use std::fs;
+use std::thread;
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
