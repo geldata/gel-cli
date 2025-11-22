@@ -591,7 +591,7 @@ pub async fn restart(cmd: &Restart, options: &crate::Options) -> anyhow::Result<
             do_restart(&meta)
         }
         InstanceName::Cloud(name) => {
-            crate::cloud::ops::restart_cloud_instance(&name, &options.cloud_options)
+            crate::cloud::ops::restart_cloud_instance(&name, &options.cloud_options).await
         }
     }
 }

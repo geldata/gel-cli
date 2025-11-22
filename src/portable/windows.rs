@@ -8,9 +8,11 @@ use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::{LazyLock, Mutex, OnceLock, RwLock};
+use std::thread;
 use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
+use anyhow::anyhow;
 use const_format::formatcp;
 use fn_error_context::context;
 use gel_tokio::InstanceName;
@@ -410,8 +412,7 @@ fn wsl_cli_version(distro: &str) -> anyhow::Result<ver::Semver> {
 }
 
 #[cfg(windows)]
-#[tokio::main(flavor = "current_thread")]
-async fn download_binary(dest: &Path) -> anyhow::Result<()> {
+fn download_binary(dest: &Path) -> anyhow::Result<()> {
     let my_ver = self_version()?;
     let (arch, _) = crate::portable::platform::get_cli()?
         .split_once('-')
@@ -453,7 +454,7 @@ async fn download_binary(dest: &Path) -> anyhow::Result<()> {
 
     let down_path = dest.with_extension("download");
     let tmp_path = tmp_file_path(dest);
-    download(&down_path, &pkg.url, false).await?;
+    download_sync(&down_path, &pkg.url, false)?;
     upgrade::unpack_file(&down_path, &tmp_path, pkg.compression)?;
     fs_err::rename(&tmp_path, dest)?;
 
@@ -491,10 +492,31 @@ fn get_wsl_lib() -> anyhow::Result<&'static wslapi::Library> {
 }
 
 #[cfg(windows)]
-#[context("cannot initialize WSL2 (windows subsystem for linux)")]
-// N.B (asdf): can't call with install=True if there is a running tokio runtime
-// asdf!
 fn get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
+    // HACK: try_get_wsl() gets called from get_instance_info() which
+    // gets called from every sort of place imaginable, including a
+    // bunch in async contexts. _get_wsl_distro in turn invokes a
+    // bunch of stuff that calls download_sync and other tokio::main
+    // functions.
+    //
+    // Spawning a tokio runtime inside a tokio runtime panics.
+    //
+    // To route around this problem, we run _get_wsl_distro on a new thread.
+    // Blocking on a thread join from an async context isn't really good either
+    // but I think it's basically fine if nothing real is actually in flight,
+    // which I don't expect it to be.
+    //
+    // Sigh. The real solution is to destroy all traces of
+    // tokio::main, I think.
+    let handle = thread::spawn(move || _get_wsl_distro(install));
+    handle
+        .join()
+        .map_err(|_| anyhow!("Thread panicked or encountered an error"))?
+}
+
+#[cfg(windows)]
+#[context("cannot initialize WSL2 (windows subsystem for linux)")]
+fn _get_wsl_distro(install: bool) -> anyhow::Result<WslInit> {
     let wsl = get_wsl_lib()?;
     let meta_path = config_dir()?.join("wsl.json");
     let mut distro = None;
