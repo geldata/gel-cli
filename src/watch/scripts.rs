@@ -46,6 +46,7 @@ pub async fn run_script(
 
     let status = if !cfg!(windows) {
         process::Native::new("", marker, "/bin/sh")
+            .set_proxy_formatter(|s| s)
             .arg("-c")
             .arg(script)
             .env("_GEL_IN_HOOK", "1")
@@ -54,6 +55,7 @@ pub async fn run_script(
             .await?
     } else {
         process::Native::new("", marker, "cmd.exe")
+            .set_proxy_formatter(|s| s)
             .arg("/c")
             .arg(script)
             .env("_GEL_IN_HOOK", "1")
